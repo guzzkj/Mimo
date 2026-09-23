@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600&amp;family=Manrope:wght@400;500;600;700&amp;display=swap">
+<style>
+  html, body { margin: 0; padding: 0; background: #f2f3f9; color: #1c1f2b; }
+  * { box-sizing: border-box; }
+  a { color: #5344c9; text-decoration: none; }
+  a:hover { color: #3b2fa8; }
+  input, select, button { font-family: inherit; }
+  input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid #6f5cf0; outline-offset: 2px; }
+  ::selection { background: rgba(111,92,240,.22); }
+  @keyframes mFloat { 0%,100% { transform: translate3d(0,0,0); } 50% { transform: translate3d(0,-16px,0); } }
+  @keyframes mDrift { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(24px,14px,0) scale(1.08); } }
+  @keyframes mRise { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+  @keyframes mPop { from { opacity: 0; transform: translateY(16px) scale(.98); } to { opacity: 1; transform: none; } }
+  @keyframes mFade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes mTilt { 0%,100% { transform: perspective(1400px) rotateX(7deg) rotateY(-11deg) translateZ(0); } 50% { transform: perspective(1400px) rotateX(3deg) rotateY(-6deg) translateZ(18px); } }
+  @keyframes mGrowY { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+  @keyframes mGrowX { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  @keyframes mRing { from { transform: rotate(-90deg) scale(.9); opacity: 0; } to { transform: rotate(-90deg) scale(1); opacity: 1; } }
+  @keyframes mPanel { from { opacity: 0; margin-left: -336px; transform: translateX(-22px); } to { opacity: 1; margin-left: 0; transform: none; } }
+  @keyframes mPanelOut { from { opacity: 1; margin-left: 0; transform: none; } to { opacity: 0; margin-left: -336px; transform: translateX(-22px); } }
+  @keyframes catBreath { 0%, 100% { transform: scale(1) translateY(0); } 45% { transform: scale(1.016) translateY(-2px); } }
+  @keyframes catEarL { 0%, 82%, 100% { transform: rotate(0deg); } 86% { transform: rotate(-9deg); } 90% { transform: rotate(3deg); } 94% { transform: rotate(-2deg); } }
+  @keyframes catEarR { 0%, 38%, 100% { transform: rotate(0deg); } 42% { transform: rotate(8deg); } 46% { transform: rotate(-3deg); } 50% { transform: rotate(1deg); } }
+  @keyframes catBlink { 0%, 91%, 100% { transform: scaleY(0); } 93.5%, 95.5% { transform: scaleY(1); } }
+  @keyframes catBlink2 { 0%, 55%, 100% { transform: scaleY(0); } 57.5%, 59% { transform: scaleY(1); } }
+  @keyframes catTail { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(7deg); } }
+  @keyframes catPaw { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-2px) rotate(-1.2deg); } }
+  @keyframes mPreFade { to { opacity: 0; visibility: hidden; } }
+  @keyframes mPreBeat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+  @keyframes mPreBar { 0% { transform: translateX(-100%); } 100% { transform: translateX(240%); } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+</helmet>
+
+<div style="position: relative; min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; font-family: 'Manrope', system-ui, sans-serif; color: #1c1f2b; background: #f5f6fb;">
+
+  <sc-if value="{{ preVisivel }}" hint-placeholder-val="{{ true }}">
+    <div style="position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; gap: 0; background: #f5f6fb; animation: {{ preAnim }};">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 26px;">
+        <img src="uploads/Untitled-removebg-preview.png" alt="Mimo" style="display: block; height: 64px; width: auto; animation: mPreBeat 1.5s ease-in-out infinite;">
+        <div style="position: relative; width: 132px; height: 3px; border-radius: 3px; overflow: hidden; background: rgba(28,31,43,.1);">
+          <div style="position: absolute; inset: 0; width: 42%; border-radius: 3px; background: #4e9e79; animation: mPreBar 1.15s cubic-bezier(.5,0,.4,1) infinite;"></div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="position: absolute; bottom: 140px; left: -140px; width: 340px; height: 340px; border-radius: 50%; background: transparent; pointer-events: none;"></div>
+
+  <header style="position: sticky; top: 0; z-index: 30; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; column-gap: 28px; row-gap: 14px; padding: 16px 34px; border-bottom: 1px solid rgba(28,31,43,.09); background: rgba(255,255,255,.88); backdrop-filter: blur(20px);">
+    <div style="flex: none; display: flex; align-items: center; gap: 26px; white-space: nowrap;">
+      <img src="uploads/Untitled-removebg-preview.png" alt="Mimo" style="display: block; height: 42px; width: auto;">
+      <button title="Expandir painel lateral" onClick="{{ toggleDrawer }}" style="display: inline-flex; align-items: center; gap: 9px; height: 38px; padding: 0 14px; border-radius: 12px; border: 1px solid {{ drawerBorda }}; background: {{ drawerBg }}; color: {{ drawerCor }}; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all .25s cubic-bezier(.2,.8,.2,1);" style-hover="border-color: rgba(111,92,240,.5); color: #5344c9;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="3"></rect><path d="M10 4.5v15"></path><path d="M13.6 9.6 16.4 12l-2.8 2.4"></path></svg>
+        {{ drawerLabel }}
+      </button>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 22px;">
+      <div style="display: flex; align-items: center; gap: 9px;">
+        
+        <span style="font-size: 12.5px; color: #55607a; white-space: nowrap;">{{ periodoLabel }}</span>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 8px; white-space: nowrap;">
+        <span style="font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: #8790a6;">Limite</span>
+        <span style="font-size: 12.5px; font-weight: 700; color: #b3771a;">{{ limitePctLabel }}</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 11px; padding-left: 22px; border-left: 1px solid rgba(28,31,43,.1);">
+        <div style="display: flex; flex-direction: column; gap: 1px; text-align: right;">
+          <span style="font-size: 13.5px; font-weight: 700; white-space: nowrap;">Vitor Gomes</span>
+          <span style="font-size: 11px; color: #8790a6; white-space: nowrap;">Conta pessoal</span>
+        </div>
+        <span style="width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; overflow: hidden; background: #dfe3f2; box-shadow: 0 0 0 3px rgba(111,92,240,.14), 0 10px 20px -12px rgba(28,31,43,.5);">
+          <svg width="46" height="46" viewBox="0 0 46 46" aria-label="Foto de perfil">
+            <rect width="46" height="46" fill="#cfd6ea"></rect>
+            <circle cx="23" cy="18" r="7.6" fill="#8e99bd"></circle>
+            <path d="M6.5 46c1.6-9.4 8.6-14.4 16.5-14.4S38 36.6 39.5 46z" fill="#8e99bd"></path>
+          </svg>
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <div style="position: relative; flex: 1; display: flex; align-items: stretch; min-height: 0;">
+
+    <sc-if value="{{ drawerVisivel }}" hint-placeholder-val="{{ false }}">
+      <aside style="flex: none; width: 336px; padding: 34px 28px 170px; border-right: 1px solid rgba(28,31,43,.09); background: rgba(255,255,255,.9); overflow: hidden; animation: {{ drawerAnim }};">
+        
+
+        <div style="font-size: 12px; letter-spacing: .09em; text-transform: uppercase; color: #8790a6;">Limite mensal</div>
+        <div style="margin: 12px 0 5px; font-family: 'Sora', sans-serif; font-size: 27px; font-weight: 400; letter-spacing: -.03em;">{{ saidasFmt }}</div>
+        <div style="font-size: 12.5px; color: #606a80;">de {{ limiteFmt }} planejados</div>
+        <div style="height: 6px; margin-top: 16px; border-radius: 999px; background: rgba(28,31,43,.08); overflow: hidden;">
+          <div style="height: 100%; border-radius: 999px; transform-origin: left; animation: mGrowX .9s cubic-bezier(.2,.9,.2,1) both; width: {{ limiteBarra }}; background: #6f5cf0;"></div>
+        </div>
+
+        <div style="display: flex; gap: 26px; margin: 28px 0 30px; padding: 20px 0; border-top: 1px solid rgba(28,31,43,.07); border-bottom: 1px solid rgba(28,31,43,.07);">
+          <div style="display: flex; flex-direction: column; gap: 7px;">
+            <span style="font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: #8790a6;">Sobra</span>
+            <span style="font-family: 'Sora', sans-serif; font-size: 18px; color: #0e9c86;">{{ sobraFmt }}</span>
+          </div>
+          <div style="width: 1px; background: rgba(28,31,43,.12);"></div>
+          <div style="display: flex; flex-direction: column; gap: 7px;">
+            <span style="font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: #8790a6;">Média/dia</span>
+            <span style="font-family: 'Sora', sans-serif; font-size: 18px;">{{ mediaDiaFmt }}</span>
+          </div>
+        </div>
+
+        <div style="font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: #8790a6; margin-bottom: 16px;">Regra 50 / 30 / 20</div>
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+          <sc-for list="{{ regra }}" as="r" hint-placeholder-count="3">
+            <div style="display: flex; flex-direction: column; gap: 7px;">
+              <div style="display: flex; align-items: baseline; justify-content: space-between; font-size: 13px;">
+                <span style="color: #2a2f3e;">{{ r.nome }}</span>
+                <span style="color: #606a80;">{{ r.valorFmt }} · {{ r.pct }}</span>
+              </div>
+              <div style="height: 4px; border-radius: 999px; background: rgba(28,31,43,.07); overflow: hidden;">
+                <div style="height: 100%; border-radius: 999px; transform-origin: left; animation: mGrowX .9s cubic-bezier(.2,.9,.2,1) both; width: {{ r.pct }}; background: {{ r.cor }};"></div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: #8790a6; margin: 32px 0 14px;">Contas em aberto</div>
+        <div style="display: flex; flex-direction: column;">
+          <sc-for list="{{ pendentes }}" as="p" hint-placeholder-count="3">
+            <div onClick="{{ p.onEdit }}" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 8px 13px 0; border-bottom: 1px solid rgba(28,31,43,.06); cursor: pointer; transition: all .22s ease;" style-hover="padding-left: 8px; border-color: rgba(111,92,240,.4);">
+              <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;">
+                <span style="font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ p.descricao }}</span>
+                <span style="font-size: 11.5px; color: #8790a6;">{{ p.dataFmt }}</span>
+              </div>
+              <span style="font-family: 'Sora', sans-serif; font-size: 14px; color: #b3771a; white-space: nowrap;">{{ p.valorSimples }}</span>
+            </div>
+          </sc-for>
+          <sc-if value="{{ semPendentes }}" hint-placeholder-val="{{ false }}">
+            <div style="padding: 16px 0; font-size: 13px; color: #606a80;">Nenhuma conta pendente neste mês.</div>
+          </sc-if>
+        </div>
+
+        <p style="margin: 30px 0 0; padding-top: 22px; border-top: 1px solid rgba(28,31,43,.07); font-size: 12.5px; line-height: 1.7; color: #606a80;">{{ leituraMes }}</p>
+      </aside>
+    </sc-if>
+
+    <main style="flex: 1; min-width: 0; overflow-x: hidden; padding: 46px 46px 180px;">
+
+      <sc-if value="{{ mesVazio }}" hint-placeholder-val="{{ false }}">
+        <div style="width: 100%; max-width: 900px; margin: 0 auto; padding: 90px 0 40px; display: flex; align-items: center; gap: 34px; animation: mRise .7s cubic-bezier(.2,.8,.2,1) both;">
+          <img src="uploads/Untitled-removebg-preview-4dfda8a5.png" alt="Mimo" style="display: block; height: 96px; width: auto; flex: none;" />
+          <p style="margin: 0; font-family: 'Sora', sans-serif; font-size: 38px; font-weight: 300; line-height: 1.25; letter-spacing: -.03em; color: #1c1f2b; text-wrap: pretty;">Agosto ainda está em silêncio. Registre a primeira movimentação do mês.</p>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isVisaoGeral }}" hint-placeholder-val="{{ true }}">
+        <div style="width: 100%; max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 44px;">
+
+          <section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 40px; align-items: center;">
+            <div style="animation: mRise .7s cubic-bezier(.2,.8,.2,1) both;">
+              <span style="font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #8790a6;">Saldo disponível</span>
+              <div onMouseEnter="{{ saldoOn }}" onMouseLeave="{{ saldoOff }}" style="max-width: 520px;">
+                <div style="display: flex; align-items: flex-end; flex-wrap: wrap; gap: 16px; margin: 16px 0 12px;">
+                  <span style="font-family: 'Sora', sans-serif; font-size: 64px; font-weight: 300; letter-spacing: -.045em; line-height: 1; color: #1c1f2b;">{{ saldoFmt }}</span>
+                  <span style="margin-bottom: 10px; padding: 5px 11px; border-radius: 999px; border: 1px solid rgba(16,168,143,.32); background: rgba(16,168,143,.08); color: #0e9c86; font-size: 12.5px; font-weight: 700; white-space: nowrap;">{{ variacaoLabel }}</span>
+                  <span style="margin-bottom: 12px; font-family: 'Sora', sans-serif; font-size: 26px; font-weight: 300; letter-spacing: -.03em; white-space: nowrap; transition: color .3s ease; color: {{ projetadoCor }};">{{ projetadoFmt }}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px; margin: 4px 0 14px;">
+                  <div style="flex: 1; height: 3px; border-radius: 999px; background: rgba(28,31,43,.09); overflow: hidden;">
+                    <div style="height: 100%; border-radius: 999px; background: #6f5cf0; transition: width 1s cubic-bezier(.22,.9,.18,1); width: {{ projetadoBarra }};"></div>
+                  </div>
+                  <span style="font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #99a1b3; white-space: nowrap;">Depois das pendências</span>
+                </div>
+                <p style="max-width: 460px; margin: 0; font-size: 14.5px; line-height: 1.65; color: #606a80; text-wrap: pretty;">{{ resumoFrase }}</p>
+
+                <div style="margin-top: 26px;">
+                  <div style="display: flex; align-items: flex-end; gap: 3px; height: 40px;">
+                    <sc-for list="{{ dias }}" as="d" hint-placeholder-count="31">
+                      <div title="{{ d.dica }}" style="flex: 1; display: flex; align-items: flex-end; justify-content: center; height: 100%; border-radius: 3px; background: {{ d.fundo }};">
+                        <span style="width: 100%; max-width: 5px; border-radius: 2px; background: {{ d.cor }}; height: {{ d.h }};"></span>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; margin-top: 9px; font-size: 10.5px; letter-spacing: .06em; color: #99a1b3;">
+                    <span>1</span>
+                    <span style="color: #5344c9; font-weight: 700;">{{ hojeLabel }}</span>
+                    <span>31</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display: flex; flex-wrap: wrap; column-gap: 34px; row-gap: 18px; margin-top: 32px; padding-top: 24px; border-top: 1px solid rgba(28,31,43,.08);">
+                <div style="display: flex; flex-direction: column; gap: 7px;">
+                  <span style="font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: #8790a6;">Entradas</span>
+                  <span style="font-family: 'Sora', sans-serif; font-size: 23px; font-weight: 400; color: #0e9c86;">{{ entradasFmt }}</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 7px;">
+                  <span style="font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: #8790a6;">Saídas</span>
+                  <span style="font-family: 'Sora', sans-serif; font-size: 23px; font-weight: 400; color: #d94f6e;">{{ saidasFmt }}</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 7px;">
+                  <span style="font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: #8790a6;">Movimentações</span>
+                  <span style="font-family: 'Sora', sans-serif; font-size: 23px; font-weight: 400;">{{ totalItens }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: grid; place-items: center; padding: 186px 10px 10px; perspective: 1400px;">
+              <div style="position: relative; width: 100%; max-width: 340px;">
+
+              <div style="position: absolute; left: 50%; top: -172px; width: 244px; transform: translateX(-50%); z-index: 0; pointer-events: none;">
+                <svg viewBox="0 0 320 300" width="100%" aria-hidden="true">
+                  <g style="animation: catBreath 4.8s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%;">
+                    <g style="animation: catEarL 9s ease-in-out infinite; transform-box: fill-box; transform-origin: 80% 100%;">
+                      <path d="M94 122 C84 88 86 54 100 40 Q110 32 118 48 L156 90 Z" fill="#4e9e79" stroke="#16233d" stroke-width="7" stroke-linejoin="round"></path>
+                      <path d="M108 106 C102 82 104 62 112 54 Q118 50 122 62 L138 88 Z" fill="#f2a3ad"></path>
+                    </g>
+                    <g style="animation: catEarR 11s ease-in-out infinite; transform-box: fill-box; transform-origin: 20% 100%;">
+                      <path d="M226 122 C236 88 234 54 220 40 Q210 32 202 48 L164 90 Z" fill="#4e9e79" stroke="#16233d" stroke-width="7" stroke-linejoin="round"></path>
+                      <path d="M212 106 C218 82 216 62 208 54 Q202 50 198 62 L182 88 Z" fill="#f2a3ad"></path>
+                    </g>
+
+                    <path d="M60 300 C60 240 100 214 160 214 C220 214 260 240 260 300 Z" fill="#4e9e79" stroke="#16233d" stroke-width="7" stroke-linejoin="round"></path>
+                    <path d="M160 214 C188 214 210 221 226 232 C208 268 186 288 160 300 C134 288 112 268 94 232 C110 221 132 214 160 214 Z" fill="#f4f7f4" stroke="#16233d" stroke-width="6" stroke-linejoin="round"></path>
+
+                    <path d="M160 60 C218 60 256 98 256 156 C256 214 216 246 160 246 C104 246 64 214 64 156 C64 98 102 60 160 60 Z" fill="#4e9e79" stroke="#16233d" stroke-width="7"></path>
+
+                    <g>
+                      <clipPath id="mimoOlhoE"><ellipse cx="126" cy="152" rx="27" ry="31"></ellipse></clipPath>
+                      <clipPath id="mimoOlhoD"><ellipse cx="194" cy="152" rx="27" ry="31"></ellipse></clipPath>
+                      <ellipse cx="126" cy="152" rx="27" ry="31" fill="#16233d"></ellipse>
+                      <ellipse cx="194" cy="152" rx="27" ry="31" fill="#16233d"></ellipse>
+                      <circle cx="117" cy="140" r="8.5" fill="#f4f7f4"></circle>
+                      <circle cx="185" cy="140" r="8.5" fill="#f4f7f4"></circle>
+                      <circle cx="133" cy="164" r="4" fill="#f4f7f4" opacity=".75"></circle>
+                      <circle cx="201" cy="164" r="4" fill="#f4f7f4" opacity=".75"></circle>
+                      <g clip-path="url(#mimoOlhoE)"><rect x="98" y="119" width="56" height="66" fill="#4e9e79" style="animation: catBlink 7.5s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 0%;"></rect></g>
+                      <g clip-path="url(#mimoOlhoD)"><rect x="166" y="119" width="56" height="66" fill="#4e9e79" style="animation: catBlink 7.5s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 0%;"></rect></g>
+                    </g>
+
+                    <ellipse cx="160" cy="196" rx="35" ry="23" fill="#f4f7f4" stroke="#16233d" stroke-width="5"></ellipse>
+                    <path d="M151 188 Q160 184 169 188 Q166 198 160 200 Q154 198 151 188 Z" fill="#f2a3ad" stroke="#16233d" stroke-width="3" stroke-linejoin="round"></path>
+                    <path d="M160 199 C160 206 154 208 150 204" fill="none" stroke="#16233d" stroke-width="4" stroke-linecap="round"></path>
+                    <path d="M160 199 C160 206 166 208 170 204" fill="none" stroke="#16233d" stroke-width="4" stroke-linecap="round"></path>
+
+                    <g stroke="#3d4a63" stroke-width="5" stroke-linecap="round" opacity=".8">
+                      <path d="M96 182 L36 172"></path>
+                      <path d="M96 192 L32 194"></path>
+                      <path d="M98 202 L38 216"></path>
+                      <path d="M224 182 L284 172"></path>
+                      <path d="M224 192 L288 194"></path>
+                      <path d="M222 202 L282 216"></path>
+                    </g>
+                  </g>
+                </svg>
+              </div>
+
+              <div onClick="{{ cartaoFlip }}" title="Clique para ver o verso" style="position: relative; z-index: 1; width: 100%; min-height: 272px; transform-style: preserve-3d; cursor: pointer; user-select: none; transform: {{ cartaoTr }}; transition: {{ cartaoTrans }};">
+                <div style="position: relative; width: 100%; padding: 30px 30px 26px; border-radius: 24px; background: #ffffff; border: 1px solid rgba(28,31,43,.14); box-shadow: 0 3px 0 rgba(28,31,43,.07), 0 8px 0 rgba(28,31,43,.05), 0 14px 0 rgba(28,31,43,.03), 0 34px 50px -22px rgba(28,31,43,.3), inset 0 1px 0 #ffffff, inset 0 -2px 0 rgba(28,31,43,.05); backface-visibility: hidden;">
+                  <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                      <span style="font-family: 'Sora', sans-serif; font-size: 15px; font-weight: 500; letter-spacing: -.01em; color: #1c1f2b;">Cartão Mimo</span>
+                      <span style="font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; color: #55607a;">Total a pagar</span>
+                    </div>
+                    <img src="uploads/Untitled-removebg-preview-4dfda8a5.png" alt="Mimo" style="display: block; height: 46px; width: auto;" />
+                  </div>
+                  <div style="margin: 20px 0 4px; font-family: 'Sora', sans-serif; font-size: 33px; font-weight: 400; letter-spacing: -.035em; color: #1c1f2b;">{{ aPagarFmt }}</div>
+                  <div style="font-size: 12.5px; color: #55607a;">{{ aPagarDetalhe }}</div>
+                  <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 26px; font-size: 12px; color: #8790a6;">
+                    <span>{{ proximoVencimento }}</span>
+                    <span style="letter-spacing: .1em;">MIMO</span>
+                  </div>
+                </div>
+
+                <div style="position: absolute; inset: 0; padding: 26px 28px; border-radius: 24px; background: #ffffff; border: 1px solid rgba(28,31,43,.14); box-shadow: 0 3px 0 rgba(28,31,43,.07), 0 8px 0 rgba(28,31,43,.05), 0 34px 50px -22px rgba(28,31,43,.3); backface-visibility: hidden; transform: rotateY(180deg); display: flex; flex-direction: column;">
+                  <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px;">
+                    <span style="font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; color: #55607a;">Contas pendentes</span>
+                    <span style="font-size: 12px; color: #8790a6;">{{ aPagarDetalhe }}</span>
+                  </div>
+                  <div style="flex: 1; display: flex; flex-direction: column;">
+                    <sc-for list="{{ pendentesCartao }}" as="p" hint-placeholder-count="3">
+                      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(28,31,43,.07);">
+                        <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+                          <span style="font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ p.descricao }}</span>
+                          <span style="font-size: 11px; color: #8790a6;">{{ p.dataFmt }}</span>
+                        </div>
+                        <span style="font-family: 'Sora', sans-serif; font-size: 13.5px; color: #b3771a; white-space: nowrap;">{{ p.valorSimples }}</span>
+                      </div>
+                    </sc-for>
+                    <sc-if value="{{ semPendentes }}" hint-placeholder-val="{{ false }}">
+                      <span style="padding: 12px 0; font-size: 12.5px; color: #8790a6;">Nenhuma conta pendente neste mês.</span>
+                    </sc-if>
+                    <sc-if value="{{ pendentesResto }}" hint-placeholder-val="{{ false }}">
+                      <span style="padding: 10px 0 0; font-size: 11.5px; color: #8790a6;">{{ pendentesResto }}</span>
+                    </sc-if>
+                  </div>
+                  <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 14px; font-size: 12px; color: #8790a6;">
+                    <span>{{ aPagarFmt }} no total</span>
+                    <span style="letter-spacing: .1em;">MIMO</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style="position: absolute; right: -66px; top: 30%; width: 124px; z-index: 0; pointer-events: none;">
+                <svg viewBox="0 0 200 150" width="100%" aria-hidden="true" style="overflow: visible;">
+                  <g style="animation: catTail 4.2s ease-in-out infinite; transform-box: fill-box; transform-origin: 0% 60%;">
+                    <path d="M6 96 C64 104 116 92 138 62 C156 38 148 16 126 14 C108 12 98 26 106 38" fill="none" stroke="#16233d" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <path d="M6 96 C64 104 116 92 138 62 C156 38 148 16 126 14 C108 12 98 26 106 38" fill="none" stroke="#4e9e79" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <path d="M126 16 C140 18 146 32 138 48" fill="none" stroke="#f4f7f4" stroke-width="14" stroke-linecap="round"></path>
+                  </g>
+                </svg>
+              </div>
+
+              </div>
+            </div>
+          </section>
+
+          <section style="padding-top: 34px; border-top: 1px solid rgba(28,31,43,.08); animation: mRise .7s cubic-bezier(.2,.8,.2,1) .1s both;">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-bottom: 30px;">
+              <div style="display: flex; flex-direction: column; gap: 5px;">
+                <h2 style="margin: 0; font-family: 'Sora', sans-serif; font-size: 17px; font-weight: 500; letter-spacing: -.02em;">Fluxo dos últimos meses</h2>
+                <span style="font-size: 12.5px; color: #8790a6;">{{ intervaloLabel }}</span>
+              </div>
+              <div style="display: flex; gap: 16px; font-size: 12.5px; color: #606a80;">
+                <span style="display: inline-flex; align-items: center; gap: 7px;"><span style="width: 9px; height: 9px; border-radius: 3px; background: #10a88f;"></span>Entrada</span>
+                <span style="display: inline-flex; align-items: center; gap: 7px;"><span style="width: 9px; height: 9px; border-radius: 3px; background: #d94f6e;"></span>Saída</span>
+              </div>
+            </div>
+            <div style="position: relative; display: flex; gap: 18px;">
+              <div style="flex: none; width: 74px; height: 240px; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; padding-bottom: 30px; font-size: 11px; color: #99a1b3;">
+                <sc-for list="{{ escala }}" as="e" hint-placeholder-count="4">
+                  <span>{{ e }}</span>
+                </sc-for>
+              </div>
+              <div style="position: relative; flex: 1; min-width: 0;">
+                <div style="position: absolute; left: 0; right: 0; top: 0; height: 210px; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none;">
+                  <sc-for list="{{ linhas }}" as="l" hint-placeholder-count="4">
+                    <span style="height: 1px; background: rgba(28,31,43,.08);"></span>
+                  </sc-for>
+                </div>
+                <div style="position: relative; display: flex; align-items: flex-end; gap: 10px; height: 240px;">
+                  <sc-for list="{{ meses }}" as="m" hint-placeholder-count="12">
+                    <div onMouseEnter="{{ m.onEnter }}" onMouseLeave="{{ m.onLeave }}" style="flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; height: 100%; border-radius: 12px; transition: background .2s ease; background: {{ m.destaqueBg }};">
+                      <div style="position: relative; flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 5px;">
+                        <span style="position: absolute; bottom: 100%; margin-bottom: 6px; padding: 6px 9px; border-radius: 9px; white-space: nowrap; font-size: 11px; font-weight: 700; color: #1c1f2b; background: rgba(255,255,255,.98); border: 1px solid rgba(28,31,43,.1); box-shadow: 0 12px 22px -12px rgba(28,31,43,.25); pointer-events: none; transition: opacity .2s ease, transform .2s ease; opacity: {{ m.dicaOp }}; transform: {{ m.dicaTr }};">{{ m.dica }}</span>
+                        <div style="width: 42%; max-width: 15px; border-radius: 6px 6px 2px 2px; background: #10a88f; transform-origin: bottom; animation: mGrowY .9s cubic-bezier(.2,.9,.2,1) both; height: {{ m.hEntrada }};"></div>
+                        <div style="width: 42%; max-width: 15px; border-radius: 6px 6px 2px 2px; background: #d94f6e; transform-origin: bottom; animation: mGrowY .9s cubic-bezier(.2,.9,.2,1) .08s both; height: {{ m.hSaida }};"></div>
+                      </div>
+                      <span style="font-size: 11px; color: {{ m.labelCor }}; letter-spacing: .04em; font-weight: {{ m.labelPeso }};">{{ m.label }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section style="position: relative; padding: 34px 0 40px; animation: mRise .7s cubic-bezier(.2,.8,.2,1) .16s both;">
+            <div style="position: absolute; top: 0; bottom: 0; left: -46px; right: -46px; background: rgba(37,90,66,.92); clip-path: polygon(0 5%, 100% 0, 100% 95%, 0 100%); pointer-events: none;"></div>
+            <h2 style="position: relative; margin: 0 0 28px; font-family: 'Sora', sans-serif; font-size: 17px; font-weight: 500; letter-spacing: -.02em; color: #ffffff;">Para onde o dinheiro vai</h2>
+            <div style="position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 40px;">
+              <div style="position: relative; width: 150px; height: 150px; flex: none;">
+                <div style="position: absolute; inset: 0; border-radius: 50%; animation: mRing .9s cubic-bezier(.2,.9,.2,1) both; background: {{ donutGradient }};"></div>
+                <div style="position: absolute; inset: 16px; border-radius: 50%; background: #ffffff; box-shadow: 0 10px 24px -12px rgba(9,32,22,.6); display: grid; place-items: center;">
+                  <div style="text-align: center;">
+                    <div style="font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #6c7a72;">Saídas</div>
+                    <div style="font-family: 'Sora', sans-serif; font-size: 16px; margin-top: 3px; color: #1c1f2b;">{{ saidasFmt }}</div>
+                  </div>
+                </div>
+              </div>
+              <div style="flex: 1; min-width: 280px; display: flex; flex-direction: column; gap: 16px;">
+                <sc-for list="{{ categorias }}" as="c" hint-placeholder-count="4">
+                  <div onMouseEnter="{{ c.onEnter }}" onMouseLeave="{{ c.onLeave }}" style="display: flex; flex-direction: column; gap: 7px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; font-size: 13.5px;">
+                      <span style="display: inline-flex; align-items: center; gap: 9px; min-width: 0; color: {{ c.rotuloClaro }}; font-size: {{ c.rotuloTam }}; transition: color .2s ease;"><span style="width: 8px; height: 8px; flex: none; border-radius: 50%; background: {{ c.cor }};"></span><span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.rotulo }}</span></span>
+                      <span style="color: #ffffff; font-weight: 600;">{{ c.valorFmt }}</span>
+                    </div>
+                    <div style="height: 4px; border-radius: 999px; background: rgba(255,255,255,.2); overflow: hidden;">
+                      <div style="height: 100%; border-radius: 999px; transform-origin: left; animation: mGrowX 1s cubic-bezier(.2,.9,.2,1) both; width: {{ c.pct }}; background: {{ c.cor }};"></div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </section>
+
+          <section style="padding-top: 34px; border-top: 1px solid rgba(28,31,43,.08); animation: mRise .7s cubic-bezier(.2,.8,.2,1) .22s both;">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 14px; margin-bottom: 12px;">
+              <h2 style="margin: 0; font-family: 'Sora', sans-serif; font-size: 17px; font-weight: 500; letter-spacing: -.02em;">Movimentações recentes</h2>
+              <button onClick="{{ irParaLista }}" style="padding: 0; border: none; background: transparent; color: #5344c9; font-size: 13px; font-weight: 600; cursor: pointer; border-bottom: 1px solid rgba(111,92,240,.4); transition: all .22s ease;" style-hover="color: #d5cdff; border-color: #d5cdff;">Ver todas</button>
+            </div>
+            <sc-for list="{{ recentes }}" as="it" hint-placeholder-count="5">
+              <div style="display: grid; grid-template-columns: 40px minmax(160px, 1fr) 140px 120px 130px; align-items: center; gap: 18px; padding: 15px 0; border-bottom: 1px solid rgba(28,31,43,.06); transition: all .22s ease; animation: mFade .6s ease both;" style-hover="border-color: rgba(111,92,240,.4); padding-left: 6px;">
+                <div style="width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; font-family: 'Sora', sans-serif; font-size: 15px; background: {{ it.iconBg }}; color: {{ it.cor }};">{{ it.sinal }}</div>
+                <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0;">
+                  <span style="font-size: 14.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ it.descricao }}</span>
+                  <span style="font-size: 12.5px; color: #8790a6;">{{ it.categoria }}</span>
+                </div>
+                <span style="font-size: 13px; color: #606a80;">{{ it.dataFmt }}</span>
+                <span style="justify-self: start; font-size: 12.5px; font-weight: 700; color: {{ it.statusCor }};">{{ it.statusLabel }}</span>
+                <span style="justify-self: end; font-family: 'Sora', sans-serif; font-size: 16px; letter-spacing: -.02em; color: {{ it.cor }};">{{ it.valorFmt }}</span>
+              </div>
+            </sc-for>
+          </section>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isLista }}" hint-placeholder-val="{{ false }}">
+        <div style="width: 100%; max-width: 1180px; margin: 0 auto; animation: mPop .45s cubic-bezier(.2,.8,.2,1) both;">
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-bottom: 30px;">
+            <input value="{{ query }}" onChange="{{ onQuery }}" placeholder="Buscar por descrição ou categoria" style="flex: 1; min-width: 240px; height: 44px; padding: 0 16px; border-radius: 13px; border: 1px solid rgba(28,31,43,.1); background: rgba(255,255,255,.92); color: #1c1f2b; font-size: 14px;">
+            <div style="display: flex; gap: 6px;">
+              <sc-for list="{{ filtrosTipo }}" as="f" hint-placeholder-count="3">
+                <button onClick="{{ f.onClick }}" style="padding: 10px 16px; border-radius: 11px; border: 1px solid {{ f.borda }}; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .2s ease; background: {{ f.bg }}; color: {{ f.cor }};">{{ f.label }}</button>
+              </sc-for>
+            </div>
+            <div style="display: flex; gap: 6px;">
+              <sc-for list="{{ filtrosStatus }}" as="f" hint-placeholder-count="3">
+                <button onClick="{{ f.onClick }}" style="padding: 10px 16px; border-radius: 11px; border: 1px solid {{ f.borda }}; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .2s ease; background: {{ f.bg }}; color: {{ f.cor }};">{{ f.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px;">
+            <h2 style="margin: 0; font-family: 'Sora', sans-serif; font-size: 17px; font-weight: 500; letter-spacing: -.02em;">Todas as movimentações</h2>
+            <span style="font-size: 12.5px; color: #8790a6;">{{ contagemLabel }}</span>
+          </div>
+
+          <div style="overflow-x: auto; padding-bottom: 6px;">
+            <div style="min-width: 1000px;">
+              <div style="display: grid; grid-template-columns: minmax(230px, 1fr) 150px 140px 116px 130px 92px; gap: 18px; padding: 18px 0 12px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #8790a6; border-bottom: 1px solid rgba(28,31,43,.1);">
+                <span>Descrição</span><span>Categoria</span><span>Data</span><span>Status</span><span style="justify-self: end;">Valor</span><span style="justify-self: end;">Ações</span>
+              </div>
+              <sc-for list="{{ visiveis }}" as="it" hint-placeholder-count="7">
+                <div style="display: grid; grid-template-columns: minmax(230px, 1fr) 150px 140px 116px 130px 92px; align-items: center; gap: 18px; padding: 16px 0; border-bottom: 1px solid rgba(28,31,43,.06); transition: all .2s ease; animation: mFade .5s ease both;" style-hover="border-color: rgba(111,92,240,.4);">
+                  <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
+                    <span style="width: 34px; height: 34px; flex: none; border-radius: 11px; display: grid; place-items: center; font-family: 'Sora', sans-serif; font-size: 14px; background: {{ it.iconBg }}; color: {{ it.cor }};">{{ it.sinal }}</span>
+                    <span style="font-size: 14.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ it.descricao }}</span>
+                  </div>
+                  <span style="font-size: 13.5px; color: #55607a;">{{ it.categoria }}</span>
+                  <span style="font-size: 13.5px; color: #606a80;">{{ it.dataFmt }}</span>
+                  <span style="font-size: 12.5px; font-weight: 700; color: {{ it.statusCor }};">{{ it.statusLabel }}</span>
+                  <span style="justify-self: end; font-family: 'Sora', sans-serif; font-size: 15.5px; color: {{ it.cor }};">{{ it.valorFmt }}</span>
+                  <div style="justify-self: end; display: flex; gap: 8px;">
+                    <button title="Editar" onClick="{{ it.onEdit }}" style="width: 32px; height: 32px; border-radius: 10px; border: 1px solid rgba(28,31,43,.12); background: transparent; color: #55607a; display: grid; place-items: center; cursor: pointer; transition: all .2s ease;" style-hover="border-color: rgba(111,92,240,.55); color: #5344c9; transform: translateY(-2px);">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10a2.5 2.5 0 0 0-3.5-3.5L4.5 16.5V20z"></path><path d="M13.5 6.5 17.5 10.5"></path></svg>
+                    </button>
+                    <button title="Excluir" onClick="{{ it.onDelete }}" style="width: 32px; height: 32px; border-radius: 10px; border: 1px solid rgba(28,31,43,.12); background: transparent; color: #55607a; display: grid; place-items: center; cursor: pointer; transition: all .2s ease;" style-hover="border-color: rgba(217,79,110,.55); color: #d94f6e; transform: translateY(-2px);">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"></path><path d="M9 7V5h6v2"></path><path d="M6 7l1 13h10l1-13"></path><path d="M10 11v6M14 11v6"></path></svg>
+                    </button>
+                  </div>
+                </div>
+              </sc-for>
+              <sc-if value="{{ temVisiveis }}" hint-placeholder-val="{{ true }}">
+                <div style="display: grid; grid-template-columns: minmax(230px, 1fr) 150px 140px 116px 130px 92px; align-items: center; gap: 18px; padding: 20px 0 4px;">
+                  <span style="font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: #8790a6;">Total filtrado</span>
+                  <span style="font-size: 13px; color: #0e9c86; font-weight: 700;">{{ totalFiltradoEntradas }}</span>
+                  <span style="font-size: 13px; color: #d94f6e; font-weight: 700;">{{ totalFiltradoSaidas }}</span>
+                  <span></span>
+                  <span style="justify-self: end; font-family: 'Sora', sans-serif; font-size: 16px; color: #1c1f2b;">{{ totalFiltradoSaldo }}</span>
+                  <span></span>
+                </div>
+              </sc-if>
+              <sc-if value="{{ listaVazia }}" hint-placeholder-val="{{ false }}">
+                <div style="padding: 50px 0; color: #8790a6;">
+                  <div style="font-family: 'Sora', sans-serif; font-size: 16px; color: #2a2f3e; margin-bottom: 8px;">Nenhuma movimentação encontrada</div>
+                  <div style="font-size: 13.5px;">Ajuste os filtros ou registre uma nova movimentação.</div>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isCategorias }}" hint-placeholder-val="{{ false }}">
+        <div style="width: 100%; max-width: 1000px; margin: 0 auto; animation: mPop .45s cubic-bezier(.2,.8,.2,1) both;">
+          <div style="position: relative; display: flex; flex-wrap: wrap; column-gap: 44px; row-gap: 20px; padding: 30px 0; margin-bottom: 6px;">
+            <div style="position: absolute; top: 0; bottom: 0; left: -46px; right: -46px; background: rgba(37,90,66,.92); clip-path: polygon(0 6%, 100% 0, 100% 94%, 0 100%); pointer-events: none;"></div>
+            <div style="position: relative; display: flex; flex-wrap: wrap; column-gap: 44px; row-gap: 20px; width: 100%;">
+            <sc-for list="{{ indicadores }}" as="k" hint-placeholder-count="4">
+              <div style="display: flex; flex-direction: column; gap: 8px; min-width: 150px;">
+                <span style="font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: rgba(255,255,255,.7);">{{ k.label }}</span>
+                <span style="font-family: 'Sora', sans-serif; font-size: 24px; font-weight: 400; letter-spacing: -.03em; color: {{ k.corClara }};">{{ k.valor }}</span>
+                <span style="font-size: 12px; color: rgba(255,255,255,.72);">{{ k.nota }}</span>
+              </div>
+            </sc-for>
+            </div>
+          </div>
+
+          <h2 style="margin: 34px 0 6px; font-family: 'Sora', sans-serif; font-size: 17px; font-weight: 500; letter-spacing: -.02em;">Saídas por categoria</h2>
+          <sc-for list="{{ categoriasDetalhe }}" as="c" hint-placeholder-count="6">
+            <div style="display: grid; grid-template-columns: minmax(150px, 1fr) 130px 70px; align-items: center; gap: 24px; padding: 20px 0 18px; border-bottom: 1px solid rgba(28,31,43,.06); transition: all .22s ease; animation: mFade .5s ease both;" style-hover="padding-left: 8px; border-color: rgba(111,92,240,.4);">
+              <div style="display: flex; flex-direction: column; gap: 9px; min-width: 0;">
+                <span style="display: inline-flex; align-items: center; gap: 10px; font-size: 14.5px; font-weight: 600;"><span style="width: 9px; height: 9px; border-radius: 50%; background: {{ c.cor }};"></span>{{ c.nome }}</span>
+                <span style="font-size: 12px; color: #8790a6;">{{ c.detalhe }}</span>
+                <div style="height: 4px; max-width: 420px; border-radius: 999px; background: rgba(28,31,43,.07); overflow: hidden;">
+                  <div style="height: 100%; border-radius: 999px; transform-origin: left; animation: mGrowX .9s cubic-bezier(.2,.9,.2,1) both; width: {{ c.pct }}; background: {{ c.cor }};"></div>
+                </div>
+              </div>
+              <span style="justify-self: end; font-family: 'Sora', sans-serif; font-size: 19px; letter-spacing: -.02em;">{{ c.valorFmt }}</span>
+              <span style="justify-self: end; font-size: 13px; font-weight: 700; color: #606a80;">{{ c.pct }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+    </main>
+  </div>
+
+  <div style="position: fixed; left: 0; right: 0; bottom: 34px; z-index: 40; display: flex; justify-content: center; pointer-events: none;">
+    <nav style="pointer-events: auto; display: flex; align-items: flex-end; gap: 8px; padding: 10px 12px; border-radius: 24px; border: 1px solid rgba(28,31,43,.1); background: rgba(255,255,255,.92); backdrop-filter: blur(22px); box-shadow: 0 28px 54px -20px rgba(28,31,43,.16), inset 0 1px 0 rgba(255,255,255,.9); animation: mRise .8s cubic-bezier(.2,.8,.2,1) .3s both;">
+
+      <div onMouseEnter="{{ hoverGeral }}" onMouseLeave="{{ hoverNada }}" style="position: relative; display: grid; place-items: center;">
+        <span style="position: absolute; bottom: 62px; padding: 7px 12px; border-radius: 10px; white-space: nowrap; font-size: 12.5px; font-weight: 600; color: #1c1f2b; background: rgba(255,255,255,.98); border: 1px solid rgba(28,31,43,.12); box-shadow: 0 14px 26px -14px rgba(28,31,43,.13); pointer-events: none; transition: opacity .2s ease, transform .24s cubic-bezier(.2,.8,.2,1); opacity: {{ tipGeralOp }}; transform: {{ tipGeralTr }};">Visão geral</span>
+        <button title="Visão geral" onClick="{{ irGeral }}" style="width: 50px; height: 50px; border-radius: 16px; display: grid; place-items: center; cursor: pointer; transition: transform .3s cubic-bezier(.2,.9,.2,1), box-shadow .3s ease, border-color .3s ease; border: 1px solid {{ navGeralBorda }}; background: {{ navGeralBg }}; color: {{ navGeralCor }}; box-shadow: {{ navGeralGlow }};" style-hover="transform: translateY(-12px) scale(1.12);">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3.5l9 7"></path><path d="M5.5 9.5V20h13V9.5"></path><path d="M9.5 20v-5.5h5V20"></path></svg>
+        </button>
+      </div>
+
+      <div onMouseEnter="{{ hoverLista }}" onMouseLeave="{{ hoverNada }}" style="position: relative; display: grid; place-items: center;">
+        <span style="position: absolute; bottom: 62px; padding: 7px 12px; border-radius: 10px; white-space: nowrap; font-size: 12.5px; font-weight: 600; color: #1c1f2b; background: rgba(255,255,255,.98); border: 1px solid rgba(28,31,43,.12); box-shadow: 0 14px 26px -14px rgba(28,31,43,.13); pointer-events: none; transition: opacity .2s ease, transform .24s cubic-bezier(.2,.8,.2,1); opacity: {{ tipListaOp }}; transform: {{ tipListaTr }};">Movimentações</span>
+        <button title="Movimentações" onClick="{{ irLista }}" style="width: 50px; height: 50px; border-radius: 16px; display: grid; place-items: center; cursor: pointer; transition: transform .3s cubic-bezier(.2,.9,.2,1), box-shadow .3s ease, border-color .3s ease; border: 1px solid {{ navListaBorda }}; background: {{ navListaBg }}; color: {{ navListaCor }}; box-shadow: {{ navListaGlow }};" style-hover="transform: translateY(-12px) scale(1.12);">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h11"></path><path d="M4 12h16"></path><path d="M4 17h8"></path><path d="M17 5.5 20 7l-3 1.5"></path></svg>
+        </button>
+      </div>
+
+      <div onMouseEnter="{{ hoverCat }}" onMouseLeave="{{ hoverNada }}" style="position: relative; display: grid; place-items: center;">
+        <span style="position: absolute; bottom: 62px; padding: 7px 12px; border-radius: 10px; white-space: nowrap; font-size: 12.5px; font-weight: 600; color: #1c1f2b; background: rgba(255,255,255,.98); border: 1px solid rgba(28,31,43,.12); box-shadow: 0 14px 26px -14px rgba(28,31,43,.13); pointer-events: none; transition: opacity .2s ease, transform .24s cubic-bezier(.2,.8,.2,1); opacity: {{ tipCatOp }}; transform: {{ tipCatTr }};">Categorias</span>
+        <button title="Categorias" onClick="{{ irCategorias }}" style="width: 50px; height: 50px; border-radius: 16px; display: grid; place-items: center; cursor: pointer; transition: transform .3s cubic-bezier(.2,.9,.2,1), box-shadow .3s ease, border-color .3s ease; border: 1px solid {{ navCatBorda }}; background: {{ navCatBg }}; color: {{ navCatCor }}; box-shadow: {{ navCatGlow }};" style-hover="transform: translateY(-12px) scale(1.12);">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"></circle><path d="M12 4v8l6.5 3.8"></path></svg>
+        </button>
+      </div>
+
+      <span style="width: 1px; height: 34px; margin: 0 6px 8px; background: rgba(28,31,43,.14);"></span>
+
+      <div onMouseEnter="{{ hoverPainel }}" onMouseLeave="{{ hoverNada }}" style="position: relative; display: grid; place-items: center;">
+        <span style="position: absolute; bottom: 62px; padding: 7px 12px; border-radius: 10px; white-space: nowrap; font-size: 12.5px; font-weight: 600; color: #1c1f2b; background: rgba(255,255,255,.98); border: 1px solid rgba(28,31,43,.12); box-shadow: 0 14px 26px -14px rgba(28,31,43,.13); pointer-events: none; transition: opacity .2s ease, transform .24s cubic-bezier(.2,.8,.2,1); opacity: {{ tipPainelOp }}; transform: {{ tipPainelTr }};">{{ drawerLabel }}</span>
+        <button title="Painel lateral" onClick="{{ toggleDrawer }}" style="width: 50px; height: 50px; border-radius: 16px; display: grid; place-items: center; cursor: pointer; transition: transform .3s cubic-bezier(.2,.9,.2,1), box-shadow .3s ease, border-color .3s ease; border: 1px solid {{ navPainelBorda }}; background: {{ navPainelBg }}; color: {{ navPainelCor }}; box-shadow: {{ navPainelGlow }};" style-hover="transform: translateY(-12px) scale(1.12);">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="3"></rect><path d="M10 4.5v15"></path></svg>
+        </button>
+      </div>
+
+      <div onMouseEnter="{{ hoverOlho }}" onMouseLeave="{{ hoverNada }}" style="position: relative; display: grid; place-items: center;">
+        <span style="position: absolute; bottom: 62px; padding: 7px 12px; border-radius: 10px; white-space: nowrap; font-size: 12.5px; font-weight: 600; color: #1c1f2b; background: rgba(255,255,255,.98); border: 1px solid rgba(28,31,43,.12); box-shadow: 0 14px 26px -14px rgba(28,31,43,.13); pointer-events: none; transition: opacity .2s ease, transform .24s cubic-bezier(.2,.8,.2,1); opacity: {{ tipOlhoOp }}; transform: {{ tipOlhoTr }};">{{ privacidadeLabel }}</span>
+        <button title="Ocultar valores" onClick="{{ togglePrivacidade }}" style="width: 50px; height: 50px; border-radius: 16px; display: grid; place-items: center; cursor: pointer; transition: transform .3s cubic-bezier(.2,.9,.2,1), box-shadow .3s ease, border-color .3s ease; border: 1px solid {{ navOlhoBorda }}; background: {{ navOlhoBg }}; color: {{ navOlhoCor }}; box-shadow: {{ navOlhoGlow }};" style-hover="transform: translateY(-12px) scale(1.12);">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 6.5 12 6.5 21.5 12 21.5 12 18 17.5 12 17.5 2.5 12 2.5 12z"></path><circle cx="12" cy="12" r="2.8"></circle></svg>
+        </button>
+      </div>
+
+      <div onMouseEnter="{{ hoverExport }}" onMouseLeave="{{ hoverNada }}" style="position: relative; display: grid; place-items: center;">
+        <span style="position: absolute; bottom: 62px; padding: 7px 12px; border-radius: 10px; white-space: nowrap; font-size: 12.5px; font-weight: 600; color: #1c1f2b; background: rgba(255,255,255,.98); border: 1px solid rgba(28,31,43,.12); box-shadow: 0 14px 26px -14px rgba(28,31,43,.13); pointer-events: none; transition: opacity .2s ease, transform .24s cubic-bezier(.2,.8,.2,1); opacity: {{ tipExportOp }}; transform: {{ tipExportTr }};">Exportar CSV</span>
+        <button title="Exportar CSV" onClick="{{ exportarCsv }}" style="width: 50px; height: 50px; border-radius: 16px; display: grid; place-items: center; cursor: pointer; border: 1px solid rgba(28,31,43,.1); background: rgba(28,31,43,.03); color: #606a80; box-shadow: inset 0 1px 0 rgba(255,255,255,.9); transition: transform .3s cubic-bezier(.2,.9,.2,1), box-shadow .3s ease, border-color .3s ease;" style-hover="transform: translateY(-12px) scale(1.12); border-color: rgba(111,92,240,.5); color: #5344c9;">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"></path><path d="M8 11.5 12 15.5l4-4"></path><path d="M5 19.5h14"></path></svg>
+        </button>
+      </div>
+
+      <div onMouseEnter="{{ hoverNova }}" onMouseLeave="{{ hoverNada }}" style="position: relative; display: grid; place-items: center;">
+        <span style="position: absolute; bottom: 62px; padding: 7px 12px; border-radius: 10px; white-space: nowrap; font-size: 12.5px; font-weight: 600; color: #1c1f2b; background: rgba(255,255,255,.98); border: 1px solid rgba(28,31,43,.12); box-shadow: 0 14px 26px -14px rgba(28,31,43,.13); pointer-events: none; transition: opacity .2s ease, transform .24s cubic-bezier(.2,.8,.2,1); opacity: {{ tipNovaOp }}; transform: {{ tipNovaTr }};">Nova movimentação</span>
+        <button title="Nova movimentação" onClick="{{ abrirNova }}" style="width: 50px; height: 50px; border-radius: 16px; display: grid; place-items: center; cursor: pointer; border: 1px solid rgba(111,92,240,.5); background: rgba(111,92,240,.14); color: #1c1f2b; box-shadow: 0 14px 28px -16px rgba(111,92,240,.85), inset 0 1px 0 rgba(255,255,255,.16); transition: transform .3s cubic-bezier(.2,.9,.2,1), box-shadow .3s ease;" style-hover="transform: translateY(-12px) scale(1.12); box-shadow: 0 22px 38px -16px rgba(111,92,240,.95), inset 0 1px 0 rgba(255,255,255,.2);">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"></path></svg>
+        </button>
+      </div>
+    </nav>
+  </div>
+
+  <sc-if value="{{ modalAberto }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ fecharModal }}" style="position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 32px; background: rgba(28,31,43,.30); backdrop-filter: blur(8px); animation: mFade .25s ease both;">
+      <div onClick="{{ pararPropagacao }}" style="width: 100%; max-width: 560px; padding: 32px 34px 28px; border-radius: 26px; border: 1px solid rgba(28,31,43,.12); background: #ffffff; box-shadow: 0 50px 90px -40px rgba(28,31,43,.24), inset 0 1px 0 rgba(255,255,255,.08); animation: mPop .4s cubic-bezier(.2,.8,.2,1) both;">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 18px;">
+          <div>
+            <h3 style="margin: 0 0 5px; font-family: 'Sora', sans-serif; font-size: 21px; font-weight: 500; letter-spacing: -.025em;">{{ modalTitulo }}</h3>
+            <p style="margin: 0; font-size: 13.5px; color: #606a80;">{{ modalSub }}</p>
+          </div>
+          <button title="Fechar" onClick="{{ fecharModal }}" style="width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; border: 1px solid rgba(28,31,43,.12); background: rgba(255,255,255,.92); color: #2a2f3e; cursor: pointer; transition: all .2s ease;" style-hover="border-color: rgba(217,79,110,.5); color: #d94f6e;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+          </button>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin: 26px 0 22px; padding: 5px; border-radius: 15px; background: rgba(255,255,255,.92); border: 1px solid rgba(28,31,43,.08);">
+          <button onClick="{{ setEntrada }}" style="flex: 1; padding: 12px; border-radius: 11px; border: none; font-size: 13.5px; font-weight: 700; cursor: pointer; transition: all .25s ease; background: {{ tipoEntradaBg }}; color: {{ tipoEntradaCor }};">Entrada</button>
+          <button onClick="{{ setSaida }}" style="flex: 1; padding: 12px; border-radius: 11px; border: none; font-size: 13.5px; font-weight: 700; cursor: pointer; transition: all .25s ease; background: {{ tipoSaidaBg }}; color: {{ tipoSaidaCor }};">Saída</button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <label style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; font-size: 12px; letter-spacing: .09em; text-transform: uppercase; color: #8790a6;">Descrição
+            <input value="{{ form.descricao }}" onChange="{{ onDescricao }}" placeholder="Salário, mercado, aluguel" style="height: 46px; padding: 0 15px; border-radius: 13px; border: 1px solid rgba(28,31,43,.12); background: rgba(255,255,255,.92); color: #1c1f2b; font-size: 14.5px; text-transform: none; letter-spacing: 0;">
+          </label>
+          <label style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; letter-spacing: .09em; text-transform: uppercase; color: #8790a6;">Valor
+            <input value="{{ form.valor }}" onChange="{{ onValor }}" placeholder="0,00" style="height: 46px; padding: 0 15px; border-radius: 13px; border: 1px solid rgba(28,31,43,.12); background: rgba(255,255,255,.92); color: #1c1f2b; font-size: 14.5px; font-family: 'Sora', sans-serif; text-transform: none; letter-spacing: 0;">
+          </label>
+          <label style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; letter-spacing: .09em; text-transform: uppercase; color: #8790a6;">Data
+            <input type="date" value="{{ form.data }}" onChange="{{ onData }}" style="height: 46px; padding: 0 15px; border-radius: 13px; border: 1px solid rgba(28,31,43,.12); background: rgba(255,255,255,.92); color: #1c1f2b; font-size: 14.5px; text-transform: none; letter-spacing: 0;">
+          </label>
+          <label style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; letter-spacing: .09em; text-transform: uppercase; color: #8790a6;">Categoria
+            <select value="{{ form.categoria }}" onChange="{{ onCategoria }}" style="height: 46px; padding: 0 12px; border-radius: 13px; border: 1px solid rgba(28,31,43,.12); background: rgba(255,255,255,.92); color: #1c1f2b; font-size: 14.5px; text-transform: none; letter-spacing: 0;">
+              <sc-for list="{{ opcoesCategoria }}" as="o" hint-placeholder-count="4">
+                <option value="{{ o }}">{{ o }}</option>
+              </sc-for>
+            </select>
+          </label>
+          <label style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; letter-spacing: .09em; text-transform: uppercase; color: #8790a6;">Status
+            <select value="{{ form.status }}" onChange="{{ onStatus }}" style="height: 46px; padding: 0 12px; border-radius: 13px; border: 1px solid rgba(28,31,43,.12); background: rgba(255,255,255,.92); color: #1c1f2b; font-size: 14.5px; text-transform: none; letter-spacing: 0;">
+              <option value="pago">Concluído</option>
+              <option value="pendente">Pendente</option>
+            </select>
+          </label>
+        </div>
+
+        <sc-if value="{{ erro }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top: 18px; padding: 12px 15px; border-radius: 12px; border: 1px solid rgba(217,79,110,.35); background: rgba(217,79,110,.1); color: #d94f6e; font-size: 13px;">{{ erro }}</div>
+        </sc-if>
+
+        <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 28px;">
+          <button onClick="{{ fecharModal }}" style="padding: 13px 22px; border-radius: 14px; border: 1px solid rgba(28,31,43,.14); background: transparent; color: #2a2f3e; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: all .2s ease;" style-hover="border-color: rgba(28,31,43,.3);">Cancelar</button>
+          <button onClick="{{ salvar }}" style="padding: 13px 26px; border-radius: 14px; border: 1px solid rgba(111,92,240,.55); background: rgba(111,92,240,.14); color: #1c1f2b; font-size: 13.5px; font-weight: 700; cursor: pointer; transition: all .22s ease; box-shadow: 0 14px 28px -16px rgba(111,92,240,.9);" style-hover="transform: translateY(-2px);">{{ salvarLabel }}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ excluirAberto }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ cancelarExclusao }}" style="position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 32px; background: rgba(28,31,43,.30); backdrop-filter: blur(8px); animation: mFade .22s ease both;">
+      <div onClick="{{ pararPropagacao }}" style="width: 100%; max-width: 420px; padding: 30px 32px 26px; border-radius: 24px; border: 1px solid rgba(217,79,110,.28); background: #ffffff; box-shadow: 0 46px 80px -40px rgba(28,31,43,.24); animation: mPop .35s cubic-bezier(.2,.8,.2,1) both;">
+        <h3 style="margin: 0 0 8px; font-family: 'Sora', sans-serif; font-size: 19px; font-weight: 500; letter-spacing: -.02em;">Excluir movimentação</h3>
+        <p style="margin: 0; font-size: 13.5px; line-height: 1.6; color: #55607a;">{{ excluirTexto }}</p>
+        <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 26px;">
+          <button onClick="{{ cancelarExclusao }}" style="padding: 12px 20px; border-radius: 13px; border: 1px solid rgba(28,31,43,.14); background: transparent; color: #2a2f3e; font-size: 13.5px; font-weight: 600; cursor: pointer;">Manter</button>
+          <button onClick="{{ confirmarExclusao }}" style="padding: 12px 22px; border-radius: 13px; border: 1px solid rgba(217,79,110,.5); background: rgba(217,79,110,.14); color: #a3243f; font-size: 13.5px; font-weight: 700; cursor: pointer; transition: all .2s ease;" style-hover="transform: translateY(-2px); background: rgba(217,79,110,.22);">Excluir</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;moeda&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;BRL&quot;,&quot;USD&quot;,&quot;EUR&quot;],&quot;default&quot;:&quot;BRL&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Comportamento&quot;},&quot;limiteMensal&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:6000,&quot;min&quot;:500,&quot;max&quot;:30000,&quot;step&quot;:100,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Comportamento&quot;},&quot;compactar&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Comportamento&quot;}}">
+const CATS = ["Salário", "Freelance", "Investimentos", "Moradia", "Mercado", "Transporte", "Lazer", "Saúde", "Assinaturas", "Educação", "Outros"];
+const CORES = ["#6f5cf0", "#10a88f", "#d94f6e", "#b3771a", "#6fb1ff", "#c58bff", "#8790a6"];
+const SEED = [
+  { id: 1, tipo: "entrada", descricao: "Salário mensal", categoria: "Salário", valor: 8400, data: "2026-08-05", status: "pago" },
+  { id: 2, tipo: "saida", descricao: "Aluguel do apartamento", categoria: "Moradia", valor: 2350, data: "2026-08-06", status: "pago" },
+  { id: 3, tipo: "saida", descricao: "Mercado da semana", categoria: "Mercado", valor: 612.4, data: "2026-08-12", status: "pago" },
+  { id: 4, tipo: "entrada", descricao: "Projeto freelance", categoria: "Freelance", valor: 1850, data: "2026-08-14", status: "pago" },
+  { id: 5, tipo: "saida", descricao: "Plano de saúde", categoria: "Saúde", valor: 489.9, data: "2026-08-20", status: "pendente" },
+  { id: 6, tipo: "saida", descricao: "Combustível e transporte", categoria: "Transporte", valor: 340, data: "2026-08-18", status: "pago" },
+  { id: 7, tipo: "saida", descricao: "Assinaturas digitais", categoria: "Assinaturas", valor: 129.7, data: "2026-08-22", status: "pendente" },
+  { id: 8, tipo: "saida", descricao: "Curso de especialização", categoria: "Educação", valor: 780, data: "2026-08-25", status: "pendente" },
+  { id: 9, tipo: "entrada", descricao: "Rendimento de investimentos", categoria: "Investimentos", valor: 465.3, data: "2026-08-27", status: "pago" },
+  { id: 10, tipo: "saida", descricao: "Jantar e cinema", categoria: "Lazer", valor: 268, data: "2026-08-15", status: "pago" },
+  { id: 11, tipo: "entrada", descricao: "Salário mensal", categoria: "Salário", valor: 8400, data: "2026-07-05", status: "pago" },
+  { id: 12, tipo: "saida", descricao: "Aluguel do apartamento", categoria: "Moradia", valor: 2350, data: "2026-07-06", status: "pago" },
+  { id: 13, tipo: "saida", descricao: "Mercado do mês", categoria: "Mercado", valor: 1180, data: "2026-07-19", status: "pago" },
+  { id: 14, tipo: "entrada", descricao: "Salário mensal", categoria: "Salário", valor: 8400, data: "2026-06-05", status: "pago" },
+  { id: 15, tipo: "saida", descricao: "Manutenção do carro", categoria: "Transporte", valor: 940, data: "2026-06-11", status: "pago" },
+  { id: 16, tipo: "saida", descricao: "Aluguel do apartamento", categoria: "Moradia", valor: 2350, data: "2026-06-06", status: "pago" },
+  { id: 17, tipo: "entrada", descricao: "Salário mensal", categoria: "Salário", valor: 8280, data: "2026-05-05", status: "pago" },
+  { id: 18, tipo: "saida", descricao: "Viagem de fim de semana", categoria: "Lazer", valor: 1420, data: "2026-05-22", status: "pago" },
+  { id: 19, tipo: "entrada", descricao: "Salário mensal", categoria: "Salário", valor: 8280, data: "2026-04-05", status: "pago" },
+  { id: 20, tipo: "saida", descricao: "Reforma da cozinha", categoria: "Moradia", valor: 3100, data: "2026-04-17", status: "pago" },
+  { id: 21, tipo: "entrada", descricao: "Salário mensal", categoria: "Salário", valor: 8280, data: "2026-03-05", status: "pago" },
+  { id: 22, tipo: "saida", descricao: "Mercado do mês", categoria: "Mercado", valor: 1290, data: "2026-03-14", status: "pago" }
+];
+const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+
+class Component extends DCLogic {
+  state = {
+    pre: "in",
+    view: "geral",
+    itens: SEED,
+    query: "",
+    tipoFiltro: "todos",
+    statusFiltro: "todos",
+    modal: false,
+    editando: null,
+    excluir: null,
+    hover: null,
+    drawer: false,
+    drawerSaindo: false,
+    mesHover: null,
+    catHover: null,
+    saldoHover: false,
+    flip: false,
+    rot: { x: 0, y: 0 },
+    arrastando: false,
+    erro: "",
+    privado: false,
+    form: { tipo: "saida", descricao: "", valor: "", data: "2026-08-29", categoria: "Mercado", status: "pago" }
+  };
+
+  cartaoDown = e => {
+    const p = e.touches ? e.touches[0] : e;
+    this.arraste = { x: p.clientX, y: p.clientY, rx: this.state.rot.x, ry: this.state.rot.y };
+    clearTimeout(this.voltarTimer);
+    this.setState({ arrastando: true });
+  };
+
+  aoMover = e => {
+    if (!this.arraste) return;
+    const p = e.touches ? e.touches[0] : e;
+    const lim = (v, m) => Math.max(-m, Math.min(m, v));
+    this.setState({
+      rot: {
+        x: lim(this.arraste.rx - (p.clientY - this.arraste.y) * 0.35, 32),
+        y: lim(this.arraste.ry + (p.clientX - this.arraste.x) * 0.55, 70)
+      }
+    });
+  };
+
+  aoSoltar = () => {
+    if (!this.arraste) return;
+    this.arraste = null;
+    this.setState({ arrastando: false });
+    clearTimeout(this.voltarTimer);
+    this.voltarTimer = setTimeout(() => this.setState({ rot: { x: 0, y: 0 } }), 2200);
+  };
+
+  componentWillUnmount() {
+    clearTimeout(this.voltarTimer);
+    window.removeEventListener("keydown", this.aoTeclar);
+    window.removeEventListener("mousemove", this.aoMover);
+    window.removeEventListener("mouseup", this.aoSoltar);
+    window.removeEventListener("touchmove", this.aoMover);
+    window.removeEventListener("touchend", this.aoSoltar);
+  }
+
+  aoTeclar = e => {
+    if (e.key === "Escape") {
+      if (this.state.excluir) return this.setState({ excluir: null });
+      if (this.state.modal) return this.setState({ modal: false, editando: null, erro: "" });
+      if (this.state.drawer) this.alternarDrawer();
+    }
+    if (e.key === "Enter" && this.state.modal) this.salvar();
+  };
+
+  componentDidMount() {
+    this.preT1 = setTimeout(() => this.setState({ pre: "out" }), 1150);
+    this.preT2 = setTimeout(() => this.setState({ pre: "done" }), 1750);
+    window.addEventListener("keydown", this.aoTeclar);
+    window.addEventListener("mousemove", this.aoMover);
+    window.addEventListener("mouseup", this.aoSoltar);
+    window.addEventListener("touchmove", this.aoMover, { passive: true });
+    window.addEventListener("touchend", this.aoSoltar);
+    try {
+      const raw = localStorage.getItem("mimo.itens.v1");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length) this.setState({ itens: parsed });
+      }
+    } catch (e) {}
+  }
+
+  persist(itens) {
+    try { localStorage.setItem("mimo.itens.v1", JSON.stringify(itens)); } catch (e) {}
+  }
+
+  moeda() {
+    const m = this.props.moeda || "BRL";
+    return { BRL: { l: "pt-BR", c: "BRL" }, USD: { l: "en-US", c: "USD" }, EUR: { l: "de-DE", c: "EUR" } }[m];
+  }
+
+  fmt(v) {
+    if (this.state.privado) return "••••••";
+    const { l, c } = this.moeda();
+    return new Intl.NumberFormat(l, { style: "currency", currency: c, minimumFractionDigits: 2 }).format(v || 0);
+  }
+
+  parseNum(s) {
+    const t = String(s).replace(/\s/g, "").replace(/\./g, "").replace(",", ".");
+    const n = parseFloat(t);
+    return isNaN(n) ? NaN : n;
+  }
+
+  dataFmt(iso) {
+    const p = String(iso).split("-");
+    return p[2] + " " + MESES[Number(p[1]) - 1] + " " + p[0];
+  }
+
+  decorar(it) {
+    const entrada = it.tipo === "entrada";
+    const pend = it.status === "pendente";
+    return Object.assign({}, it, {
+      sinal: entrada ? "+" : "-",
+      cor: entrada ? "#0e9c86" : "#d94f6e",
+      iconBg: entrada ? "rgba(16,168,143,.14)" : "rgba(217,79,110,.14)",
+      valorFmt: (entrada ? "+ " : "- ") + this.fmt(it.valor),
+      dataFmt: this.dataFmt(it.data),
+      statusLabel: pend ? "Pendente" : "Concluído",
+      statusCor: pend ? "#b3771a" : "#606a80",
+      onEdit: () => this.abrirEdicao(it),
+      onDelete: () => this.setState({ excluir: it })
+    });
+  }
+
+  abrirNova = () => {
+    this.setState({
+      modal: true, editando: null, erro: "",
+      form: { tipo: "saida", descricao: "", valor: "", data: "2026-08-29", categoria: "Mercado", status: "pago" }
+    });
+  };
+
+  abrirEdicao(it) {
+    this.setState({
+      modal: true, editando: it.id, erro: "",
+      form: {
+        tipo: it.tipo, descricao: it.descricao,
+        valor: String(it.valor).replace(".", ","),
+        data: it.data, categoria: it.categoria, status: it.status
+      }
+    });
+  }
+
+  salvar = () => {
+    const f = this.state.form;
+    const valor = this.parseNum(f.valor);
+    if (!f.descricao.trim()) return this.setState({ erro: "Informe uma descrição para a movimentação." });
+    if (isNaN(valor) || valor <= 0) return this.setState({ erro: "Informe um valor maior que zero." });
+    if (!f.data) return this.setState({ erro: "Selecione a data da movimentação." });
+    const reg = { tipo: f.tipo, descricao: f.descricao.trim(), categoria: f.categoria, valor: valor, data: f.data, status: f.status };
+    let itens;
+    if (this.state.editando) {
+      itens = this.state.itens.map(i => i.id === this.state.editando ? Object.assign({}, i, reg) : i);
+    } else {
+      const id = this.state.itens.reduce((m, i) => Math.max(m, i.id), 0) + 1;
+      itens = [Object.assign({ id: id }, reg)].concat(this.state.itens);
+    }
+    this.persist(itens);
+    this.setState({ itens: itens, modal: false, editando: null, erro: "" });
+  };
+
+  confirmarExclusao = () => {
+    const itens = this.state.itens.filter(i => i.id !== this.state.excluir.id);
+    this.persist(itens);
+    this.setState({ itens: itens, excluir: null });
+  };
+
+  exportarCsv = () => {
+    const linhas = [["Data", "Tipo", "Descricao", "Categoria", "Status", "Valor"]].concat(
+      this.state.itens
+        .slice()
+        .sort((a, b) => (a.data < b.data ? 1 : -1))
+        .map(i => [i.data, i.tipo, i.descricao, i.categoria, i.status, String(i.valor).replace(".", ",")])
+    );
+    const csv = linhas.map(l => l.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(";")).join("\n");
+    const url = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "mimo-movimentacoes.csv";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  };
+
+  alternarDrawer() {
+    clearTimeout(this.drawerT);
+    if (!this.state.drawer) return this.setState({ drawer: true, drawerSaindo: false });
+    this.setState({ drawerSaindo: true });
+    this.drawerT = setTimeout(() => this.setState({ drawer: false, drawerSaindo: false }), 330);
+  }
+
+  setForm(patch) { this.setState({ form: Object.assign({}, this.state.form, patch), erro: "" }); }
+
+  renderVals() {
+    const s = this.state;
+    const preVisivel = s.pre !== "done";
+    const preAnim = s.pre === "out" ? "mPreFade .5s ease forwards" : "none";
+    const compacto = this.props.compactar === true;
+    const ordenados = s.itens.slice().sort((a, b) => (a.data < b.data ? 1 : a.data > b.data ? -1 : b.id - a.id));
+
+    const doMes = ordenados.filter(i => i.data.slice(0, 7) === "2026-08");
+    const soma = (arr, t) => arr.filter(i => i.tipo === t).reduce((a, i) => a + i.valor, 0);
+    const entradas = soma(doMes, "entrada"), saidas = soma(doMes, "saida");
+    const saldo = entradas - saidas;
+    const aPagar = doMes.filter(i => i.tipo === "saida" && i.status === "pendente");
+    const aPagarTotal = aPagar.reduce((a, i) => a + i.valor, 0);
+
+    const mesAnt = ordenados.filter(i => i.data.slice(0, 7) === "2026-07");
+    const saldoAnt = soma(mesAnt, "entrada") - soma(mesAnt, "saida");
+    const varPct = saldoAnt ? Math.round(((saldo - saldoAnt) / Math.abs(saldoAnt)) * 100) : 0;
+
+    const chaves = [];
+    for (let k = 11; k >= 0; k--) {
+      const d = new Date(2026, 7 - k, 1);
+      chaves.push({ key: d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"), label: MESES[d.getMonth()] });
+    }
+    const serie = chaves.map(c => {
+      const arr = ordenados.filter(i => i.data.slice(0, 7) === c.key);
+      return { key: c.key, label: c.label, e: soma(arr, "entrada"), s: soma(arr, "saida") };
+    });
+    const maxV = Math.max.apply(null, serie.map(m => Math.max(m.e, m.s)).concat([1]));
+    const meses = serie.map(m => {
+      const ativo = s.mesHover === m.key;
+      return {
+        label: m.label,
+        labelCor: ativo ? "#1c1f2b" : "#8790a6",
+        labelPeso: ativo ? "700" : "500",
+        destaqueBg: ativo ? "rgba(111,92,240,.07)" : "transparent",
+        hEntrada: Math.max(3, Math.round((m.e / maxV) * 100)) + "%",
+        hSaida: Math.max(3, Math.round((m.s / maxV) * 100)) + "%",
+        dica: this.fmt(m.e) + "  /  " + this.fmt(m.s),
+        dicaOp: ativo ? "1" : "0",
+        dicaTr: ativo ? "translateY(0)" : "translateY(6px)",
+        onEnter: () => this.setState({ mesHover: m.key }),
+        onLeave: () => this.setState({ mesHover: null })
+      };
+    });
+    const escalaTopo = Math.ceil(maxV / 1000) * 1000 || 1000;
+    const escala = [1, 0.75, 0.5, 0.25, 0].map(t => {
+      const v = escalaTopo * t;
+      return v >= 1000 ? (v / 1000).toFixed(v % 1000 ? 1 : 0) + " mil" : String(Math.round(v));
+    });
+    const linhas = [1, 2, 3, 4, 5];
+
+    const porCat = {};
+    doMes.filter(i => i.tipo === "saida").forEach(i => { porCat[i.categoria] = (porCat[i.categoria] || 0) + i.valor; });
+    const catArr = Object.keys(porCat).map(k => ({ nome: k, valor: porCat[k] })).sort((a, b) => b.valor - a.valor);
+    const totalCat = catArr.reduce((a, c) => a + c.valor, 0) || 1;
+    const categorias = catArr.slice(0, 5).map((c, i) => {
+      const ativo = s.catHover === c.nome;
+      const ultimos = doMes
+        .filter(x => x.tipo === "saida" && x.categoria === c.nome)
+        .slice(0, 3)
+        .map(x => x.data.slice(8) + "/" + x.data.slice(5, 7) + " " + x.descricao)
+        .join("  ·  ");
+      return {
+        nome: c.nome, cor: CORES[i % CORES.length],
+        valorFmt: this.fmt(c.valor),
+        pct: Math.round((c.valor / totalCat) * 100) + "%",
+        rotulo: ativo && ultimos ? ultimos : c.nome,
+        rotuloCor: ativo ? "#606a80" : "#2a2f3e",
+        rotuloClaro: ativo ? "rgba(255,255,255,.78)" : "#ffffff",
+        rotuloTam: ativo ? "11.5px" : "13.5px",
+        onEnter: () => this.setState({ catHover: c.nome }),
+        onLeave: () => this.setState({ catHover: null })
+      };
+    });
+    let acc = 0;
+    const stops = catArr.slice(0, 5).map((c, i) => {
+      const from = acc; acc += (c.valor / totalCat) * 100;
+      return CORES[i % CORES.length] + " " + from.toFixed(1) + "% " + acc.toFixed(1) + "%";
+    });
+    const donutGradient = "conic-gradient(from -90deg, " + (stops.length ? stops.join(", ") : "#2a2f42 0% 100%") + ")";
+
+    const categoriasDetalhe = catArr.map((c, i) => {
+      const n = doMes.filter(x => x.categoria === c.nome && x.tipo === "saida").length;
+      return {
+        nome: c.nome, cor: CORES[i % CORES.length], valorFmt: this.fmt(c.valor),
+        pct: Math.round((c.valor / totalCat) * 100) + "%",
+        detalhe: n + (n === 1 ? " lançamento neste mês" : " lançamentos neste mês")
+      };
+    });
+
+    const porDia = {};
+    doMes.forEach(i => {
+      const d = Number(i.data.slice(8));
+      if (!porDia[d]) porDia[d] = { e: 0, s: 0 };
+      porDia[d][i.tipo === "entrada" ? "e" : "s"] += i.valor;
+    });
+    const maxDia = Math.max.apply(null, Object.keys(porDia).map(k => porDia[k].e + porDia[k].s).concat([1]));
+    const dias = [];
+    for (let d = 1; d <= 31; d++) {
+      const reg = porDia[d];
+      const total = reg ? reg.e + reg.s : 0;
+      const hoje = d === 29;
+      dias.push({
+        h: total ? Math.max(14, Math.round((total / maxDia) * 100)) + "%" : "3px",
+        cor: !total ? "rgba(28,31,43,.12)" : reg.e >= reg.s ? "#10a88f" : "#d94f6e",
+        fundo: hoje ? "rgba(111,92,240,.10)" : "transparent",
+        dica: "Dia " + d + (total ? ": " + this.fmt(total) : ": sem movimentação")
+      });
+    }
+
+    const q = s.query.trim().toLowerCase();
+    const visiveis = ordenados
+      .filter(i => s.tipoFiltro === "todos" || i.tipo === s.tipoFiltro)
+      .filter(i => s.statusFiltro === "todos" || i.status === s.statusFiltro)
+      .filter(i => !q || i.descricao.toLowerCase().includes(q) || i.categoria.toLowerCase().includes(q))
+      .map(i => this.decorar(i));
+
+    const nav = id => {
+      const on = s.view === id;
+      return {
+        bg: on ? "linear-gradient(140deg, rgba(111,92,240,.28), rgba(16,168,143,.18))" : "rgba(28,31,43,.03)",
+        cor: on ? "#1c1f2b" : "#606a80",
+        borda: on ? "rgba(111,92,240,.55)" : "rgba(28,31,43,.08)",
+        glow: on
+          ? "0 0 0 1px rgba(111,92,240,.3), 0 10px 30px -6px rgba(111,92,240,.75), inset 0 1px 0 rgba(255,255,255,.16)"
+          : "inset 0 1px 0 rgba(255,255,255,.05)"
+      };
+    };
+    const ligado = on => ({
+      bg: on ? "rgba(111,92,240,.12)" : "rgba(28,31,43,.03)",
+      cor: on ? "#2a2f3e" : "#606a80",
+      borda: on ? "rgba(111,92,240,.5)" : "rgba(28,31,43,.1)",
+      glow: on
+        ? "0 0 0 1px rgba(111,92,240,.22), 0 10px 26px -8px rgba(111,92,240,.5), inset 0 1px 0 rgba(255,255,255,.9)"
+        : "inset 0 1px 0 rgba(255,255,255,.9)"
+    });
+    const nav2 = id => ligado(s.view === id);
+    const g = nav2("geral"), l = nav2("lista"), c2 = nav2("categorias");
+    const pa = ligado(s.drawer), ol = ligado(s.privado);
+    const tip = id => ({
+      op: s.hover === id ? "1" : "0",
+      tr: s.hover === id ? "translateY(0) scale(1)" : "translateY(8px) scale(.94)"
+    });
+    const tg = tip("geral"), tl = tip("lista"), tc = tip("categorias"), tn = tip("nova");
+    const tp = tip("painel"), to = tip("olho"), te = tip("export");
+
+    const chip = (ativo, label, onClick) => ({
+      label: label, onClick: onClick,
+      bg: ativo ? "rgba(111,92,240,.1)" : "transparent",
+      cor: ativo ? "#1c1f2b" : "#606a80",
+      borda: ativo ? "rgba(111,92,240,.45)" : "rgba(28,31,43,.1)"
+    });
+
+    const ticket = doMes.filter(i => i.tipo === "saida");
+    const media = ticket.length ? ticket.reduce((a, i) => a + i.valor, 0) / ticket.length : 0;
+    const maior = ticket.slice().sort((a, b) => b.valor - a.valor)[0];
+    const taxa = entradas ? Math.round((saldo / entradas) * 100) : 0;
+    const prox = aPagar.slice().sort((a, b) => (a.data < b.data ? -1 : 1))[0];
+
+    const limite = Number(this.props.limiteMensal) > 0 ? Number(this.props.limiteMensal) : 6000;
+    const limitePct = Math.round((saidas / limite) * 100);
+    const ESSENCIAIS = ["Moradia", "Mercado", "Transporte", "Saúde"];
+    const DESEJOS = ["Lazer", "Assinaturas", "Outros"];
+    const somaCats = list => doMes.filter(i => i.tipo === "saida" && list.indexOf(i.categoria) >= 0).reduce((a, i) => a + i.valor, 0);
+    const ess = somaCats(ESSENCIAIS), des = somaCats(DESEJOS);
+    const fut = Math.max(0, saidas - ess - des) + Math.max(0, saldo);
+    const baseRegra = ess + des + fut || 1;
+    const regra = [
+      { nome: "Essenciais", valor: ess, cor: "#6f5cf0" },
+      { nome: "Desejos", valor: des, cor: "#d94f6e" },
+      { nome: "Futuro", valor: fut, cor: "#10a88f" }
+    ].map(r => ({ nome: r.nome, cor: r.cor, valorFmt: this.fmt(r.valor), pct: Math.round((r.valor / baseRegra) * 100) + "%" }));
+
+    const pendentes = aPagar
+      .slice()
+      .sort((a, b) => (a.data < b.data ? -1 : 1))
+      .map(i => Object.assign({}, this.decorar(i), { valorSimples: this.fmt(i.valor) }));
+
+    return {
+      preVisivel, preAnim,
+      isVisaoGeral: s.view === "geral",
+      isLista: s.view === "lista",
+      isCategorias: s.view === "categorias",
+      periodoLabel: "Agosto de 2026",
+      privacidadeLabel: s.privado ? "Mostrar valores" : "Ocultar valores",
+      togglePrivacidade: () => this.setState({ privado: !s.privado }),
+      drawerVisivel: s.drawer || s.drawerSaindo,
+      drawerAnim: s.drawerSaindo ? "mPanelOut .34s cubic-bezier(.4,0,.6,1) both" : "mPanel .4s cubic-bezier(.2,.8,.2,1) both",
+      drawerAberto: s.drawer,
+      drawerLabel: s.drawer ? "Recolher painel" : "Expandir painel",
+      drawerBg: s.drawer ? "rgba(111,92,240,.1)" : "transparent",
+      drawerCor: s.drawer ? "#1c1f2b" : "#55607a",
+      drawerBorda: s.drawer ? "rgba(111,92,240,.5)" : "rgba(28,31,43,.12)",
+      toggleDrawer: () => this.alternarDrawer(),
+      saldoFmt: this.fmt(saldo),
+      entradasFmt: this.fmt(entradas),
+      saidasFmt: this.fmt(saidas),
+      totalItens: String(doMes.length),
+      variacaoLabel: (varPct >= 0 ? "+" : "") + varPct + "% vs julho",
+      resumoFrase: "Você registrou " + doMes.length + " movimentações em agosto." + (saldo >= 0 ? "" : " As saídas superaram as entradas neste mês."),
+      mesVazio: s.view === "geral" && doMes.length === 0,
+      saldoOn: () => this.setState({ saldoHover: true }),
+      saldoOff: () => this.setState({ saldoHover: false }),
+      projetadoFmt: "sobra " + this.fmt(Math.max(0, saldo - aPagarTotal)),
+      projetadoCor: s.saldoHover ? "#5344c9" : "#b6bcca",
+      projetadoBarra: (s.saldoHover && saldo > 0 ? Math.max(2, Math.round((Math.max(0, saldo - aPagarTotal) / saldo) * 100)) : 0) + "%",
+      dias: dias,
+      hojeLabel: "hoje 29",
+      cartaoFlip: () => this.setState({ flip: !s.flip }),
+      cartaoTr: s.flip ? "rotateY(180deg)" : "rotateY(0deg)",
+      cartaoTrans: "transform 1s cubic-bezier(.3,.85,.2,1)",
+      aPagarFmt: this.fmt(aPagarTotal),
+      aPagarDetalhe: aPagar.length + (aPagar.length === 1 ? " conta pendente" : " contas pendentes"),
+      proximoVencimento: prox ? "Próxima: " + this.dataFmt(prox.data) : "Nenhuma conta pendente",
+      meses: meses,
+      escala: escala,
+      linhas: linhas,
+      categorias: categorias,
+      categoriasDetalhe: categoriasDetalhe,
+      donutGradient: donutGradient,
+      recentes: ordenados.slice(0, compacto ? 4 : 6).map(i => this.decorar(i)),
+      visiveis: visiveis,
+      listaVazia: visiveis.length === 0,
+      temVisiveis: visiveis.length > 0,
+      totalFiltradoEntradas: "+ " + this.fmt(visiveis.filter(i => i.tipo === "entrada").reduce((a, i) => a + i.valor, 0)),
+      totalFiltradoSaidas: "- " + this.fmt(visiveis.filter(i => i.tipo === "saida").reduce((a, i) => a + i.valor, 0)),
+      totalFiltradoSaldo: this.fmt(visiveis.reduce((a, i) => a + (i.tipo === "entrada" ? i.valor : -i.valor), 0)),
+      intervaloLabel: serie[0].label + " de " + serie[0].key.slice(0, 4) + " até " + serie[serie.length - 1].label + " de " + serie[serie.length - 1].key.slice(0, 4),
+      contagemLabel: visiveis.length + " de " + s.itens.length + " registros",
+      query: s.query,
+      onQuery: e => this.setState({ query: e.target.value }),
+      filtrosTipo: [
+        chip(s.tipoFiltro === "todos", "Tudo", () => this.setState({ tipoFiltro: "todos" })),
+        chip(s.tipoFiltro === "entrada", "Entradas", () => this.setState({ tipoFiltro: "entrada" })),
+        chip(s.tipoFiltro === "saida", "Saídas", () => this.setState({ tipoFiltro: "saida" }))
+      ],
+      filtrosStatus: [
+        chip(s.statusFiltro === "todos", "Todos", () => this.setState({ statusFiltro: "todos" })),
+        chip(s.statusFiltro === "pago", "Concluídos", () => this.setState({ statusFiltro: "pago" })),
+        chip(s.statusFiltro === "pendente", "Pendentes", () => this.setState({ statusFiltro: "pendente" }))
+      ],
+      indicadores: [
+        { label: "Gasto médio", valor: this.fmt(media), corClara: "#ffffff", nota: "por lançamento de saída" },
+        { label: "Maior saída", valor: maior ? this.fmt(maior.valor) : this.fmt(0), corClara: "#ffb3c2", nota: maior ? maior.descricao : "sem saídas no mês" },
+        { label: "Taxa de sobra", valor: taxa + "%", corClara: "#8ce6cf", nota: "do total que entrou" },
+        { label: "Total a pagar", valor: this.fmt(aPagarTotal), corClara: "#f4d79a", nota: aPagar.length + " em aberto" }
+      ],
+      navGeralBg: g.bg, navGeralCor: g.cor, navGeralBorda: g.borda, navGeralGlow: g.glow,
+      navListaBg: l.bg, navListaCor: l.cor, navListaBorda: l.borda, navListaGlow: l.glow,
+      navCatBg: c2.bg, navCatCor: c2.cor, navCatBorda: c2.borda, navCatGlow: c2.glow,
+      tipGeralOp: tg.op, tipGeralTr: tg.tr,
+      tipListaOp: tl.op, tipListaTr: tl.tr,
+      tipCatOp: tc.op, tipCatTr: tc.tr,
+      tipNovaOp: tn.op, tipNovaTr: tn.tr,
+      navPainelBg: pa.bg, navPainelCor: pa.cor, navPainelBorda: pa.borda, navPainelGlow: pa.glow,
+      navOlhoBg: ol.bg, navOlhoCor: ol.cor, navOlhoBorda: ol.borda, navOlhoGlow: ol.glow,
+      tipPainelOp: tp.op, tipPainelTr: tp.tr,
+      tipOlhoOp: to.op, tipOlhoTr: to.tr,
+      tipExportOp: te.op, tipExportTr: te.tr,
+      hoverPainel: () => this.setState({ hover: "painel" }),
+      hoverOlho: () => this.setState({ hover: "olho" }),
+      hoverExport: () => this.setState({ hover: "export" }),
+      exportarCsv: this.exportarCsv,
+      hoverGeral: () => this.setState({ hover: "geral" }),
+      hoverLista: () => this.setState({ hover: "lista" }),
+      hoverCat: () => this.setState({ hover: "categorias" }),
+      hoverNova: () => this.setState({ hover: "nova" }),
+      hoverNada: () => this.setState({ hover: null }),
+      irGeral: () => this.setState({ view: "geral" }),
+      irLista: () => this.setState({ view: "lista" }),
+      irCategorias: () => this.setState({ view: "categorias" }),
+      irParaLista: () => this.setState({ view: "lista" }),
+      abrirNova: this.abrirNova,
+      limitePctLabel: limitePct + "%",
+      limiteFmt: this.fmt(limite),
+      limiteBarra: Math.min(100, limitePct) + "%",
+      sobraFmt: this.fmt(Math.max(0, limite - saidas)),
+      mediaDiaFmt: this.fmt(saidas / 29),
+      regra: regra,
+      pendentes: pendentes,
+      pendentesCartao: pendentes.slice(0, 3),
+      pendentesResto: pendentes.length > 3 ? "+ " + (pendentes.length - 3) + " no painel lateral" : "",
+      semPendentes: pendentes.length === 0,
+      leituraMes: limitePct > 100
+        ? "As saídas passaram o limite planejado em " + (limitePct - 100) + "%. Reveja as categorias com maior peso antes do fechamento."
+        : "Ainda restam " + this.fmt(Math.max(0, limite - saidas)) + " dentro do limite planejado, com " + pendentes.length + " conta(s) em aberto para quitar.",
+      modalAberto: s.modal,
+      modalTitulo: s.editando ? "Editar movimentação" : "Nova movimentação",
+      modalSub: s.editando ? "Ajuste os dados e salve as alterações." : "Registre uma entrada ou saída da sua carteira.",
+      salvarLabel: s.editando ? "Salvar alterações" : "Adicionar",
+      salvar: this.salvar,
+      fecharModal: () => this.setState({ modal: false, editando: null, erro: "" }),
+      pararPropagacao: e => e.stopPropagation(),
+      erro: s.erro,
+      form: s.form,
+      opcoesCategoria: CATS,
+      setEntrada: () => this.setForm({ tipo: "entrada", categoria: "Salário" }),
+      setSaida: () => this.setForm({ tipo: "saida", categoria: "Mercado" }),
+      tipoEntradaBg: s.form.tipo === "entrada" ? "rgba(16,168,143,.18)" : "transparent",
+      tipoEntradaCor: s.form.tipo === "entrada" ? "#0e9c86" : "#606a80",
+      tipoSaidaBg: s.form.tipo === "saida" ? "rgba(217,79,110,.18)" : "transparent",
+      tipoSaidaCor: s.form.tipo === "saida" ? "#d94f6e" : "#606a80",
+      onDescricao: e => this.setForm({ descricao: e.target.value }),
+      onValor: e => this.setForm({ valor: e.target.value }),
+      onData: e => this.setForm({ data: e.target.value }),
+      onCategoria: e => this.setForm({ categoria: e.target.value }),
+      onStatus: e => this.setForm({ status: e.target.value }),
+      excluirAberto: !!s.excluir,
+      excluirTexto: s.excluir ? "\"" + s.excluir.descricao + "\" no valor de " + this.fmt(s.excluir.valor) + " será removida do painel. A ação não pode ser desfeita." : "",
+      cancelarExclusao: () => this.setState({ excluir: null }),
+      confirmarExclusao: this.confirmarExclusao
+    };
+  }
+}
+
+</script>
+</body>
+</html>
