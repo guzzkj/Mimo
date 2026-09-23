@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mimo · Controle de gastos</title>
+    <meta name="description" content="Painel pessoal de controle de gastos: saldo, movimentações, categorias e limite mensal." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600&family=Manrope:wght@400;500;600;700&display=swap" />
+    <link rel="icon" href="/assets/nav.png" />
+    <script>
+      // Aplica o tema antes da primeira pintura, senão a tela pisca clara
+      // por um instante quando a preferência salva é escura.
+      try {
+        var temaInicial = localStorage.getItem("mimo.tema")
+          || (matchMedia("(prefers-color-scheme: dark)").matches ? "escuro" : "claro");
+        if (temaInicial === "escuro") document.documentElement.dataset.theme = "dark";
+      } catch (e) { /* storage bloqueado: segue no tema claro */ }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+/*
+ * Estilos legados portados 1:1 do app vanilla (styles.css e mobile.css).
+ * Mantidos como CSS global (fora de qualquer @layer) para que tenham
+ * prioridade garantida sobre o reset/utilities do Tailwind e preservem
+ * exatamente a aparência e o comportamento originais. Os componentes React
+ * usam as mesmas classNames do HTML original para casar com estas regras.
+ */
+@import "./styles/legacy-desktop.css";
+@import "./styles/legacy-mobile.css";
