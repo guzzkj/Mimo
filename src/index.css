@@ -9,3 +9,7 @@
  */
 @import "./styles/legacy-desktop.css";
 @import "./styles/legacy-mobile.css";
+/* Telas portadas de docs/ref (acesso, duo e metas, configurações) */
+@import "./styles/mimo-telas.css";
+/* Projeção, calendário, folha "Mais", formulário Duo e demais peças da rodada 3 */
+@import "./styles/mimo-rodada3.css";

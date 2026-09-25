@@ -20,7 +20,8 @@ export const LIMITE_MENSAL = 2000;
 // v2: o seed mudou (menos lançamentos, valores menores). Subir a versão faz
 // quem já tinha dados da v1 recomeçar do exemplo novo, em vez de ficar preso
 // a um mês antigo e ver o painel vazio.
-export const STORAGE_KEY = "mimo.itens.v2";
+// v3: o exemplo ganhou compras no cartão, parcelas agrupadas e contas recorrentes.
+export const STORAGE_KEY = "mimo.itens.v3";
 export const TEMA_KEY = "mimo.tema";
 
 export const MAX_PARCELAS = 24;

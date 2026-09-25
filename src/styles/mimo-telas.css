@@ -1,0 +1,253 @@
+/*
+ * Tokens e animações das telas portadas de docs/ref:
+ *   data-mimo="fluxo" -> FluxoAcesso.dc.html (acesso e onboarding)
+ *   data-mimo="app"   -> AppDuoMetas.dc.html e AppConfig.dc.html
+ * Os valores são copiados 1:1 dos protótipos. Os dois conjuntos diferem em
+ * detalhes (superfície escura, opacidade de linhas), por isso ficam separados.
+ * Keyframes usam prefixo "mm" para não colidir com os do painel legado.
+ */
+
+[data-mimo="fluxo"] {
+  --bg: #f5f6fb; --surface: #ffffff; --field: rgba(255,255,255,.92);
+  --ink: #1c1f2b; --ink2: #2a2f3e; --muted: #55607a; --muted2: #606a80; --faint: #8790a6;
+  --line: rgba(28,31,43,.09); --line2: rgba(28,31,43,.13); --line-soft: rgba(28,31,43,.06);
+  --accent: #6f5cf0; --accent-ink: #5344c9; --accent-soft: rgba(111,92,240,.14); --accent-line: rgba(111,92,240,.5);
+  --in: #10a88f; --in-ink: #0e7f6d; --in-soft: rgba(16,168,143,.1); --in-line: rgba(16,168,143,.35);
+  --out: #d94f6e; --out-ink: #a3243f; --out-soft: rgba(217,79,110,.1); --out-line: rgba(217,79,110,.35);
+  --warn: #b3771a;
+  --solo: #4e9e79; --solo-ink: #2f7d5c; --solo-soft: rgba(78,158,121,.12); --solo-line: rgba(78,158,121,.55);
+  --duo: #e2a24f; --duo-ink: #9a6a15; --duo-soft: rgba(226,162,79,.16); --duo-line: rgba(226,162,79,.6);
+  --btn-bg: #1c1f2b; --btn-fg: #ffffff;
+  --shadow: rgba(28,31,43,.30); --shadow-hi: rgba(28,31,43,.36);
+  --glow-solo: rgba(78,158,121,.10);
+  --gato-traco: #16233d; --gato-bigode: #3d4a63; --logo-filtro: none;
+}
+[data-mimo="fluxo"][data-tema="escuro"] {
+  --bg: #0d0f16; --surface: #1e222d; --field: rgba(255,255,255,.05);
+  --ink: #e6ebf5; --ink2: #d2d9e8; --muted: #a2abc0; --muted2: #949eb4; --faint: #7b859b;
+  --line: rgba(226,232,244,.09); --line2: rgba(226,232,244,.14); --line-soft: rgba(226,232,244,.06);
+  --accent: #8d7eff; --accent-ink: #a99bff; --accent-soft: rgba(141,126,255,.16); --accent-line: rgba(141,126,255,.5);
+  --in: #22c5a8; --in-ink: #35d6b8; --in-soft: rgba(34,197,168,.12); --in-line: rgba(34,197,168,.35);
+  --out: #f4798f; --out-ink: #ff9db1; --out-soft: rgba(244,121,143,.12); --out-line: rgba(244,121,143,.35);
+  --warn: #e0a44a;
+  --solo-ink: #6cc39b; --solo-soft: rgba(78,158,121,.18);
+  --duo-ink: #e8b46a; --duo-soft: rgba(226,162,79,.16);
+  --btn-bg: #e6ebf5; --btn-fg: #0d0f16;
+  --shadow: rgba(0,0,0,.7); --shadow-hi: rgba(0,0,0,.8);
+  --glow-solo: rgba(78,158,121,.12);
+  --gato-traco: #46527a; --gato-bigode: #5d6a8a; --logo-filtro: brightness(0) invert(1);
+}
+
+[data-mimo="app"] {
+  --bg: #f5f6fb; --surface: #ffffff; --field: rgba(255,255,255,.92); --glass: rgba(255,255,255,.88);
+  --ink: #1c1f2b; --ink2: #2a2f3e; --muted: #55607a; --muted2: #606a80; --faint: #8790a6;
+  --line: rgba(28,31,43,.09); --line2: rgba(28,31,43,.14); --line-soft: rgba(28,31,43,.055);
+  --accent: #6f5cf0; --accent-ink: #5344c9; --accent-soft: rgba(111,92,240,.12); --accent-line: rgba(111,92,240,.5);
+  --in: #10a88f; --in-ink: #0e7f6d; --in-soft: rgba(16,168,143,.1); --in-line: rgba(16,168,143,.35);
+  --out: #d94f6e; --out-ink: #a3243f; --out-soft: rgba(217,79,110,.08); --out-line: rgba(217,79,110,.45);
+  --solo: #4e9e79; --solo-ink: #2f7d5c; --solo-soft: rgba(78,158,121,.13); --solo-line: rgba(78,158,121,.5);
+  --duo: #e2a24f; --duo-ink: #8f6112; --duo-soft: rgba(226,162,79,.16); --duo-line: rgba(226,162,79,.55);
+  --btn-bg: #1c1f2b; --btn-fg: #ffffff; --shadow: rgba(28,31,43,.30);
+  --sk: rgba(28,31,43,.06); --sk2: rgba(28,31,43,.11);
+  --gato-traco: #16233d; --gato-bigode: #3d4a63; --logo-filtro: none;
+}
+[data-mimo="app"][data-tema="escuro"] {
+  --bg: #0d0f16; --surface: #1a1e28; --field: rgba(255,255,255,.04); --glass: rgba(18,21,30,.9);
+  --ink: #e6ebf5; --ink2: #d2d9e8; --muted: #a2abc0; --muted2: #949eb4; --faint: #7b859b;
+  --line: rgba(226,232,244,.09); --line2: rgba(226,232,244,.15); --line-soft: rgba(226,232,244,.06);
+  --accent: #8d7eff; --accent-ink: #b0a4ff; --accent-soft: rgba(141,126,255,.16); --accent-line: rgba(141,126,255,.55);
+  --in: #22c5a8; --in-ink: #3fd9bc; --in-soft: rgba(34,197,168,.12); --in-line: rgba(34,197,168,.35);
+  --out: #f4798f; --out-ink: #ff9db1; --out-soft: rgba(244,121,143,.1); --out-line: rgba(244,121,143,.5);
+  --solo-ink: #7fd0aa; --solo-soft: rgba(78,158,121,.2); --duo-ink: #f0bf76; --duo-soft: rgba(226,162,79,.17);
+  --btn-bg: #e6ebf5; --btn-fg: #0d0f16; --shadow: rgba(0,0,0,.75);
+  --sk: rgba(226,232,244,.05); --sk2: rgba(226,232,244,.1);
+  --gato-traco: #46527a; --gato-bigode: #5d6a8a; --logo-filtro: brightness(0) invert(1);
+}
+
+[data-mimo] input::placeholder, [data-mimo] textarea::placeholder { color: var(--faint); opacity: .85; }
+[data-mimo] input, [data-mimo] select, [data-mimo] button, [data-mimo] textarea { font-family: inherit; }
+[data-mimo] input[type="date"], [data-mimo] input[type="month"] { color-scheme: light; }
+[data-mimo][data-tema="escuro"] input[type="date"], [data-mimo][data-tema="escuro"] input[type="month"] { color-scheme: dark; }
+[data-mimo][data-tema="escuro"] select { color-scheme: dark; }
+[data-mimo] a { color: var(--accent-ink); text-decoration: none; }
+[data-mimo] a:hover { color: var(--accent); }
+[data-mimo] button:focus-visible, [data-mimo] a:focus-visible, [data-mimo] input:focus-visible, [data-mimo] select:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+/* Micro-interações: transição padrão dos botões e um leve "afundar" ao tocar.
+   O `scale` é uma propriedade separada do `transform`, então não briga com
+   os deslocamentos de hover definidos abaixo. */
+[data-mimo] button, [data-mimo] a {
+  transition: background-color .2s ease, border-color .2s ease, color .2s ease, box-shadow .2s ease,
+    opacity .2s ease, transform .25s cubic-bezier(.2,.8,.2,1), scale .15s ease;
+}
+[data-mimo] button:active:not(:disabled), [data-mimo] a:active { scale: .97; }
+
+/* Estados de hover dos protótipos (style-hover). !important porque os
+   valores de repouso vêm em estilo inline. */
+.mm-h-google:hover { border-color: var(--accent-line) !important; transform: translateY(-1px); }
+.mm-h-escolha:hover { border-color: var(--duo-line) !important; transform: translateY(-2px); }
+.mm-h-primario:hover { background: var(--accent-ink) !important; }
+.mm-h-link-primario:hover { background: var(--accent-ink) !important; color: var(--btn-fg) !important; }
+.mm-h-olho:hover { color: var(--accent-ink) !important; }
+.mm-h-solo:hover { background: #2f7d5c !important; color: #ffffff !important; }
+.mm-h-duo:hover { background: #b8801f !important; color: #ffffff !important; }
+.mm-h-recusar:hover { border-color: var(--out-line) !important; color: var(--out-ink) !important; }
+.mm-h-borda-duo:hover { border-color: var(--duo-line) !important; }
+.mm-h-card:hover { transform: translateY(-3px); border-color: var(--accent-line) !important; }
+.mm-h-tracejado:hover { border-color: var(--accent-line) !important; color: var(--accent-ink) !important; }
+.mm-h-linha:hover { background: var(--line-soft) !important; }
+.mm-h-sec:hover { border-color: var(--accent-line) !important; }
+
+@keyframes mmRiseFx { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+@keyframes mmRise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@keyframes mmRiseC { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes mmFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mmSpin { to { transform: rotate(360deg); } }
+@keyframes mmShim { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@keyframes mmPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(226,162,79,.55); } 60% { box-shadow: 0 0 0 7px rgba(226,162,79,0); } }
+@keyframes mmConf { 0% { opacity: 0; transform: translateY(-30px) rotate(0deg); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(230px) rotate(320deg); } }
+@keyframes mmPop { 0% { transform: scale(.6); opacity: 0; } 70% { transform: scale(1.06); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes mmDrop { from { opacity: 0; transform: translateY(-8px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes mmPagina { from { opacity: 0; } to { opacity: 1; } }
+/* linha do gráfico se desenhando (path com pathLength=1) e barras crescendo */
+@keyframes mmTraco { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes mmCresce { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes mmSaiFade { to { opacity: 0; } }
+@keyframes mmSaiCard { to { opacity: 0; transform: translateY(14px) scale(.98); } }
+@keyframes mmSaiDrop { to { opacity: 0; transform: translateY(-8px) scale(.98); } }
+
+/* Saída suave de modais, painéis e toasts (componente Presenca). */
+.mm-saindo > * { animation: mmSaiFade .22s ease forwards !important; pointer-events: none; }
+.mm-saindo .mm-sai-card { animation: mmSaiCard .22s ease forwards !important; }
+.mm-saindo .mm-sai-drop { animation: mmSaiDrop .2s ease forwards !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-mimo] *, [data-mimo] *::before, [data-mimo] *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+}
+
+/* Painel principal: atalhos do dock para Metas e Configurações só no desktop.
+   No mobile o dock já usa toda a largura; lá o acesso é pelo avatar do topo. */
+@media (max-width: 720px) {
+  .dock__slot--extra { display: none; }
+}
+.topbar__user { text-decoration: none; color: inherit; }
+
+/* Movimentações da conta Duo: mesma tabela do painel, com a coluna "Quem"
+   logo depois de Descrição (ViewLista com colunaExtra). */
+.mv-table--extra { min-width: 1120px; }
+.mv-table--extra .table__cols,
+.mv-table--extra .table__row,
+.mv-table--extra .table__totals {
+  grid-template-columns: minmax(210px, 1fr) 150px 140px 130px 116px 130px 92px;
+}
+.table__extra { display: inline-flex; align-items: center; gap: 9px; min-width: 0; white-space: nowrap; }
+@media (min-width: 721px) {
+  .mv-table--extra .table__totals > :first-child { grid-column: span 2; }
+}
+@media (max-width: 720px) {
+  .mv-table--extra { min-width: 0; }
+  .mv-table--extra .table__row {
+    grid-template-areas:
+      "desc   valor"
+      "extra  data"
+      "cat    cat"
+      "status acoes";
+  }
+  .mv-table--extra .table__row > *:nth-child(1) { grid-area: desc; }
+  .mv-table--extra .table__row > *:nth-child(2) { grid-area: extra; justify-self: start; }
+  .mv-table--extra .table__row > *:nth-child(3) { grid-area: cat; justify-self: start; }
+  .mv-table--extra .table__row > *:nth-child(4) { grid-area: data; justify-self: end; }
+  .mv-table--extra .table__row > *:nth-child(5) { grid-area: status; }
+  .mv-table--extra .table__row > *:nth-child(6) { grid-area: valor; justify-self: end; }
+  .mv-table--extra .table__row > *:nth-child(7) { grid-area: acoes; }
+}
+
+/* Metas: só o rabo do gato (#mimo-rabo) saindo por trás dos cartões, com o
+   mesmo tamanho e balanço do .mascot-tail da visão geral. */
+.mm-rabo-metas {
+  position: absolute; right: -66px; top: 34px; width: 124px; z-index: 0; pointer-events: none;
+  animation: catTail 4.2s ease-in-out infinite; transform-origin: 0% 60%;
+}
+@media (max-width: 720px) {
+  /* sem margem lateral no celular: o rabo sobe por trás do primeiro cartão,
+     dentro do respiro entre o cabeçalho e a grade */
+  .mm-rabo-metas { width: 52px; right: 20px; top: -21px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mm-rabo-metas { animation: none; }
+}
+
+/* Sino de notificações na Topbar: mesmo botão do tema, com contador. */
+.topbar__sino { position: relative; }
+.topbar__sino.is-on { border-color: var(--accent-line); background: rgba(var(--accent-rgb), 0.1); color: var(--ink); }
+.topbar__sino-badge {
+  position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 99px; display: grid; place-items: center;
+  background: var(--out); color: #ffffff; font-size: 10.5px; font-weight: 700; line-height: 1;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+/* ---- Solo: cartão, parcelas, recorrência, prazos e orçamentos ------------- */
+
+/* "Pago com" no formulário: mesmo seletor de Entrada/Saída, em tom de destaque */
+.switch--meio { margin: 8px 0 0; }
+.switch--meio .switch__option { padding: 10px; }
+.switch--meio .switch__option.is-on { background: rgba(var(--accent-rgb), 0.16); color: var(--accent-ink); }
+
+/* Marcadores discretos ao lado da descrição: parcela, cartão, recorrente */
+.tag-mini {
+  display: inline-flex; align-items: center; gap: 4px; flex: none;
+  height: 20px; padding: 0 7px; border-radius: 99px;
+  background: rgba(var(--ink-rgb), 0.06); color: var(--muted-2);
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.02em; white-space: nowrap;
+}
+.tag-mini svg { width: 11px; height: 11px; }
+.tag-mini--cartao { background: rgba(var(--accent-rgb), 0.12); color: var(--accent-ink); }
+.tags-mini { display: inline-flex; flex-wrap: wrap; gap: 5px; }
+.table__desc .tags-mini { margin-left: 8px; }
+.recent__text .tags-mini { margin-top: 3px; }
+
+/* Vencimento relativo das contas pendentes */
+.prazo { font-size: 11.5px; font-weight: 600; }
+.prazo--atrasada { color: var(--out); }
+.prazo--hoje, .prazo--breve { color: var(--warn); }
+.prazo--normal { color: var(--faint); }
+
+/* Regra 50/30/20: marca do alvo sobre a barra */
+.rule__track { position: relative; }
+.rule__alvo { position: absolute; top: -3px; bottom: -3px; width: 2px; border-radius: 2px; background: var(--ink); opacity: 0.55; }
+
+/* Categorias: gasto contra o orçamento do mês */
+.cat-row__orc { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--faint); }
+.cat-row__orc b { font-weight: 700; color: var(--muted-2); }
+.cat-row__orc.is-over b { color: var(--out); }
+.cat-row__orc.is-perto b { color: var(--warn); }
+.cat-row__track { position: relative; overflow: visible; }
+.cat-row__track .cat__fill { border-radius: 999px; }
+.cat-row__limite { position: absolute; top: -4px; bottom: -4px; width: 2px; border-radius: 2px; background: var(--ink); opacity: 0.5; }
+.orc-editar {
+  padding: 0; border: none; background: transparent; color: var(--accent-ink);
+  font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.orc-editar:hover { text-decoration: underline; }
+.orc-campo {
+  width: 96px; height: 28px; padding: 0 8px; border-radius: 8px;
+  border: 1px solid rgba(var(--accent-rgb), 0.5); background: var(--surface-soft); color: var(--ink);
+  font: inherit; font-size: 12.5px;
+}
+.orc-resumo {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px;
+  margin: 0 0 6px; padding: 14px 18px; border-radius: 16px;
+  border: 1px solid var(--line-soft); background: var(--surface-soft); font-size: 13px; color: var(--muted-2);
+}
+.orc-resumo strong { color: var(--ink); font-family: var(--font-display); font-weight: 400; font-size: 16px; }
+.orc-resumo .is-over { color: var(--out); }
+
+/* Cartão Mimo: fatura do cartão de crédito */
+.card__vence { font-size: 11.5px; opacity: 0.8; }
