@@ -474,7 +474,7 @@ export default function FluxoAcesso() {
       <div style={{ pointerEvents: "none", position: "absolute", top: -180, left: "50%", width: 760, height: 420, transform: "translateX(-50%)", borderRadius: "50%", background: "var(--glow-solo)", filter: "blur(10px)" }} />
 
       <header style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "22px 28px" }}>
-        <img src={`${import.meta.env.BASE_URL}assets/mimo-logo.png`} alt="Mimo" style={{ display: "block", height: 34, width: "auto", filter: "var(--logo-filtro)" }} />
+        <img src="/assets/mimo-logo.png" alt="Mimo" style={{ display: "block", height: 34, width: "auto", filter: "var(--logo-filtro)" }} />
         {topo && (
           <div key={t} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--muted2)", animation: "mmFade .3s ease both" }}>
             <span>{topo.texto}</span>

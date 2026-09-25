@@ -196,7 +196,7 @@ export function ViewGeral({
                       <strong>Cartão Mimo</strong>
                       <span>{`Fatura de ${nomeMes}`}</span>
                     </span>
-                    <img className="card__mark" src={`${import.meta.env.BASE_URL}assets/mimo-simbolo.png`} alt="" />
+                    <img className="card__mark" src="/assets/mimo-simbolo.png" alt="" />
                   </span>
                   <CountValue className="card__value" valor={d.fatura} fmt={fmt} privado={privado} />
                   <span className="card__detail">{detalheFatura}</span>

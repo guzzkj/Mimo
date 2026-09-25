@@ -35,7 +35,7 @@ export function Preloader() {
   return (
     <div className={`preloader${leaving ? " is-leaving" : ""}`}>
       <div className="preloader__stack">
-        <img className="preloader__logo" src={`${import.meta.env.BASE_URL}assets/mimo-logo.png`} alt="Mimo" />
+        <img className="preloader__logo" src="/assets/mimo-logo.png" alt="Mimo" />
         <div className="preloader__track"><div className="preloader__bar" /></div>
       </div>
     </div>

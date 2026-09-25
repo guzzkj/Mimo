@@ -11,7 +11,7 @@ const Configuracoes = lazy(() => import('./pages/Configuracoes.tsx'))
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter basename={import.meta.env.BASE_URL}>
+    <BrowserRouter>
       <Suspense fallback={null}>
         <Routes>
           <Route path="/" element={<App />} />
