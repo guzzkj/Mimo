@@ -1,0 +1,195 @@
+/* Gaps visuais do relatório (docs/relatorio-gap-mvp.md): folha "Mais" do dock,
+   Desfazer nos avisos, formulário Duo, painel lateral, projeção de saldo,
+   calendário de vencimentos, comparativo de categorias e filtros da lista. */
+
+/* Dock: "Mais" só existe no celular; lá os destinos extras e o CSV vão para uma folha. */
+.dock__slot--mais { display: none; }
+@media (max-width: 720px) {
+  .dock__slot--mais { display: grid; }
+}
+.dock-mais {
+  position: fixed; inset: 0; z-index: 57;
+  display: flex; align-items: flex-end;
+  background: rgba(10, 12, 20, 0.42);
+  animation: mFade 0.2s ease both;
+}
+.dock-mais__folha {
+  width: 100%;
+  padding: 18px 16px calc(96px + env(safe-area-inset-bottom, 0px));
+  border-radius: 24px 24px 0 0;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -20px 60px -30px rgba(var(--shadow-rgb), 0.5);
+  animation: dockMaisSobe 0.28s var(--ease) both;
+}
+@keyframes dockMaisSobe { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.dock-mais__topo { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.dock-mais__topo strong { font-family: var(--font-display); font-size: 17px; font-weight: 500; }
+.dock-mais__fechar { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 11px; border: 1px solid var(--line); background: transparent; color: var(--muted); }
+.dock-mais__fechar svg { width: 17px; height: 17px; }
+.dock-mais__grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.dock-mais__item {
+  display: flex; align-items: center; gap: 11px;
+  height: 56px; padding: 0 14px;
+  border-radius: 16px; border: 1px solid var(--line);
+  background: var(--surface-soft); color: var(--ink);
+  font: inherit; font-size: 14px; font-weight: 600; text-align: left;
+}
+.dock-mais__item span { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: rgba(var(--accent-rgb), 0.1); color: var(--accent-ink); }
+.dock-mais__item svg { width: 17px; height: 17px; }
+.dock-mais__item.is-on { border-color: rgba(var(--accent-rgb), 0.45); }
+
+/* Aviso com ação (Desfazer) */
+.toast--acao { pointer-events: auto; }
+.toast__acao {
+  margin-left: 6px; padding: 6px 11px; border-radius: 10px;
+  border: 1px solid rgba(var(--accent-rgb), 0.4); background: rgba(var(--accent-rgb), 0.1);
+  color: var(--accent-ink); font: inherit; font-size: 12.5px; font-weight: 700; white-space: nowrap; cursor: pointer;
+}
+.toast__acao:hover { background: rgba(var(--accent-rgb), 0.18); }
+
+/* Formulário: valor com máscara BRL */
+.campo-moeda { position: relative; display: block; }
+.campo-moeda > span { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 13.5px; color: var(--faint); letter-spacing: 0; text-transform: none; pointer-events: none; }
+.campo-moeda input { width: 100%; padding-left: 42px !important; font-family: var(--font-display); font-variant-numeric: tabular-nums; }
+
+/* Formulário Duo: quem vê e dividir */
+.visib { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 8px; }
+.visib__op {
+  display: flex; flex-direction: column; gap: 5px; padding: 12px 14px;
+  border-radius: 14px; border: 1px solid rgba(var(--ink-rgb), 0.12);
+  background: var(--surface-soft); color: var(--ink); text-align: left;
+  font: inherit; text-transform: none; letter-spacing: 0; cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.visib__op strong { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 700; }
+.visib__op strong svg { width: 15px; height: 15px; }
+.visib__op span { font-size: 12px; line-height: 1.45; color: var(--muted-2); }
+.visib__op.is-on { border-color: rgba(var(--accent-rgb), 0.5); background: rgba(var(--accent-rgb), 0.08); }
+.visib__op:disabled { opacity: 0.55; cursor: not-allowed; }
+.visib__dividir { align-items: flex-start; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(var(--ink-rgb), 0.1); }
+.visib__dividir span { display: flex; flex-direction: column; gap: 2px; }
+.visib__dividir small { font-size: 12px; font-weight: 500; color: var(--muted-2); }
+.visib__dividir input { margin-top: 2px; }
+
+/* Painel lateral: marcar como paga na linha, fatura como item, dica dos baldes */
+.pending { padding: 0; }
+.pending:hover { padding-left: 0; }
+.pending__abrir {
+  flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 13px 0; border: none; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer;
+  transition: padding 0.22s ease;
+}
+.pending__abrir:hover { padding-left: 6px; }
+.pending__pagar {
+  flex: none; width: 30px; height: 30px; display: grid; place-items: center;
+  border-radius: 9px; border: 1px solid rgba(var(--in-rgb), 0.35); background: transparent; color: var(--in-ink); cursor: pointer;
+  transition: background 0.2s ease;
+}
+.pending__pagar svg { width: 15px; height: 15px; }
+.pending__pagar:hover { background: rgba(var(--in-rgb), 0.14); }
+.pending--fatura { padding: 13px 8px 13px 0; }
+.pending__icone { width: 14px; height: 14px; margin-right: 6px; vertical-align: -2px; color: var(--accent-ink); }
+.rule__info { font-size: 11px; opacity: 0.55; cursor: help; }
+
+/* Recentes clicáveis */
+.recent--botao { width: 100%; border: none; border-bottom: 1px solid var(--line-soft); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.recent--botao:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 10px; }
+
+/* Projeção do saldo no mês */
+.legend__linha { width: 16px !important; height: 3px !important; border-radius: 2px; background: var(--accent); }
+.legend__linha--prev { background: repeating-linear-gradient(90deg, var(--accent) 0 4px, transparent 4px 7px); }
+.projecao { margin-top: 6px; }
+.projecao__area { position: relative; height: 170px; touch-action: pan-y; }
+.projecao__area svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.projecao__preench { fill: rgba(var(--accent-rgb), 0.1); }
+.projecao__real { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.projecao__prev { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 6; opacity: 0.75; }
+.projecao__zero { stroke: var(--out); stroke-width: 1; stroke-dasharray: 3 4; opacity: 0.6; }
+.projecao__guia { stroke: rgba(var(--ink-rgb), 0.18); stroke-width: 1; }
+.projecao__ponto { position: absolute; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; border-radius: 50%; background: var(--surface); border: 2.5px solid var(--accent); }
+.projecao__dica {
+  position: absolute; top: -6px; transform: translate(-50%, -100%);
+  padding: 5px 9px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface);
+  font-size: 12px; color: var(--ink-2); white-space: nowrap; pointer-events: none;
+  box-shadow: 0 10px 24px -14px rgba(var(--shadow-rgb), 0.5);
+}
+.projecao__dica b { margin-right: 4px; color: var(--faint); font-weight: 600; }
+.projecao__eixo { position: relative; display: flex; justify-content: space-between; margin-top: 8px; font-size: 11.5px; color: var(--faint); }
+.projecao__eixo b { position: absolute; transform: translateX(-50%); color: var(--accent-ink); font-weight: 700; }
+
+/* Calendário de vencimentos e próximas faturas */
+.venc { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 40px; align-items: start; }
+.legend--venc { flex-wrap: wrap; gap: 12px; }
+.venc__pt { display: inline-block; width: 7px; height: 7px; border-radius: 50%; }
+.legend .venc__pt { width: 7px; height: 7px; border-radius: 50%; }
+.venc__pt--pago { background: var(--in); }
+.venc__pt--pendente { background: var(--warn); }
+.venc__pt--atrasado { background: var(--out); }
+.venc__grade { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.venc__sem { padding: 2px 0 6px; text-align: center; font-size: 11px; color: var(--faint); }
+.venc__dia {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  height: 44px; padding-top: 6px; border-radius: 11px; border: 1px solid transparent;
+  background: transparent; color: var(--muted-2); font: inherit; font-size: 12.5px;
+}
+.venc__dia.tem { background: var(--surface-soft); border-color: var(--line-soft); color: var(--ink); cursor: pointer; }
+.venc__dia.tem:hover { border-color: rgba(var(--accent-rgb), 0.45); }
+.venc__dia.is-hoje { border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.venc__dia:disabled { cursor: default; }
+.venc__pts { display: flex; gap: 3px; min-height: 7px; }
+.venc__lista { list-style: none; margin: 14px 0 0; padding: 0; }
+.venc__lista button {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 0;
+  border: none; border-bottom: 1px solid var(--line-soft); background: transparent; color: var(--ink-2);
+  font: inherit; font-size: 13px; text-align: left; cursor: pointer;
+}
+.venc__lista span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.venc__lista b { font-family: var(--font-display); font-weight: 400; }
+.venc__faturas { display: flex; flex-direction: column; gap: 4px; }
+.venc__barras { display: flex; align-items: flex-end; gap: 10px; height: 150px; margin-top: 16px; }
+.venc__barra { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 6px; }
+.venc__barra i { display: block; width: 100%; max-width: 34px; border-radius: 7px 7px 3px 3px; background: rgba(var(--accent-rgb), 0.35); transform-origin: bottom; animation: mmCresce 0.6s var(--ease) both; }
+.venc__barra.is-atual i { background: var(--accent); }
+.venc__barra small { font-size: 10.5px; color: var(--muted-2); white-space: nowrap; }
+.venc__barra span { font-size: 11.5px; color: var(--faint); }
+.venc__nota { margin: 10px 0 0; font-size: 12px; line-height: 1.5; color: var(--faint); }
+@media (max-width: 900px) {
+  .venc { grid-template-columns: 1fr; gap: 30px; }
+}
+
+/* Categorias: comparativo, link para a lista e estado vazio */
+.cat-row__link { padding: 0; border: none; background: transparent; color: inherit; font: inherit; font-size: 14.5px; font-weight: 600; cursor: pointer; text-align: left; }
+.cat-row__link:hover { color: var(--accent-ink); text-decoration: underline; text-underline-offset: 3px; }
+.cat-row__value { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.cat-row__delta { font-family: var(--font-body); font-size: 11.5px; font-weight: 700; letter-spacing: 0; }
+.cat-row__delta.is-sobe { color: var(--out); }
+.cat-row__delta.is-desce { color: var(--in-ink); }
+.cat-row__delta.is-igual { color: var(--faint); }
+.cat-vazio { display: flex; align-items: center; gap: 18px; padding: 22px; border-radius: 20px; border: 1px dashed var(--line); color: var(--muted-2); font-size: 14px; line-height: 1.6; }
+.cat-vazio .mascote { flex: none; width: 96px; }
+.cat-vazio p { margin: 0; }
+
+/* Movimentações: filtro por categoria, só cartão, marcar pagas em lote */
+.filters--extra { margin-top: -18px; }
+.filtro-cat select {
+  height: 40px; padding: 0 12px; border-radius: 11px;
+  border: 1px solid rgba(var(--ink-rgb), 0.1); background: transparent; color: var(--muted-2);
+  font: inherit; font-size: 13px; font-weight: 600;
+}
+.filtro-cat select.is-on { border-color: rgba(var(--accent-rgb), 0.45); background: rgba(var(--accent-rgb), 0.1); color: var(--ink); }
+.chip { display: inline-flex; align-items: center; gap: 7px; }
+.chip__icone { width: 14px; height: 14px; }
+.chip--acao { border-color: rgba(var(--in-rgb), 0.4); color: var(--in-ink); }
+.chip--limpar { color: var(--faint); }
+
+@media (max-width: 720px) {
+  /* descrição com tags numa linha só: as tags encolhem em vez de quebrar a linha */
+  .table__desc { flex-wrap: nowrap; }
+  .table__desc strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .table__desc .tags-mini { flex: none; }
+  .table__desc .tag-mini--cartao { font-size: 0; gap: 0; padding: 2px 5px; }
+  .table__desc .tag-mini--cartao svg { width: 12px; height: 12px; }
+  .filters--extra { margin-top: -10px; }
+  .projecao__area { height: 140px; }
+}

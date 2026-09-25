@@ -8,6 +8,11 @@ export const isoDe = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth(
 
 // Datas de referência, calculadas uma vez a partir do relógio real.
 export const HOJE = new Date();
+/** Próximo mês no formato ano-mês (primeiro prazo válido de uma meta). */
+export const PROXIMO_MES = (() => {
+  const d = new Date(HOJE.getFullYear(), HOJE.getMonth() + 1, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+})();
 export const HOJE_ISO = isoDe(HOJE);
 export const MES_REF = HOJE_ISO.slice(0, 7);
 export const DIA_HOJE = HOJE.getDate();
@@ -109,4 +114,32 @@ export const formVazio = (): import("../types").FormState => ({
   status: "pago",
   parcelado: false,
   parcelas: "2",
+  meio: "conta",
+  recorrente: false,
+  privado: false,
+  dividir: false,
+  aplicarProximas: false,
 });
+
+// Máscara de moeda enquanto se digita: "123456" -> "1.234,56". Os dígitos
+// entram pela direita, como em app de banco.
+export const mascaraMoeda = (texto: string) => {
+  const n = String(texto).replace(/\D/g, "").replace(/^0+/, "").slice(0, 11);
+  if (!n) return "";
+  const centavos = n.padStart(3, "0");
+  const inteiros = centavos.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `${inteiros},${centavos.slice(-2)}`;
+};
+
+// Valor salvo -> texto no formato da máscara ("1234.5" -> "1.234,50").
+export const moedaTexto = (valor: number) => mascaraMoeda(Math.round(valor * 100).toString());
+
+// Quanto falta para uma conta pendente vencer, em linguagem de gente.
+export const prazoDe = (iso: string): { texto: string; tom: "atrasada" | "hoje" | "breve" | "normal" } => {
+  const [a, m, d] = iso.split("-").map(Number);
+  const dias = Math.round((new Date(a, m - 1, d).getTime() - new Date(HOJE.getFullYear(), HOJE.getMonth(), HOJE.getDate()).getTime()) / 86400000);
+  if (dias < 0) return { texto: dias === -1 ? "venceu ontem" : `venceu há ${-dias} dias`, tom: "atrasada" };
+  if (dias === 0) return { texto: "vence hoje", tom: "hoje" };
+  if (dias === 1) return { texto: "vence amanhã", tom: "breve" };
+  return { texto: `vence em ${dias} dias`, tom: dias <= 5 ? "breve" : "normal" };
+};

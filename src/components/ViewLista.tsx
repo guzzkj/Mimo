@@ -1,8 +1,9 @@
-import type { CSSProperties } from "react";
-import { ChevronLeft, ChevronRight, Pencil, Trash2 } from "lucide-react";
+import type { CSSProperties, ReactNode } from "react";
+import { Check, ChevronLeft, ChevronRight, CreditCard, Pencil, Trash2, X } from "lucide-react";
 import { Fragment, useMemo } from "react";
 import { MESES_LONGOS } from "../lib/helpers";
-import type { Derivado, StatusMovimentacao, TipoMovimentacao } from "../types";
+import type { Derivado, ItemDecorado, StatusMovimentacao, TipoMovimentacao } from "../types";
+import { TagsMovimentacao } from "./TagsMovimentacao";
 
 interface Props {
   derivado: Derivado;
@@ -18,6 +19,18 @@ interface Props {
   onExcluir: (id: number) => void;
   onPaginaAnterior: () => void;
   onPaginaProxima: () => void;
+  /** Coluna extra logo depois de Descrição (conta Duo: quem fez). */
+  colunaExtra?: { titulo: string; celula: (it: ItemDecorado) => ReactNode };
+  /** Linha de filtros extra abaixo dos filtros padrão (conta Duo: por autor). */
+  filtrosExtras?: ReactNode;
+  /** Filtro por categoria ("" = todas) e só compras no cartão. */
+  categoriaFiltro?: string;
+  cartaoFiltro?: boolean;
+  categorias?: string[];
+  onFiltroCategoria?: (categoria: string) => void;
+  onFiltroCartao?: (cartao: boolean) => void;
+  /** Marca como pagas todas as pendências da lista filtrada. */
+  onMarcarPagas?: (ids: number[]) => void;
 }
 
 const chipClasse = (ativo: boolean) => `chip${ativo ? " is-on" : ""}`;
@@ -25,7 +38,9 @@ const chipClasse = (ativo: boolean) => `chip${ativo ? " is-on" : ""}`;
 export function ViewLista({
   derivado: d, itensTotal, tipoFiltro, statusFiltro, query, fmt,
   onQuery, onFiltroTipo, onFiltroStatus, onEditar, onExcluir, onPaginaAnterior, onPaginaProxima,
+  colunaExtra, filtrosExtras, categoriaFiltro = "", cartaoFiltro = false, categorias, onFiltroCategoria, onFiltroCartao, onMarcarPagas,
 }: Props) {
+  const pendentesVisiveis = d.visiveis.filter((i) => i.status === "pendente" && i.categoria !== "Privado");
   const somaTipo = (tipo: TipoMovimentacao) => d.visiveis.filter((i) => i.tipo === tipo).reduce((t, i) => t + i.valor, 0);
   const saldoFinal = d.visiveis.reduce((total, i) => total + (i.tipo === "entrada" ? i.valor : -i.valor), 0);
   const temItens = d.visiveis.length > 0;
@@ -46,7 +61,9 @@ export function ViewLista({
             <div className="table__desc">
               <span className={`badge ${it.classeCor}`} style={{ background: it.iconBg }}>{it.sinal}</span>
               <strong>{it.descricao}</strong>
+              <TagsMovimentacao item={it} />
             </div>
+            {colunaExtra && <span className="table__cell table__extra">{colunaExtra.celula(it)}</span>}
             <span className="table__cell">{it.categoria}</span>
             <span className="table__cell">{it.dataLabel}</span>
             <span className={`recent__status ${it.statusClasse}`}>{it.statusLabel}</span>
@@ -63,7 +80,7 @@ export function ViewLista({
         </Fragment>
       );
     });
-  }, [d.daPagina, onEditar, onExcluir]);
+  }, [d.daPagina, onEditar, onExcluir, colunaExtra]);
 
   return (
     <section className="view view--list" aria-label="Movimentações">
@@ -89,6 +106,37 @@ export function ViewLista({
         </div>
       </div>
 
+      {(onFiltroCategoria || onFiltroCartao) && (
+        <div className="filters filters--extra">
+          {onFiltroCategoria && categorias && (
+            <label className="filtro-cat">
+              <span className="sr-only">Categoria</span>
+              <select value={categoriaFiltro} onChange={(e) => onFiltroCategoria(e.target.value)} className={categoriaFiltro ? "is-on" : undefined}>
+                <option value="">Todas as categorias</option>
+                {categorias.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </label>
+          )}
+          {onFiltroCartao && (
+            <button type="button" className={chipClasse(cartaoFiltro)} aria-pressed={cartaoFiltro} onClick={() => onFiltroCartao(!cartaoFiltro)}>
+              <CreditCard aria-hidden="true" className="chip__icone" />Só cartão
+            </button>
+          )}
+          {(categoriaFiltro || cartaoFiltro) && (
+            <button type="button" className="chip chip--limpar" onClick={() => { onFiltroCategoria?.(""); onFiltroCartao?.(false); }}>
+              <X aria-hidden="true" className="chip__icone" />Limpar
+            </button>
+          )}
+          {onMarcarPagas && pendentesVisiveis.length > 1 && (
+            <button type="button" className="chip chip--acao" onClick={() => onMarcarPagas(pendentesVisiveis.map((i) => i.id))}>
+              <Check aria-hidden="true" className="chip__icone" />{`Marcar ${pendentesVisiveis.length} pendentes como pagas`}
+            </button>
+          )}
+        </div>
+      )}
+
+      {filtrosExtras}
+
       <div className="table-head-row">
         <h2 className="section__title">Todas as movimentações</h2>
         <span className="section__sub">
@@ -99,9 +147,9 @@ export function ViewLista({
       </div>
 
       <div className="table-wrap">
-        <div className="mv-table">
+        <div className={`mv-table${colunaExtra ? " mv-table--extra" : ""}`}>
           <div className="table__cols">
-            <span>Descrição</span><span>Categoria</span><span>Data</span><span>Status</span>
+            <span>Descrição</span>{colunaExtra && <span>{colunaExtra.titulo}</span>}<span>Categoria</span><span>Data</span><span>Status</span>
             <span className="cols-end">Valor</span><span className="cols-end">Ações</span>
           </div>
           <div>{linhas}</div>

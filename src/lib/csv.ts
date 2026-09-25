@@ -7,11 +7,12 @@ const ordenar = (itens: Item[]) => [...itens].sort((a, b) => (
 
 // Gera um arquivo CSV com todas as movimentações e dispara o download.
 export const exportarCsv = (itens: Item[]) => {
-  const cabecalho = ["Data", "Tipo", "Descricao", "Categoria", "Status", "Valor"];
+  const cabecalho = ["Data", "Tipo", "Descricao", "Categoria", "Status", "Pago com", "Parcela", "Valor"];
 
   const corpo = ordenar(itens)
-    .map(({ data, tipo, descricao, categoria, status, valor }) => (
-      [data, tipo, descricao, categoria, status, String(valor).replace(".", ",")]
+    .map(({ data, tipo, descricao, categoria, status, meio, parcela, recorrente, valor }) => (
+      [data, tipo, descricao, categoria, status, meio === "cartao" ? "cartao" : "conta",
+        parcela ? `${parcela.n}/${parcela.total}` : recorrente ? "recorrente" : "", String(valor).replace(".", ",")]
     ));
 
   const csv = [cabecalho, ...corpo]

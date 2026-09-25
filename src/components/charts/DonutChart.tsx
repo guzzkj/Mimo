@@ -9,15 +9,15 @@ interface Props {
   tema: Tema;
 }
 
-// Gráfico de rosca das categorias do mês (top 5). Sem saídas, vira um anel
-// neutro só para não sumir da tela, igual ao original.
+// Gráfico de rosca das categorias do mês (5 maiores + "Demais", somando todas
+// as saídas). Sem saídas, vira um anel neutro só para não sumir da tela.
 export function DonutChart({ categorias, fmt, tema }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chartRef = useRef<Chart | null>(null);
   const fmtRef = useRef(fmt);
   fmtRef.current = fmt;
 
-  const topCategorias = categorias.slice(0, 5);
+  const topCategorias = categorias.slice(0, 6);
   const semDados = topCategorias.length === 0;
 
   useEffect(() => {
