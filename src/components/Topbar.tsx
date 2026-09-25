@@ -36,7 +36,7 @@ export function Topbar({
   return (
     <header className="topbar">
       <div className="topbar__brand">
-        <img className="topbar__logo" src="/assets/mimo-logo.png" alt="Mimo" />
+        <img className="topbar__logo" src={`${import.meta.env.BASE_URL}assets/mimo-logo.png`} alt="Mimo" />
         <button
           className={`drawer-toggle${drawerOn ? " is-on" : ""}`}
           type="button"
