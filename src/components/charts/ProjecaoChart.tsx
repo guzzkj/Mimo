@@ -1,4 +1,4 @@
-import { useState, type PointerEvent } from "react";
+import { useLayoutEffect, useRef, useState, type PointerEvent } from "react";
 import type { PontoSaldo } from "../../types";
 
 interface Props {
@@ -14,6 +14,32 @@ interface Props {
 // largura; textos ficam em HTML para não crescerem com a tela.
 export function ProjecaoChart({ pontos, diaDeHoje, fmt, mesCurto }: Props) {
   const [foco, setFoco] = useState<number | null>(null);
+  const eixoRef = useRef<HTMLDivElement>(null);
+  const [hojeCabe, setHojeCabe] = useState(true);
+  const n = pontos.length;
+  const X = (dia: number) => ((dia - 1) / Math.max(1, n - 1)) * 100;
+
+  // "hoje" fica no eixo só se não encostar em "1 set" nem em "30 set": no
+  // celular, perto do começo ou do fim do mês, os rótulos se sobrepunham. O
+  // ponto no gráfico e o subtítulo continuam marcando o dia de hoje.
+  const xHoje = diaDeHoje > 0 && diaDeHoje < n ? X(diaDeHoje) : null;
+  useLayoutEffect(() => {
+    const eixo = eixoRef.current;
+    if (!eixo || xHoje == null) return;
+    const medir = () => {
+      const [ini, meio, fim] = [...eixo.children] as HTMLElement[];
+      if (!meio || !fim) return;
+      const w = eixo.clientWidth;
+      const centro = (xHoje / 100) * w;
+      const meia = meio.offsetWidth / 2;
+      setHojeCabe(centro - meia >= ini.offsetWidth + 6 && centro + meia <= w - fim.offsetWidth - 6);
+    };
+    medir();
+    const obs = new ResizeObserver(medir);
+    obs.observe(eixo);
+    return () => obs.disconnect();
+  }, [xHoje]);
+
   const valores = pontos.flatMap((p) => [p.real, p.previsto]).filter((v): v is number => v != null);
   if (!valores.length) return null;
 
@@ -23,8 +49,6 @@ export function ProjecaoChart({ pontos, diaDeHoje, fmt, mesCurto }: Props) {
   const folga = Math.max((max - min) * 0.25, Math.abs(max) * 0.02, 1);
   const topo = max + folga;
   const base = min - folga;
-  const n = pontos.length;
-  const X = (dia: number) => ((dia - 1) / Math.max(1, n - 1)) * 100;
   const Y = (v: number) => 100 - ((v - base) / (topo - base)) * 100;
 
   const caminho = (chave: "real" | "previsto") => pontos
@@ -70,9 +94,9 @@ export function ProjecaoChart({ pontos, diaDeHoje, fmt, mesCurto }: Props) {
           </span>
         )}
       </div>
-      <div className="projecao__eixo">
+      <div className="projecao__eixo" ref={eixoRef}>
         <span>{`1 ${mesCurto}`}</span>
-        {diaDeHoje > 0 && diaDeHoje < n && <b style={{ left: `${X(diaDeHoje)}%` }}>hoje</b>}
+        {xHoje != null && <b style={{ left: `${xHoje}%`, visibility: hojeCabe ? undefined : "hidden" }} aria-hidden={!hojeCabe || undefined}>hoje</b>}
         <span>{`${n} ${mesCurto}`}</span>
       </div>
     </div>
