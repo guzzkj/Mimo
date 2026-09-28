@@ -13,3 +13,5 @@
 @import "./styles/mimo-telas.css";
 /* Projeção, calendário, folha "Mais", formulário Duo e demais peças da rodada 3 */
 @import "./styles/mimo-rodada3.css";
+/* Busca e filtros da tela de movimentações (barra fixa e folha no celular) */
+@import "./styles/filtros-mov.css";

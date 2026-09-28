@@ -75,6 +75,16 @@
   outline: 2px solid var(--accent); outline-offset: 2px;
 }
 
+/* Celular: campos com menos de 16px fazem o iOS dar zoom ao focar. Os
+   tamanhos das telas portadas vêm em estilo inline, daí o !important. */
+@media (max-width: 720px) {
+  [data-mimo] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  [data-mimo] select,
+  [data-mimo] textarea,
+  .filtro-cat select,
+  .orc-campo { font-size: 16px !important; }
+}
+
 /* Micro-interações: transição padrão dos botões e um leve "afundar" ao tocar.
    O `scale` é uma propriedade separada do `transform`, então não briga com
    os deslocamentos de hover definidos abaixo. */
@@ -131,8 +141,8 @@
   }
 }
 
-/* Painel principal: atalhos do dock para Metas e Configurações só no desktop.
-   No mobile o dock já usa toda a largura; lá o acesso é pelo avatar do topo. */
+/* Destinos extras (Metas, Investimentos, Ajustes...) só no dock do desktop.
+   No mobile o dock já usa toda a largura; lá eles ficam no menu de tela cheia. */
 @media (max-width: 720px) {
   .dock__slot--extra { display: none; }
 }
@@ -152,7 +162,11 @@
 }
 @media (max-width: 720px) {
   .mv-table--extra { min-width: 0; }
+  /* as 7 colunas do desktop (seletor mais específico) venciam o cartão de 2
+     colunas do legacy-mobile e empurravam valor, data e ações para fora */
+  .mv-table--extra .table__totals { grid-template-columns: 1fr 1fr; }
   .mv-table--extra .table__row {
+    grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
       "desc   valor"
       "extra  data"
@@ -174,9 +188,10 @@
   position: absolute; right: -66px; top: 34px; width: 124px; z-index: 0; pointer-events: none;
   animation: catTail 4.2s ease-in-out infinite; transform-origin: 0% 60%;
 }
-@media (max-width: 720px) {
-  /* sem margem lateral no celular: o rabo sobe por trás do primeiro cartão,
-     dentro do respiro entre o cabeçalho e a grade */
+@media (max-width: 900px) {
+  /* sem margem lateral no celular (e no tablet, onde o .main tem só 28px de
+     respiro): o rabo sobe por trás do primeiro cartão, dentro do respiro
+     entre o cabeçalho e a grade, em vez de ser cortado na borda da tela */
   .mm-rabo-metas { width: 52px; right: 20px; top: -21px; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -251,3 +266,26 @@
 
 /* Cartão Mimo: fatura do cartão de crédito */
 .card__vence { font-size: 11.5px; opacity: 0.8; }
+
+
+/* ---- Área de toque: links de texto e botões pequenos ------------------- */
+
+/* Uma camada invisível estende a área clicável até ~44px de altura sem mudar
+   o visual: o texto continua do mesmo tamanho, só o dedo acerta mais fácil. */
+.alvo-toque,
+.link-button,
+.orc-editar,
+.mes-nav__seta { position: relative; }
+.alvo-toque::after,
+.link-button::after,
+.orc-editar::after {
+  content: "";
+  position: absolute;
+  inset: -13px -6px;
+}
+/* botão de ícone já com 36px: só completa até 44px */
+.alvo-toque--icone::after { inset: -4px; }
+/* setas do mês: cresce na vertical e pouco na horizontal, para não cobrir o
+   rótulo nem o "Hoje" (que fica por cima, por vir depois no DOM) */
+.mes-nav__seta::after { content: ""; position: absolute; inset: -9px -4px; }
+.mes-nav__hoje { position: relative; }

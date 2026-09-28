@@ -9,6 +9,7 @@ import { useDialogo } from "../hooks/useDialogo";
 import { useMimoApp } from "../hooks/useMimoApp";
 import { useTimers } from "../hooks/useTimers";
 import { categoriasDe, salvarAjustes } from "../lib/ajustes";
+import type { FiltroAutor } from "../lib/filtrosMovimentacoes";
 import { AUTORES, MOTOR_DUO, lerAcertos, nomeMes, resumoDuo, rotuloMes, salvarAcertos, useAcertos, type Acerto, type Regra } from "../lib/contaDuo";
 import { MESES } from "../lib/constants";
 import { DIA_HOJE, HOJE_ISO, MES_REF, PROXIMO_MES, dataBr, dataSeed } from "../lib/helpers";
@@ -272,7 +273,8 @@ type Erros = Record<string, string>;
 
 const TRANSICAO_PAGINA: CSSProperties = { animation: "mmRise .6s cubic-bezier(.2,.8,.2,1) both" };
 const H1: CSSProperties = { margin: 0, fontFamily: SORA, fontSize: 32, fontWeight: 300, letterSpacing: "-.04em" };
-const VOLTAR: CSSProperties = { alignSelf: "flex-start", padding: 0, border: "none", background: "transparent", color: "var(--accent-ink)", fontSize: 13, fontWeight: 700, cursor: "pointer" };
+// padding + margem negativa: área de toque de 44px sem mudar o layout
+const VOLTAR: CSSProperties = { alignSelf: "flex-start", padding: "12px 0", margin: "-12px 0", border: "none", background: "transparent", color: "var(--accent-ink)", fontSize: 13, fontWeight: 700, cursor: "pointer" };
 const LINHA: CSSProperties = { display: "flex", alignItems: "center", borderBottom: "1px solid var(--line-soft)" };
 
 function Barra({ partes, h = 8, marcos, anim }: { partes: { w: string; cor: string; op?: string }[]; h?: number; marcos?: string[]; anim?: string }) {
@@ -1000,7 +1002,7 @@ export default function DuoMetas() {
                     ))}
                   </div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 14 }}>
                   {[
                     { ...P.gustavo, tag: "Você", soft: "var(--solo-soft)", ink: "var(--solo-ink)", exp: gExp, dados: r.gustavo, nota: r.gustavo.privados ? "Inclui " + r.gustavo.privados + (r.gustavo.privados === 1 ? " lançamento privado seu." : " lançamentos privados seus.") : "" },
                     { ...P.suelen, tag: "Parceira", soft: "var(--duo-soft)", ink: "var(--duo-ink)", exp: sExp, dados: r.suelen, nota: r.suelen.privados ? "Inclui " + r.suelen.privados + (r.suelen.privados === 1 ? " lançamento privado dela." : " lançamentos privados dela.") : "" },
@@ -1008,12 +1010,12 @@ export default function DuoMetas() {
                     <div key={p.nome} style={{ position: "relative", paddingTop: 62, minWidth: 0, animation: `mmRise .6s ${0.08 + i * 0.07}s cubic-bezier(.2,.8,.2,1) both` }}>
                       <div style={{ position: "absolute", top: 0, left: "50%", width: 92, transform: "translateX(-50%)", pointerEvents: "none" }}><Gato cor={p.cor} tabby={p.tabby} expressao={p.exp} /></div>
                       <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 11, padding: "18px 16px 16px", borderRadius: 22, border: "1px solid var(--line)", background: "var(--surface)", boxShadow: "0 18px 40px -30px var(--shadow)" }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                           <span style={{ fontFamily: SORA, fontSize: 15, fontWeight: 500 }}>{p.nome}</span>
                           <span style={{ padding: "3px 9px", borderRadius: 999, background: p.soft, color: p.ink, fontSize: 11, fontWeight: 700 }}>{p.tag}</span>
                         </div>
                         {[{ k: "Entrou", v: fmt(p.dados.entrou), cor: "var(--in-ink)" }, { k: "Gastou", v: fmt(p.dados.gastou), cor: "var(--ink)" }].map((ln) => (
-                          <div key={ln.k} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12.5 }}>
+                          <div key={ln.k} style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", columnGap: 8, rowGap: 2, fontSize: 12.5 }}>
                             <span style={{ color: "var(--muted)" }}>{ln.k}</span>
                             <span style={{ fontWeight: 700, color: ln.cor, whiteSpace: "nowrap" }}>{ln.v}</span>
                           </div>
@@ -1029,7 +1031,7 @@ export default function DuoMetas() {
                 <div style={{ ...CARTAO, display: "flex", flexDirection: "column", gap: 14 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                     <span style={OLHO}>Divisão de despesas</span>
-                    <button type="button" onClick={() => ir("duo-divisao")} style={LINK_TEXTO}>Detalhes</button>
+                    <button type="button" className="alvo-toque" onClick={() => ir("duo-divisao")} style={LINK_TEXTO}>Detalhes</button>
                   </div>
                   <span style={{ fontFamily: SORA, fontSize: 21, fontWeight: 400, letterSpacing: "-.02em", lineHeight: 1.3 }}>{divStatus}</span>
                   <Barra partes={[{ w: pctW(dv.pG, dv.tot), cor: "#4e9e79" }, { w: pctW(dv.pS, dv.tot), cor: "#e2a24f" }]} anim="width .6s ease" />
@@ -1042,7 +1044,7 @@ export default function DuoMetas() {
                 <div style={{ ...CARTAO, display: "flex", flexDirection: "column", gap: 14 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                     <span style={OLHO}>Lazer do casal</span>
-                    <button type="button" onClick={abrirLazer} style={LINK_TEXTO}>{lim == null ? "Definir" : "Ajustar"}</button>
+                    <button type="button" className="alvo-toque" onClick={abrirLazer} style={LINK_TEXTO}>{lim == null ? "Definir" : "Ajustar"}</button>
                   </div>
                   {lim != null ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -1077,7 +1079,7 @@ export default function DuoMetas() {
                 <div style={{ ...CARTAO, display: "flex", flexDirection: "column", gap: 4 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 4 }}>
                     <span style={OLHO}>Últimas movimentações</span>
-                    <button type="button" onClick={() => ir("duo-movs")} style={LINK_TEXTO}>Ver todas</button>
+                    <button type="button" className="alvo-toque" onClick={() => ir("duo-movs")} style={LINK_TEXTO}>Ver todas</button>
                   </div>
                   {movs.slice(0, 5).map((it, i) => {
                     const rw = row(it);
@@ -1513,7 +1515,7 @@ export default function DuoMetas() {
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "baseline", flexWrap: "wrap", gap: 10 }}>
-                      <span style={{ fontFamily: SORA, fontSize: 44, fontWeight: 300, letterSpacing: "-.045em", lineHeight: 1 }}>{detalhe.guardado}</span>
+                      <span style={{ fontFamily: SORA, fontSize: "clamp(34px, 11vw, 44px)", fontWeight: 300, letterSpacing: "-.045em", lineHeight: 1 }}>{detalhe.guardado}</span>
                       <span style={{ fontSize: 14, color: "var(--muted2)" }}>de {detalhe.alvo}</span>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1524,7 +1526,7 @@ export default function DuoMetas() {
                       </div>
                     </div>
                     {duo && (
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 170px), 1fr))", gap: 10 }}>
                         {detalhe.contrib.map((cc) => (
                           <div key={cc.ini} style={{ display: "flex", alignItems: "center", gap: 10, padding: 12, borderRadius: 16, background: cc.soft }}>
                             <Avatar av={cc.av} ini={cc.ini} size={30} fs={12} />
@@ -1657,21 +1659,16 @@ export default function DuoMetas() {
   // filtro por autor: mesmos botões da tela antiga de movimentações do Duo
   const FIL: ["todos" | Autor, string, string, string][] = [["todos", "Todos", P.conjunta.av, ""], ["gustavo", "Eu", P.gustavo.av, "G"], ["suelen", "Suelen", P.suelen.av, "S"], ["conjunta", "Conta conjunta", P.conjunta.av, ""]];
   const itensDuo = app.state.itens;
-  const filtrosQuem = (
-    <div data-mimo="app" data-tema={tema} style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "-12px 0 26px", fontFamily: "'Manrope', system-ui, sans-serif" }}>
-      {FIL.map(([k, label, avc, ini]) => {
-        const on = app.state.quemFiltro === k;
-        const o = opcao(on);
-        return (
-          <button key={k} type="button" aria-pressed={on} onClick={() => app.actions.setFiltro({ quemFiltro: k })} style={{ height: 40, padding: "0 14px 0 8px", borderRadius: 999, border: `1px solid ${o.borda}`, background: o.bg, color: o.cor, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
-            <Avatar av={avc} ini={ini} size={24} fs={10.5} />
-            {label}
-            <span style={{ fontSize: 11.5, color: "var(--faint)" }}>{k === "todos" ? itensDuo.length : itensDuo.filter((x) => x.quem === k).length}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
+  const filtroAutor: FiltroAutor = {
+    valor: app.state.quemFiltro,
+    opcoes: FIL.map(([k, label, avc, ini]) => ({
+      valor: k,
+      label,
+      contagem: k === "todos" ? itensDuo.length : itensDuo.filter((x) => x.quem === k).length,
+      icone: <Avatar av={avc} ini={ini} size={24} fs={10.5} />,
+    })),
+    onChange: (v) => app.actions.setFiltro({ quemFiltro: v as "todos" | Autor }),
+  };
   const colunaQuem = {
     titulo: "Quem",
     celula: (it: Item) => {
@@ -1695,7 +1692,7 @@ export default function DuoMetas() {
     >
       {t === "duo-movs" ? (
         <ViewLista
-          filtrosExtras={filtrosQuem}
+          filtroAutor={filtroAutor}
           colunaExtra={colunaQuem}
           derivado={app.derivado}
           itensTotal={app.state.itens.length}

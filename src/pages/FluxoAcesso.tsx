@@ -474,11 +474,12 @@ export default function FluxoAcesso() {
       <div style={{ pointerEvents: "none", position: "absolute", top: -180, left: "50%", width: 760, height: 420, transform: "translateX(-50%)", borderRadius: "50%", background: "var(--glow-solo)", filter: "blur(10px)" }} />
 
       <header style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "22px 28px" }}>
-        <img src="/assets/mimo-logo.png" alt="Mimo" style={{ display: "block", height: 34, width: "auto", filter: "var(--logo-filtro)" }} />
+        <img src="/assets/mimo-logo.png" alt="Mimo" style={{ display: "block", flex: "none", height: 34, width: "auto", filter: "var(--logo-filtro)" }} />
         {topo && (
-          <div key={t} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--muted2)", animation: "mmFade .3s ease both" }}>
-            <span>{topo.texto}</span>
-            <button type="button" onClick={topo.onClick} style={LINK_BTN}>{topo.acao}</button>
+          <div key={t} style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, fontSize: 13, color: "var(--muted2)", animation: "mmFade .3s ease both" }}>
+            {/* o e-mail da tela "verificar" pode ser longo: encurta com reticências em vez de empurrar o "Sair" para fora */}
+            <span title={topo.texto} style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{topo.texto}</span>
+            <button type="button" className="alvo-toque" onClick={topo.onClick} style={{ ...LINK_BTN, flex: "none" }}>{topo.acao}</button>
           </div>
         )}
         {passoLabel && <span style={{ fontSize: 11.5, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--faint)" }}>{passoLabel}</span>}
@@ -706,13 +707,13 @@ export default function FluxoAcesso() {
                 <button type="button" className="mm-h-primario" onClick={() => ir("plano", { escolha: "solo" })} style={BTN_PRIM}>Começar com conta solo</button>
               )}
               {conviteRecusado && (
-                <button type="button" onClick={() => up({ recusado: false })} style={{ ...LINK_BTN, alignSelf: "flex-start" }}>Mudei de ideia</button>
+                <button type="button" className="alvo-toque" onClick={() => up({ recusado: false })} style={{ ...LINK_BTN, alignSelf: "flex-start" }}>Mudei de ideia</button>
               )}
 
               {acoesSec && (
                 <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: "10px 22px", fontSize: 13 }}>
                   {acoesSec.map((a) => (
-                    <button key={a.label} type="button" onClick={a.onClick} style={{ padding: 0, border: "none", background: "transparent", color: a.cor, fontSize: 13, fontWeight: 600, cursor: a.cursor, borderBottom: `1px solid ${a.linha}` }}>{a.label}</button>
+                    <button key={a.label} type="button" className="alvo-toque" onClick={a.onClick} style={{ padding: 0, border: "none", background: "transparent", color: a.cor, fontSize: 13, fontWeight: 600, cursor: a.cursor, borderBottom: `1px solid ${a.linha}` }}>{a.label}</button>
                   ))}
                 </div>
               )}

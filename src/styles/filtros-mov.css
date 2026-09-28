@@ -1,0 +1,207 @@
+/* Filtros da tela de movimentações (Solo e Duo): ver FiltrosMovimentacoes.tsx.
+   No computador os controles continuam à vista; no celular viram uma barra
+   fixa (busca + "Filtros"), chips dos filtros ligados e uma folha inferior. */
+
+/* ---- Busca: lupa, botão de limpar ------------------------------------------ */
+
+.busca { position: relative; display: flex; flex: 1; min-width: 240px; }
+.busca .search { flex: 1; width: 100%; min-width: 0; padding-left: 42px; }
+.busca.tem-texto .search { padding-right: 44px; }
+/* o "x" nativo do type=search sairia em dobro com o nosso */
+.busca .search::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+.busca .search::placeholder { color: var(--faint); opacity: 1; }
+.busca__icone {
+  position: absolute; left: 15px; top: 50%; translate: 0 -50%;
+  width: 17px; height: 17px; color: var(--faint); pointer-events: none;
+  transition: color 0.2s ease;
+}
+.busca:focus-within .busca__icone,
+.busca.tem-texto .busca__icone { color: var(--accent-ink); }
+.busca__limpar {
+  position: absolute; top: 0; right: 0; bottom: 0; width: 44px;
+  display: grid; place-items: center;
+  border: 0; border-radius: 13px; background: transparent; color: var(--faint);
+}
+.busca__limpar svg { width: 16px; height: 16px; }
+.busca__limpar:hover { color: var(--ink); }
+.busca__limpar:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; }
+
+/* Estado vazio: atalho para desfazer busca e filtros */
+.table__empty-limpar { display: flex; width: fit-content; margin-top: 14px; min-height: 44px; }
+
+/* ---- Quem lançou (Duo), no computador --------------------------------------- */
+
+.filtro-quem { display: flex; flex-wrap: wrap; gap: 8px; margin: -12px 0 26px; }
+.filtro-quem__opcao {
+  height: 40px; padding: 0 14px 0 8px; border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid rgba(var(--ink-rgb), 0.13); background: var(--surface); color: var(--muted);
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+.filtro-quem__opcao.is-on { border-color: rgba(var(--accent-rgb), 0.5); background: rgba(var(--accent-rgb), 0.12); color: var(--ink); }
+.filtro-quem__n { font-size: 11.5px; color: var(--faint); }
+
+/* ---- Peças só do celular ---------------------------------------------------- */
+
+.filtros-m__abrir,
+.filtros-m__ativos,
+.filtros-mov__sentinela { display: none; }
+
+@media (max-width: 720px) {
+  /* sem caixa própria: a barra gruda ao longo da seção inteira, não só do bloco de filtros */
+  .filtros-mov { --pad-x: 18px; display: contents; }
+  .filtros-mov .filtros-desk { display: none; }
+
+  /* acima da barra: se ele sai da tela, a barra está grudada no topo */
+  .filtros-mov__sentinela { display: block; height: 1px; margin-bottom: -1px; }
+
+  .filtros-mov .filtros-mov__barra {
+    position: sticky; top: 0; z-index: 30;
+    flex-wrap: nowrap; gap: 8px;
+    margin: 0 calc(-1 * var(--pad-x)) 12px;
+    padding: 8px var(--pad-x);
+    padding-top: max(8px, env(safe-area-inset-top, 0px));
+    background: var(--bg);
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .filtros-mov .filtros-mov__barra.is-grudada {
+    border-bottom-color: var(--line);
+    box-shadow: 0 10px 24px -18px rgba(var(--shadow-rgb), 0.35);
+  }
+  .filtros-mov .busca { min-width: 0; flex: 1 1 auto; }
+  .filtros-mov .busca .search { height: 46px; font-size: 16px; }
+
+  .filtros-m__abrir {
+    flex: none; position: relative;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    height: 46px; min-width: 46px; padding: 0 14px;
+    border-radius: 13px; border: 1px solid rgba(var(--ink-rgb), 0.1);
+    background: var(--surface-soft); color: var(--ink);
+    font-size: 14px; font-weight: 600;
+  }
+  .filtros-m__abrir svg { width: 18px; height: 18px; color: var(--muted-2); }
+  .filtros-m__abrir.is-on { border-color: rgba(var(--accent-rgb), 0.45); background: rgba(var(--accent-rgb), 0.1); }
+  .filtros-m__abrir.is-on svg { color: var(--accent-ink); }
+  .filtros-m__badge {
+    min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+    display: grid; place-items: center;
+    background: var(--accent); color: #fff; font-size: 11.5px; font-weight: 700; line-height: 1;
+  }
+
+  /* chips dos filtros ligados: uma linha só, rolando para o lado */
+  .filtros-m__ativos {
+    display: flex; gap: 8px;
+    margin: -4px calc(-1 * var(--pad-x)) 14px;
+    padding: 2px var(--pad-x);
+    overflow-x: auto; overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .filtros-m__ativos::-webkit-scrollbar { display: none; }
+  /* esmaece a borda direita: sinal de que a linha continua ao rolar */
+  .filtros-m__ativos { mask-image: linear-gradient(to right, #000 calc(100% - var(--pad-x)), transparent); }
+  .filtro-ativo {
+    flex: none; position: relative;
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 40px; padding: 0 10px 0 14px; border-radius: 999px;
+    border: 1px solid rgba(var(--accent-rgb), 0.45); background: rgba(var(--accent-rgb), 0.1);
+    color: var(--ink); font-size: 13.5px; font-weight: 600; white-space: nowrap;
+  }
+  /* completa a área de toque até 44px sem mudar o visual */
+  .filtro-ativo::after { content: ""; position: absolute; inset: -2px 0; }
+  .filtro-ativo svg { width: 15px; height: 15px; color: var(--accent-ink); }
+  .filtro-ativo--limpar { padding: 0 14px; border-color: rgba(var(--ink-rgb), 0.12); background: transparent; color: var(--muted-2); }
+  .filtro-ativo--acao { padding: 0 14px 0 12px; border-color: rgba(var(--in-rgb), 0.4); background: transparent; color: var(--in-ink); }
+  .filtro-ativo--acao svg { color: currentColor; }
+  /* a ação de pagar vai para o fim da linha, separada dos filtros */
+  .filtro-ativo--acao:not(:first-child) { margin-left: auto; }
+
+  /* com os filtros na barra, o título da lista sobe */
+  .filtros-mov + .table-head-row { margin-top: 2px; }
+}
+
+@media (max-width: 380px) {
+  .filtros-mov { --pad-x: 14px; }
+  /* só o ícone (com a contagem): sobra espaço para a busca */
+  .filtros-m__abrir { padding: 0; width: 46px; }
+  .filtros-m__rotulo { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .filtros-m__badge { position: absolute; top: -6px; right: -6px; box-shadow: 0 0 0 2px var(--bg); }
+}
+
+/* ---- Folha inferior de filtros (celular) ---------------------------------- */
+
+.folha-fundo {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(var(--shadow-rgb), 0.34);
+  backdrop-filter: blur(4px);
+  animation: mFade 0.2s ease both;
+}
+.folha-filtros {
+  width: 100%; max-width: 560px;
+  max-height: min(88dvh, 760px);
+  display: flex; flex-direction: column;
+  border-radius: 24px 24px 0 0;
+  border: 1px solid rgba(var(--ink-rgb), 0.1); border-bottom: 0;
+  background: var(--surface); color: var(--ink);
+  box-shadow: 0 -30px 60px -30px rgba(var(--shadow-rgb), 0.4);
+  animation: folhaSobe 0.32s var(--ease) both;
+}
+@keyframes folhaSobe { from { transform: translateY(100%); } to { transform: none; } }
+.folha-filtros__alca { flex: none; width: 40px; height: 4px; margin: 10px auto 0; border-radius: 99px; background: rgba(var(--ink-rgb), 0.16); }
+.folha-filtros__topo { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 10px 2px 20px; }
+.folha-filtros__titulo { margin: 0; font-family: var(--font-display); font-size: 19px; font-weight: 500; letter-spacing: -0.02em; }
+.folha-filtros__fechar {
+  width: 44px; height: 44px; display: grid; place-items: center;
+  border: 0; border-radius: 12px; background: transparent; color: var(--muted-2);
+}
+.folha-filtros__fechar svg { width: 20px; height: 20px; }
+.folha-filtros__fechar:hover { color: var(--ink); }
+
+.folha-filtros__corpo {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: 20px;
+  padding: 8px 20px 20px;
+}
+.folha-grupo { min-width: 0; margin: 0; padding: 0; border: 0; }
+.folha-grupo legend {
+  margin-bottom: 10px; padding: 0;
+  font-size: 11.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint);
+}
+.folha-opcoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.folha-opcoes--seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.folha-opcoes--duas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.folha-opcao {
+  min-width: 0; min-height: 44px; padding: 0 14px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border-radius: 12px; border: 1px solid rgba(var(--ink-rgb), 0.12);
+  background: transparent; color: var(--muted-2);
+  font-size: 14px; font-weight: 600; text-align: center;
+}
+.folha-opcao.is-on { border-color: rgba(var(--accent-rgb), 0.5); background: rgba(var(--accent-rgb), 0.12); color: var(--ink); }
+.folha-opcoes--seg .folha-opcao { padding: 0 6px; }
+.folha-opcao--pessoa { justify-content: flex-start; padding: 0 12px 0 8px; }
+.folha-opcao__texto { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.folha-opcao__n { margin-left: auto; font-size: 12px; color: var(--faint); }
+.folha-opcao__icone { width: 16px; height: 16px; flex: none; }
+
+.folha-filtros__rodape {
+  flex: none; display: flex; gap: 10px;
+  padding: 12px 20px calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--line);
+}
+.folha-filtros__rodape .btn { min-height: 48px; padding: 0 18px; font-size: 15px; }
+.folha-filtros__limpar:disabled { opacity: 0.45; cursor: default; }
+.folha-filtros__ver { flex: 1; }
+
+@media (max-width: 380px) {
+  .folha-filtros__corpo { padding-inline: 14px; }
+  .folha-filtros__rodape { padding-inline: 14px; }
+  .folha-opcao { font-size: 13.5px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .folha-fundo, .folha-filtros { animation: none; }
+  .filtros-mov .filtros-mov__barra, .busca__icone { transition: none; }
+}

@@ -19,17 +19,19 @@ interface Props {
   notificacoes?: { novas: number; aberto: boolean; onToggle: () => void };
 }
 
-const AVATAR_PADRAO = (
-  <svg width="46" height="46" viewBox="0 0 46 46" role="img" aria-label="Foto de perfil">
-    <rect width="46" height="46" fill="#cfd6ea" />
-    <circle cx="23" cy="18" r="7.6" fill="#8e99bd" />
-    <path d="M6.5 46c1.6-9.4 8.6-14.4 16.5-14.4S38 36.6 39.5 46z" fill="#8e99bd" />
-  </svg>
-);
+export function AvatarPadrao() {
+  return (
+    <svg width="46" height="46" viewBox="0 0 46 46" role="img" aria-label="Foto de perfil">
+      <rect width="46" height="46" fill="#cfd6ea" />
+      <circle cx="23" cy="18" r="7.6" fill="#8e99bd" />
+      <path d="M6.5 46c1.6-9.4 8.6-14.4 16.5-14.4S38 36.6 39.5 46z" fill="#8e99bd" />
+    </svg>
+  );
+}
 
 export function Topbar({
   periodo, limitePct, drawerOn, onToggleDrawer, tema, onToggleTheme,
-  nome = "Vitor Gomes", conta = "Conta pessoal", avatar = AVATAR_PADRAO, perfilHref = "/ajustes", notificacoes,
+  nome = "Vitor Gomes", conta = "Conta pessoal", avatar = <AvatarPadrao />, perfilHref = "/ajustes", notificacoes,
 }: Props) {
   const rotuloTema = tema === "escuro" ? "Usar tema claro" : "Usar tema escuro";
 
