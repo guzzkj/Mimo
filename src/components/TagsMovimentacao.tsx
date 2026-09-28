@@ -10,7 +10,7 @@ export function TagsMovimentacao({ item }: { item: Item }) {
     <span className="tags-mini">
       {parcela && <span className="tag-mini" title={`Parcela ${parcela.n} de ${parcela.total}`}>{`${parcela.n}/${parcela.total}`}</span>}
       {meio === "cartao" && <span className="tag-mini tag-mini--cartao" title="Pago no cartão de crédito"><CreditCard aria-hidden="true" />Cartão</span>}
-      {recorrente && <span className="tag-mini" title="Repete todo mês"><Repeat aria-hidden="true" />Mensal</span>}
+      {recorrente && <span className="tag-mini tag-mini--recorrente" title="Repete todo mês"><Repeat aria-hidden="true" />Mensal</span>}
     </span>
   );
 }

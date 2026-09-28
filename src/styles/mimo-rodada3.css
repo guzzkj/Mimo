@@ -188,8 +188,13 @@
   .table__desc { flex-wrap: nowrap; }
   .table__desc strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .table__desc .tags-mini { flex: none; }
-  .table__desc .tag-mini--cartao { font-size: 0; gap: 0; padding: 2px 5px; }
-  .table__desc .tag-mini--cartao svg { width: 12px; height: 12px; }
+  /* ícone não encolhe quando a descrição aperta (em 320px ficava achatado) */
+  .table__desc .badge { flex: none; }
+  /* cartão e recorrente só com ícone: o texto segue no title e no DOM */
+  .table__desc .tag-mini--cartao,
+  .table__desc .tag-mini--recorrente { font-size: 0; gap: 0; padding: 2px 5px; }
+  .table__desc .tag-mini--cartao svg,
+  .table__desc .tag-mini--recorrente svg { width: 12px; height: 12px; }
   .filters--extra { margin-top: -10px; }
   .projecao__area { height: 140px; }
 }
