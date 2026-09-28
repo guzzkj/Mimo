@@ -67,6 +67,10 @@
   /* --- estrutura --- */
 
   .main { padding: 24px 18px 132px; }
+  /* overflow-x: hidden transforma .app e .main em contêineres de rolagem e
+     anula o position: sticky dos filhos (barra de busca das movimentações);
+     clip corta o excesso do mesmo jeito sem esse efeito colateral */
+  .app, .main { overflow-x: clip; }
   .view--overview { gap: 30px; }
   .section { padding-top: 28px; }
   .section__head { margin-bottom: 22px; }
