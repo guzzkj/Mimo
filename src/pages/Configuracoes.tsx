@@ -437,7 +437,9 @@ export default function Configuracoes() {
   const rc = (x: number) => (x >= 0 ? { rCor: "var(--in-ink)", rBg: "var(--in-soft)", rLine: "var(--in-line)" } : { rCor: "var(--out-ink)", rBg: "var(--out-soft)", rLine: "var(--out-line)" });
   const n2 = (v: number) => (s.privado ? "••••" : v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
   const rcT = rc(rTot);
-  const colunas = cp ? "minmax(0, 1fr) auto auto" : "minmax(0, 2fr) repeat(4, minmax(0, 1fr)) 90px";
+  // No compacto, valor e rentabilidade empilham numa coluna só, para sobrar
+  // largura ao nome do ativo; no desktop a coluna Valor não encolhe abaixo do texto.
+  const colunas = cp ? "minmax(0, 1fr) auto" : "minmax(0, 2fr) repeat(3, minmax(0, 1fr)) minmax(max-content, 1fr) 90px";
   const novoAtivo = () => setS((x) => ({ ...x, modal: "ativo", editAtivo: null, confirmAtivo: false, tentou: { ...x.tentou, ativo: false }, forms: { ...x.forms, ativo: { ...VAZIO.ativo, dono: duoDe(x) && x.invView === "suelen" ? "suelen" : "gustavo" } } }));
 
   // ---- notificações ------------------------------------------------------------------
@@ -630,7 +632,7 @@ export default function Configuracoes() {
                 </aside>
               )}
               <div key={secaoKey} style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 18, animation: "mmRiseC .5s cubic-bezier(.2,.8,.2,1) both" }}>
-                {cp && <button type="button" onClick={() => ir("config")} style={{ alignSelf: "flex-start", padding: 0, border: "none", background: "transparent", color: "var(--accent-ink)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>← Ajustes</button>}
+                {cp && <button type="button" onClick={() => ir("config")} style={{ alignSelf: "flex-start", padding: "12px 0", margin: "-12px 0", border: "none", background: "transparent", color: "var(--accent-ink)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>← Ajustes</button>}
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   <h1 style={{ margin: 0, fontFamily: SORA, fontSize: 30, fontWeight: 300, letterSpacing: "-.04em" }}>{(SECOES.find((x) => x[0] === t) || [])[1]}</h1>
                   <p style={{ margin: 0, maxWidth: 620, fontSize: 14, lineHeight: 1.6, color: "var(--muted2)", textWrap: "pretty" }}>{SUB[t]}</p>
@@ -927,7 +929,7 @@ export default function Configuracoes() {
                         <div key={o.k} style={{ display: "flex", flexDirection: "column", gap: 12, padding: "16px 0", borderBottom: "1px solid var(--line-soft)" }}>
                           <button type="button" role="switch" aria-checked={on} onClick={() => setP(o.k, !on as Prefs[typeof o.k])} style={{ display: "flex", alignItems: "center", gap: 14, padding: 0, border: "none", background: "transparent", color: "var(--ink)", textAlign: "left", cursor: "pointer" }}>
                             <span style={{ flex: "none", width: 36, height: 36, borderRadius: 11, display: "grid", placeItems: "center", background: on ? "var(--accent-soft)" : "var(--line-soft)", color: on ? "var(--accent-ink)" : "var(--faint)", transition: "background .2s ease, color .2s ease" }}><Ic d={o.ic} size={17} /></span>
-                            <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}><span style={{ fontSize: 14, fontWeight: 700 }}>{o.label}</span><span style={{ fontSize: 12.5, lineHeight: 1.45, color: "var(--muted2)" }}>{o.desc}</span></span>
+                            <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}><span style={{ fontSize: 14, fontWeight: 700 }}>{o.label}</span><span style={{ fontSize: 12.5, lineHeight: 1.45, color: "var(--muted2)", overflowWrap: "anywhere" }}>{o.desc}</span></span>
                             <Chave on={on} />
                           </button>
                           {o.chips && (
@@ -1022,7 +1024,7 @@ export default function Configuracoes() {
                     <div style={{ ...CARTAO, padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
                       <span style={OLHO}>{view === "casal" ? "Carteira do casal" : view === "suelen" ? "Carteira de Suelen" : "Sua carteira"}</span>
                       <div style={{ display: "flex", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
-                        <span key={view} style={{ fontFamily: SORA, fontSize: 44, fontWeight: 300, letterSpacing: "-.045em", lineHeight: 1, animation: "mmFade .3s ease both" }}>{fmt(T.v)}</span>
+                        <span key={view} style={{ fontFamily: SORA, fontSize: "clamp(34px, 11vw, 44px)", fontWeight: 300, letterSpacing: "-.045em", lineHeight: 1, animation: "mmFade .3s ease both" }}>{fmt(T.v)}</span>
                         <span style={{ marginBottom: 5, padding: "4px 10px", borderRadius: 999, border: `1px solid ${rcT.rLine}`, background: rcT.rBg, color: rcT.rCor, fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap" }}>{pc(rTot) + " no total"}</span>
                       </div>
                       <div style={{ display: "flex", flexWrap: "wrap", columnGap: 28, rowGap: 10, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
@@ -1059,13 +1061,13 @@ export default function Configuracoes() {
                   </section>
                   <div style={{ ...CARTAO, padding: "8px 22px", display: "flex", flexDirection: "column" }}>
                     {!cp && (
-                      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) repeat(4, minmax(0, 1fr)) 90px", gap: 12, padding: "12px 0", borderBottom: "1px solid var(--line)", fontSize: 11, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--faint)" }}>
+                      <div style={{ display: "grid", gridTemplateColumns: colunas, gap: 12, padding: "12px 0", borderBottom: "1px solid var(--line)", fontSize: 11, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--faint)" }}>
                         <span>Ativo</span><span style={{ textAlign: "right" }}>Qtd</span><span style={{ textAlign: "right" }}>Preço médio</span><span style={{ textAlign: "right" }}>Atual</span><span style={{ textAlign: "right" }}>Valor</span><span style={{ textAlign: "right" }}>Rent.</span>
                       </div>
                     )}
                     {lista.slice().sort((x, y) => y.valor - x.valor).map((a, i) => (
-                      <button key={a.id} type="button" className="mm-h-linha" onClick={() => setS((x) => ({ ...x, modal: "ativo", editAtivo: a.id, confirmAtivo: false, tentou: { ...x.tentou, ativo: false }, forms: { ...x.forms, ativo: { tipo: a.tipo, ticker: a.ticker, qtd: String(a.qtd), pm: String(a.pm).replace(".", ","), atual: a.atual ? String(a.atual).replace(".", ",") : "", dono: a.dono } } }))} style={{ display: "grid", gridTemplateColumns: colunas, gap: 12, alignItems: "center", minHeight: 62, padding: "8px 0", border: "none", borderBottom: "1px solid var(--line-soft)", borderRadius: 0, background: a.novo ? "var(--accent-soft)" : "transparent", color: "var(--ink)", textAlign: "left", cursor: "pointer", fontSize: 13.5, animation: `mmFade .35s ${i * 0.04}s ease both` }}>
-                        <span style={{ display: "flex", alignItems: "center", gap: 11, minWidth: 0 }}>
+                      <button key={a.id} type="button" className="mm-h-linha" onClick={() => setS((x) => ({ ...x, modal: "ativo", editAtivo: a.id, confirmAtivo: false, tentou: { ...x.tentou, ativo: false }, forms: { ...x.forms, ativo: { tipo: a.tipo, ticker: a.ticker, qtd: String(a.qtd), pm: String(a.pm).replace(".", ","), atual: a.atual ? String(a.atual).replace(".", ",") : "", dono: a.dono } } }))} style={{ display: "grid", gridTemplateColumns: colunas, gap: cp ? "2px 12px" : 12, alignItems: "center", minHeight: 62, padding: "8px 0", border: "none", borderBottom: "1px solid var(--line-soft)", borderRadius: 0, background: a.novo ? "var(--accent-soft)" : "transparent", color: "var(--ink)", textAlign: "left", cursor: "pointer", fontSize: 13.5, animation: `mmFade .35s ${i * 0.04}s ease both` }}>
+                        <span style={{ display: "flex", alignItems: "center", gap: 11, minWidth: 0, gridRow: cp ? "span 2" : undefined }}>
                           <span style={{ position: "relative", flex: "none", width: 36, height: 36, borderRadius: 11, display: "grid", placeItems: "center", background: TIPOS[a.tipo][1], color: "#ffffff", fontSize: 10, fontWeight: 700 }}>
                             {{ acao: "AÇ", fii: "FII", etf: "ETF", rf: "RF" }[a.tipo]}
                             {duo && view === "casal" && <span style={{ position: "absolute", right: -4, bottom: -4, width: 16, height: 16, borderRadius: "50%", background: P[a.dono].av, boxShadow: "0 0 0 2px var(--surface)" }} />}
@@ -1082,8 +1084,8 @@ export default function Configuracoes() {
                             <span style={{ textAlign: "right", color: "var(--muted)" }}>{a.tipo === "rf" ? "—" : n2(a.preco)}</span>
                           </>
                         )}
-                        <span style={{ textAlign: "right", fontFamily: SORA, whiteSpace: "nowrap" }}>{fmt(a.valor)}</span>
-                        <span style={{ textAlign: "right", fontWeight: 700, color: a.r >= 0 ? "var(--in-ink)" : "var(--out-ink)", whiteSpace: "nowrap" }}>{pc(a.r)}</span>
+                        <span style={{ textAlign: "right", fontFamily: SORA, whiteSpace: "nowrap", alignSelf: cp ? "end" : undefined }}>{fmt(a.valor)}</span>
+                        <span style={{ textAlign: "right", fontWeight: 700, color: a.r >= 0 ? "var(--in-ink)" : "var(--out-ink)", whiteSpace: "nowrap", alignSelf: cp ? "start" : undefined, fontSize: cp ? 12.5 : undefined }}>{pc(a.r)}</span>
                       </button>
                     ))}
                     <span style={{ padding: "12px 0 14px", fontSize: 12, lineHeight: 1.5, color: "var(--faint)" }}>Ativos cadastrados manualmente. Cotações de fechamento de {dataBr(dataSeed(0, Math.max(1, DIA_HOJE - 1)))}. Toque em um ativo para editar.</span>
