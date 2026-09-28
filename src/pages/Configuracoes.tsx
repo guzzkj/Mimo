@@ -52,7 +52,7 @@ const P = {
   gustavo: { nome: "Gustavo", av: "#4e9e79", ini: "G", cor: "#4e9e79", tabby: false },
   suelen: { nome: "Suelen", av: "#e2a24f", ini: "S", cor: "#e2a24f", tabby: true },
 };
-const EMAIL = "gustavo.martins@gmail.com";
+const EMAIL = "gustavo.barros@gmail.com";
 const EMAIL_S = EMAIL_SUELEN;
 const IC = {
   perfil: "M12 12a4 4 0 1 0 0-8a4 4 0 1 0 0 8z M4.5 20a7.5 7.5 0 0 1 15 0",
@@ -92,14 +92,14 @@ const ATIVOS: Ativo[] = [
 const PREFS: Prefs = { conta: true, contaDias: 3, limite: true, limiteQuando: "80", meta: true, email: false, parceira: true };
 const COMP: Comp = { movs: true, metas: true, invest: false, renda: false };
 const VAZIO: Forms = {
-  perfil: { nome: "Gustavo Martins", email: EMAIL, avatar: 0 },
+  perfil: { nome: "Gustavo Barros", email: EMAIL, avatar: 0 },
   fin: { renda: "", limite: "" },
   cat: { nome: "", cor: PALETA[0] },
   convite: { email: "" },
   ativo: { tipo: "acao", ticker: "", qtd: "", pm: "", atual: "", dono: "gustavo" },
 };
 const CHEIO: Forms = {
-  perfil: { nome: "Gustavo Martins Lima", email: "gustavo.lima@gmail.com", avatar: 0 },
+  perfil: { nome: "Gustavo Barros Lima", email: "gustavo.lima@gmail.com", avatar: 0 },
   fin: { renda: "6.200", limite: "" },
   cat: { nome: "Academia", cor: "#5b8def" },
   convite: { email: EMAIL_S },
