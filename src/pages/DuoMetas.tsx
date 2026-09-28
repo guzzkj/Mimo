@@ -1030,7 +1030,7 @@ export default function DuoMetas() {
                 <div style={{ ...CARTAO, display: "flex", flexDirection: "column", gap: 14 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                     <span style={OLHO}>Divisão de despesas</span>
-                    <button type="button" onClick={() => ir("duo-divisao")} style={LINK_TEXTO}>Detalhes</button>
+                    <button type="button" className="alvo-toque" onClick={() => ir("duo-divisao")} style={LINK_TEXTO}>Detalhes</button>
                   </div>
                   <span style={{ fontFamily: SORA, fontSize: 21, fontWeight: 400, letterSpacing: "-.02em", lineHeight: 1.3 }}>{divStatus}</span>
                   <Barra partes={[{ w: pctW(dv.pG, dv.tot), cor: "#4e9e79" }, { w: pctW(dv.pS, dv.tot), cor: "#e2a24f" }]} anim="width .6s ease" />
@@ -1043,7 +1043,7 @@ export default function DuoMetas() {
                 <div style={{ ...CARTAO, display: "flex", flexDirection: "column", gap: 14 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                     <span style={OLHO}>Lazer do casal</span>
-                    <button type="button" onClick={abrirLazer} style={LINK_TEXTO}>{lim == null ? "Definir" : "Ajustar"}</button>
+                    <button type="button" className="alvo-toque" onClick={abrirLazer} style={LINK_TEXTO}>{lim == null ? "Definir" : "Ajustar"}</button>
                   </div>
                   {lim != null ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -1078,7 +1078,7 @@ export default function DuoMetas() {
                 <div style={{ ...CARTAO, display: "flex", flexDirection: "column", gap: 4 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 4 }}>
                     <span style={OLHO}>Últimas movimentações</span>
-                    <button type="button" onClick={() => ir("duo-movs")} style={LINK_TEXTO}>Ver todas</button>
+                    <button type="button" className="alvo-toque" onClick={() => ir("duo-movs")} style={LINK_TEXTO}>Ver todas</button>
                   </div>
                   {movs.slice(0, 5).map((it, i) => {
                     const rw = row(it);

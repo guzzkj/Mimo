@@ -90,7 +90,7 @@ export function ViewLista({
           className="search"
           id="busca"
           type="search"
-          placeholder="Buscar por descrição ou categoria"
+          placeholder="Buscar descrição ou categoria"
           value={query}
           onChange={(e) => onQuery(e.target.value)}
         />
