@@ -15,7 +15,7 @@ import { useTemaTela } from "../lib/tema";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 // convite de exemplo: vale 5 dias a partir de hoje
 const EXPIRA_CONVITE = new Date(Date.now() + 5 * 86400000);
-const V = { email: "gustavo.martins@gmail.com", senha: "mimo2026casa", nome: "Gustavo", renda: "6.800", emailParceiro: "suelen@gmail.com", mensagem: "Oi, Su! Vamos organizar as contas da casa juntos no Mimo?" };
+const V = { email: "gustavo.barros@gmail.com", senha: "mimo2026casa", nome: "Gustavo", renda: "6.800", emailParceiro: "suelen@gmail.com", mensagem: "Oi, Su! Vamos organizar as contas da casa juntos no Mimo?" };
 
 type Tela = "cadastro" | "login" | "recuperar" | "recuperar-enviado" | "verificar" | "plano" | "config" | "duo-escolha" | "duo-convidar" | "duo-enviado" | "duo-pendente" | "duo-convite" | "pronto";
 type Plano = "solo" | "duo";
@@ -591,7 +591,7 @@ export default function FluxoAcesso() {
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "16px 18px", borderRadius: 16, border: "1px solid var(--line)", background: "var(--field)" }}>
                     <p style={{ margin: 0, fontFamily: SORA, fontSize: 15, fontWeight: 300, lineHeight: 1.5, color: "var(--ink2)" }}>“Oi, Su! Vamos organizar as contas da casa juntos no Mimo?”</p>
-                    <span style={{ fontSize: 12, color: "var(--faint)" }}>Gustavo Martins · gustavo.martins@gmail.com</span>
+                    <span style={{ fontSize: 12, color: "var(--faint)" }}>Gustavo Barros · gustavo.barros@gmail.com</span>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 11, fontSize: 14, lineHeight: 1.5, color: "var(--muted)" }}>
                     {["Carteira da casa com saldo consolidado", "Divisão das despesas e quem pagou o quê", "Metas do casal, com a parte de cada um"].map((item) => (

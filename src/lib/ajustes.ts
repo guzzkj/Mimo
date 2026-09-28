@@ -48,8 +48,8 @@ const AVISOS: PrefsAvisos = { conta: true, contaDias: 3, limite: true, limiteQua
 
 const PADRAO: Record<ContaAjustes, Ajustes> = {
   solo: {
-    nome: "Gustavo Martins",
-    email: "gustavo.martins@gmail.com",
+    nome: "Gustavo Barros",
+    email: "gustavo.barros@gmail.com",
     avatar: 0,
     renda: 3200,
     limite: 2000,
@@ -63,8 +63,8 @@ const PADRAO: Record<ContaAjustes, Ajustes> = {
     lazerPendente: false,
   },
   duo: {
-    nome: "Gustavo Martins",
-    email: "gustavo.martins@gmail.com",
+    nome: "Gustavo Barros",
+    email: "gustavo.barros@gmail.com",
     avatar: 0,
     renda: 6200,
     limite: 6000,
