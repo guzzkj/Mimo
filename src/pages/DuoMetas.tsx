@@ -9,6 +9,7 @@ import { useDialogo } from "../hooks/useDialogo";
 import { useMimoApp } from "../hooks/useMimoApp";
 import { useTimers } from "../hooks/useTimers";
 import { categoriasDe, salvarAjustes } from "../lib/ajustes";
+import type { FiltroAutor } from "../lib/filtrosMovimentacoes";
 import { AUTORES, MOTOR_DUO, lerAcertos, nomeMes, resumoDuo, rotuloMes, salvarAcertos, useAcertos, type Acerto, type Regra } from "../lib/contaDuo";
 import { MESES } from "../lib/constants";
 import { DIA_HOJE, HOJE_ISO, MES_REF, PROXIMO_MES, dataBr, dataSeed } from "../lib/helpers";
@@ -1658,21 +1659,16 @@ export default function DuoMetas() {
   // filtro por autor: mesmos botões da tela antiga de movimentações do Duo
   const FIL: ["todos" | Autor, string, string, string][] = [["todos", "Todos", P.conjunta.av, ""], ["gustavo", "Eu", P.gustavo.av, "G"], ["suelen", "Suelen", P.suelen.av, "S"], ["conjunta", "Conta conjunta", P.conjunta.av, ""]];
   const itensDuo = app.state.itens;
-  const filtrosQuem = (
-    <div data-mimo="app" data-tema={tema} style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "-12px 0 26px", fontFamily: "'Manrope', system-ui, sans-serif" }}>
-      {FIL.map(([k, label, avc, ini]) => {
-        const on = app.state.quemFiltro === k;
-        const o = opcao(on);
-        return (
-          <button key={k} type="button" aria-pressed={on} onClick={() => app.actions.setFiltro({ quemFiltro: k })} style={{ height: 40, padding: "0 14px 0 8px", borderRadius: 999, border: `1px solid ${o.borda}`, background: o.bg, color: o.cor, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
-            <Avatar av={avc} ini={ini} size={24} fs={10.5} />
-            {label}
-            <span style={{ fontSize: 11.5, color: "var(--faint)" }}>{k === "todos" ? itensDuo.length : itensDuo.filter((x) => x.quem === k).length}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
+  const filtroAutor: FiltroAutor = {
+    valor: app.state.quemFiltro,
+    opcoes: FIL.map(([k, label, avc, ini]) => ({
+      valor: k,
+      label,
+      contagem: k === "todos" ? itensDuo.length : itensDuo.filter((x) => x.quem === k).length,
+      icone: <Avatar av={avc} ini={ini} size={24} fs={10.5} />,
+    })),
+    onChange: (v) => app.actions.setFiltro({ quemFiltro: v as "todos" | Autor }),
+  };
   const colunaQuem = {
     titulo: "Quem",
     celula: (it: Item) => {
@@ -1696,7 +1692,7 @@ export default function DuoMetas() {
     >
       {t === "duo-movs" ? (
         <ViewLista
-          filtrosExtras={filtrosQuem}
+          filtroAutor={filtroAutor}
           colunaExtra={colunaQuem}
           derivado={app.derivado}
           itensTotal={app.state.itens.length}
