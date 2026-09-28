@@ -141,8 +141,8 @@
   }
 }
 
-/* Painel principal: atalhos do dock para Metas e Configurações só no desktop.
-   No mobile o dock já usa toda a largura; lá o acesso é pelo avatar do topo. */
+/* Destinos extras (Metas, Investimentos, Ajustes...) só no dock do desktop.
+   No mobile o dock já usa toda a largura; lá eles ficam no menu de tela cheia. */
 @media (max-width: 720px) {
   .dock__slot--extra { display: none; }
 }

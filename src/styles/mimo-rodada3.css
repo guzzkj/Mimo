@@ -2,42 +2,95 @@
    Desfazer nos avisos, formulário Duo, painel lateral, projeção de saldo,
    calendário de vencimentos, comparativo de categorias e filtros da lista. */
 
-/* Dock: "Mais" só existe no celular; lá os destinos extras e o CSV vão para uma folha. */
+/* Dock: o botão "Menu" só existe no celular. Ele abre o menu de tela cheia
+   (MenuMobile), que substitui a Topbar e reúne destinos, conta e ferramentas. */
 .dock__slot--mais { display: none; }
 @media (max-width: 720px) {
   .dock__slot--mais { display: grid; }
 }
-.dock-mais {
+.dock__slot--mais .dock__button { position: relative; }
+.dock__badge {
+  position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--out); box-shadow: 0 0 0 2px var(--surface);
+}
+
+/* acima do dock (40) e abaixo das notificações (58), que o menu abre */
+.menu-m {
   position: fixed; inset: 0; z-index: 57;
-  display: flex; align-items: flex-end;
-  background: rgba(10, 12, 20, 0.42);
-  animation: mFade 0.2s ease both;
+  display: flex; flex-direction: column;
+  background: var(--bg);
+  animation: menuMEntra 0.24s var(--ease) both;
 }
-.dock-mais__folha {
-  width: 100%;
-  padding: 18px 16px calc(96px + env(safe-area-inset-bottom, 0px));
-  border-radius: 24px 24px 0 0;
+@keyframes menuMEntra { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .menu-m { animation: none; } }
+.menu-m__topo {
+  flex: none;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px;
+  border-bottom: 1px solid var(--line);
   background: var(--surface);
-  border-top: 1px solid var(--line);
-  box-shadow: 0 -20px 60px -30px rgba(var(--shadow-rgb), 0.5);
-  animation: dockMaisSobe 0.28s var(--ease) both;
 }
-@keyframes dockMaisSobe { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
-.dock-mais__topo { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.dock-mais__topo strong { font-family: var(--font-display); font-size: 17px; font-weight: 500; }
-.dock-mais__fechar { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 11px; border: 1px solid var(--line); background: transparent; color: var(--muted); }
-.dock-mais__fechar svg { width: 17px; height: 17px; }
-.dock-mais__grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
-.dock-mais__item {
-  display: flex; align-items: center; gap: 11px;
-  height: 56px; padding: 0 14px;
-  border-radius: 16px; border: 1px solid var(--line);
-  background: var(--surface-soft); color: var(--ink);
-  font: inherit; font-size: 14px; font-weight: 600; text-align: left;
+.menu-m__logo { height: 30px; }
+.menu-m__fechar {
+  flex: none; width: 44px; height: 44px; display: grid; place-items: center;
+  border-radius: 14px; border: 1px solid var(--line); background: transparent; color: var(--ink);
 }
-.dock-mais__item span { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: rgba(var(--accent-rgb), 0.1); color: var(--accent-ink); }
-.dock-mais__item svg { width: 17px; height: 17px; }
-.dock-mais__item.is-on { border-color: rgba(var(--accent-rgb), 0.45); }
+.menu-m__fechar svg { width: 20px; height: 20px; }
+.menu-m__corpo {
+  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  padding: 18px 16px calc(28px + env(safe-area-inset-bottom, 0px));
+}
+.menu-m__conta {
+  display: flex; align-items: center; gap: 14px; min-width: 0;
+  padding: 14px; border-radius: 20px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); text-decoration: none;
+}
+.menu-m__avatar { flex: none; width: 48px; height: 48px; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.16); }
+.menu-m__avatar svg { width: 48px; height: 48px; display: block; }
+.menu-m__nome { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.menu-m__nome strong { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-m__nome span { font-size: 12.5px; color: var(--muted); line-height: 1.35; overflow-wrap: anywhere; }
+.menu-m__seta { flex: none; width: 18px; height: 18px; color: var(--muted); }
+.menu-m__atalhos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.menu-m__atalho {
+  display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 56px;
+  padding: 10px 12px; border-radius: 16px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink);
+  font: inherit; font-size: 13.5px; font-weight: 600; text-align: left;
+}
+/* contador no canto do ícone: não disputa largura com o rótulo */
+.menu-m__atalho .menu-m__icone { position: relative; }
+.menu-m__badge {
+  position: absolute; top: -6px; right: -7px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 99px;
+  display: grid; place-items: center; background: var(--out); color: #ffffff; font-size: 10.5px; line-height: 1;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+@media (max-width: 360px) {
+  .menu-m__atalhos { grid-template-columns: minmax(0, 1fr); }
+}
+.menu-m__secao {
+  margin: 26px 4px 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+}
+.menu-m__lista {
+  display: grid; overflow: hidden;
+  border-radius: 20px; border: 1px solid var(--line); background: var(--surface);
+}
+.menu-m__item {
+  display: flex; align-items: center; gap: 14px; width: 100%; min-height: 56px; min-width: 0;
+  padding: 8px 14px; border: none; border-top: 1px solid var(--line);
+  background: transparent; color: var(--ink);
+  font: inherit; font-size: 15px; font-weight: 600; text-align: left;
+}
+.menu-m__item:first-child { border-top: none; }
+.menu-m__item.is-on { background: rgba(var(--accent-rgb), 0.1); }
+.menu-m__item.is-on .menu-m__icone { background: var(--accent-soft); color: var(--ink); }
+.menu-m__rotulo { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-m__icone {
+  flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 11px;
+  background: rgba(var(--accent-rgb), 0.1); color: var(--accent-ink);
+}
+.menu-m__icone svg { width: 18px; height: 18px; }
+.menu-m__item:active, .menu-m__atalho:active, .menu-m__conta:active { background: rgba(var(--accent-rgb), 0.14); }
 
 /* Aviso com ação (Desfazer) */
 .toast--acao { pointer-events: auto; }

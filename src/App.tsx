@@ -144,6 +144,16 @@ export default function App() {
           onTogglePrivacidade={actions.alternarPrivacidade}
           onExportarCsv={actions.exportarCsv}
           onNova={actions.abrirNova}
+          menu={{
+            nome: ajustes.nome,
+            conta: "Conta pessoal",
+            perfilHref: "/ajustes/perfil",
+            periodo,
+            limitePct: derivado.limitePct,
+            tema: state.tema,
+            onToggleTheme: actions.alternarTema,
+            notificacoes: { novas: naoLidas, onAbrir: () => setNotifAberto(true) },
+          }}
         />
 
         <Toasts toasts={toasts} />

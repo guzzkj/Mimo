@@ -5,7 +5,7 @@
    Cortes:
    1080px  tablet — o painel lateral vira sobreposição
     900px  o topo deixa de ser lado a lado
-    720px  celular — dock compacto, tabela em cartões, painel em tela cheia
+    720px  celular — sem topo, dock com menu, tabela em cartões, painel em tela cheia
     380px  celular pequeno
    hover:none  ajustes para toque, onde não existe passar o mouse
    ========================================================================== */
@@ -71,72 +71,31 @@
   .section { padding-top: 28px; }
   .section__head { margin-bottom: 22px; }
 
-  /* --- topo: uma linha só, sem o botão que o dock já oferece --- */
+  /* --- sem topo: logo, conta, tema e sino ficam no menu do dock
+         (MenuMobile), liberando a tela inteira para o conteúdo --- */
 
-  /* altura fixa: o painel lateral se ancora nela para começar logo abaixo */
-  :root { --topbar-h: 56px; }
-
-  /* fixed, e não sticky: .app tem overflow-x hidden, o que torna .app o
-     container de rolagem do sticky. Como quem rola é o documento, a barra
-     não grudava — subia junto com a página e deixava uma faixa de conteúdo
-     aparecendo acima do painel lateral. */
-  .app { padding-top: var(--topbar-h); }
-  .topbar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: var(--topbar-h);
-    padding: 0 16px;
-    column-gap: 14px;
-    flex-wrap: nowrap;
-    overflow: hidden;
-    /* opaca e acima do escurecimento do painel (35): translúcida, o conteúdo
-       da página aparecia por trás e a faixa ficava suja com o painel aberto */
-    z-index: 36;
-    background: var(--surface);
-    backdrop-filter: none;
-  }
-  .topbar__brand { gap: 0; min-width: 0; }
-  .topbar__logo { height: 32px; }
-  .drawer-toggle { display: none; }
-  /* o percentual do limite já aparece inteiro no painel lateral */
-  .topbar__limit { display: none; }
-
-  .topbar__meta { flex-wrap: nowrap; gap: 10px; min-width: 0; }
-  .topbar__period {
-    font-size: 11.5px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .theme-toggle { flex: none; width: 34px; height: 34px; border-radius: 11px; }
-  .theme-toggle svg { width: 16px; height: 16px; }
-  .topbar__user { flex: none; padding-left: 10px; gap: 0; }
+  .topbar { display: none; }
+  .main { padding-top: calc(24px + env(safe-area-inset-top, 0px)); }
   .mes-nav__label { min-width: 108px; font-size: 12.5px; }
   .mes-nav__seta { width: 26px; height: 26px; }
   .mes-nav__seta svg { width: 14px; height: 14px; }
   .mes-nav__hoje { margin-left: 2px; padding: 4px 8px; font-size: 11px; }
-  .topbar__name { display: none; }
-  .topbar__avatar { width: 34px; height: 34px; box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.16); }
-  .topbar__avatar svg { width: 34px; height: 34px; }
 
   /* --- painel lateral em tela cheia; o dock (z-index 40) fica por cima
          e continua sendo o jeito de fechar --- */
 
   .drawer {
     position: fixed;
-    top: var(--topbar-h);
+    top: 0;
     right: 0;
     bottom: 0;
     left: 0;
     width: 100%;
     /* abaixo do dock (40), que continua sendo o jeito de fechar o painel */
     z-index: 35;
-    padding: 34px 20px 150px;
+    padding: calc(34px + env(safe-area-inset-top, 0px)) 20px 150px;
     border-right: none;
-    border-top: 1px solid var(--line);
-    /* o painel já cobre tudo abaixo do cabeçalho; o escurecimento do bloco
+    /* o painel já cobre a tela inteira; o escurecimento do bloco
        de 1080px não teria o que escurecer aqui */
     box-shadow: none;
     animation: mFade 0.25s ease both;
@@ -294,9 +253,7 @@
     padding: 7px 8px;
     border-radius: 20px;
   }
-  /* nas telas de Metas, Investimentos e Ajustes o destino ativo continua no
-     dock além do "Mais": com 9 botões os slots encolhem juntos em vez de
-     empurrar o "+" para fora da tela */
+  /* os slots encolhem juntos em vez de empurrar o "+" para fora da tela */
   .dock__slot { flex: 0 1 42px; min-width: 0; }
   .dock__button { width: 100%; max-width: 42px; height: 42px; border-radius: 13px; }
   .dock__button svg { width: 19px; height: 19px; }
@@ -351,11 +308,8 @@
 /* ---------- 380px: celular pequeno -------------------------------------- */
 
 @media (max-width: 380px) {
-  .main { padding: 20px 14px 128px; }
+  .main { padding: calc(20px + env(safe-area-inset-top, 0px)) 14px 128px; }
   .band::before, .kpis::before { left: -14px; right: -14px; }
-
-  /* em tela muito estreita o período cede espaço antes de empurrar os botões */
-  .topbar__period { font-size: 11px; }
 
   .hero__value { font-size: 36px; }
   .stats { grid-template-columns: 1fr 1fr; column-gap: 12px; }

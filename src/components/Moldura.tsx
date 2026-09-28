@@ -75,7 +75,7 @@ export function Moldura({ conta, app, ativo, onNavegar, onPrivacidade, autores, 
     navigate(rota, state ? { state } : undefined);
   };
   const item = (id: DestinoDock, label: string, icon: ReactNode, rota: string, extra: boolean, state?: unknown): DockNavItem => ({
-    id, label, icon, on: ativo === id && !notifAberto, extra: extra && ativo !== id, onClick: () => ir(id, rota, state),
+    id, label, icon, on: ativo === id && !notifAberto, extra, onClick: () => ir(id, rota, state),
   });
   const soloView = (view: "geral" | "lista" | "categorias") => ({ view });
 
@@ -101,6 +101,9 @@ export function Moldura({ conta, app, ativo, onNavegar, onPrivacidade, autores, 
     ];
 
   const [ano, mes] = app.state.mesRef.split("-");
+  const periodo = `${MESES_LONGOS[Number(mes) - 1]} de ${ano}`;
+  const identidade = duo ? { nome: "Gustavo e Suelen", conta: "Conta Duo", avatar: AVATAR_DUO } : { nome: app.ajustes.nome };
+  const alternarTema = (botao: HTMLElement) => aplicarEscolhaTema(tema === "escuro" ? "claro" : "escuro", botao);
   const alternarPrivacidade = () => { app.actions.alternarPrivacidade(); onPrivacidade?.(); };
 
   return (
@@ -108,14 +111,14 @@ export function Moldura({ conta, app, ativo, onNavegar, onPrivacidade, autores, 
       <MascotDefs />
       <div className="app">
         <Topbar
-          periodo={`${MESES_LONGOS[Number(mes) - 1]} de ${ano}`}
+          periodo={periodo}
           limitePct={app.derivado.limitePct}
           drawerOn={app.state.drawer}
           onToggleDrawer={app.actions.alternarPainel}
           tema={tema}
-          onToggleTheme={(botao) => aplicarEscolhaTema(tema === "escuro" ? "claro" : "escuro", botao)}
+          onToggleTheme={alternarTema}
           perfilHref="/ajustes/perfil"
-          {...(duo ? { nome: "Gustavo e Suelen", conta: "Conta Duo", avatar: AVATAR_DUO } : { nome: app.ajustes.nome })}
+          {...identidade}
           notificacoes={{ novas: naoLidas, aberto: notifAberto, onToggle: () => setNotif(!notifAberto) }}
         />
 
@@ -140,6 +143,16 @@ export function Moldura({ conta, app, ativo, onNavegar, onPrivacidade, autores, 
           onTogglePrivacidade={alternarPrivacidade}
           onExportarCsv={app.actions.exportarCsv}
           onNova={app.actions.abrirNova}
+          menu={{
+            conta: "Conta pessoal",
+            ...identidade,
+            perfilHref: "/ajustes/perfil",
+            periodo,
+            limitePct: app.derivado.limitePct,
+            tema,
+            onToggleTheme: alternarTema,
+            notificacoes: { novas: naoLidas, onAbrir: () => setNotif(true) },
+          }}
         />
 
         <Toasts toasts={app.toasts} />
