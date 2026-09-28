@@ -272,7 +272,8 @@ type Erros = Record<string, string>;
 
 const TRANSICAO_PAGINA: CSSProperties = { animation: "mmRise .6s cubic-bezier(.2,.8,.2,1) both" };
 const H1: CSSProperties = { margin: 0, fontFamily: SORA, fontSize: 32, fontWeight: 300, letterSpacing: "-.04em" };
-const VOLTAR: CSSProperties = { alignSelf: "flex-start", padding: 0, border: "none", background: "transparent", color: "var(--accent-ink)", fontSize: 13, fontWeight: 700, cursor: "pointer" };
+// padding + margem negativa: área de toque de 44px sem mudar o layout
+const VOLTAR: CSSProperties = { alignSelf: "flex-start", padding: "12px 0", margin: "-12px 0", border: "none", background: "transparent", color: "var(--accent-ink)", fontSize: 13, fontWeight: 700, cursor: "pointer" };
 const LINHA: CSSProperties = { display: "flex", alignItems: "center", borderBottom: "1px solid var(--line-soft)" };
 
 function Barra({ partes, h = 8, marcos, anim }: { partes: { w: string; cor: string; op?: string }[]; h?: number; marcos?: string[]; anim?: string }) {
@@ -1000,7 +1001,7 @@ export default function DuoMetas() {
                     ))}
                   </div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 14 }}>
                   {[
                     { ...P.gustavo, tag: "Você", soft: "var(--solo-soft)", ink: "var(--solo-ink)", exp: gExp, dados: r.gustavo, nota: r.gustavo.privados ? "Inclui " + r.gustavo.privados + (r.gustavo.privados === 1 ? " lançamento privado seu." : " lançamentos privados seus.") : "" },
                     { ...P.suelen, tag: "Parceira", soft: "var(--duo-soft)", ink: "var(--duo-ink)", exp: sExp, dados: r.suelen, nota: r.suelen.privados ? "Inclui " + r.suelen.privados + (r.suelen.privados === 1 ? " lançamento privado dela." : " lançamentos privados dela.") : "" },
@@ -1008,12 +1009,12 @@ export default function DuoMetas() {
                     <div key={p.nome} style={{ position: "relative", paddingTop: 62, minWidth: 0, animation: `mmRise .6s ${0.08 + i * 0.07}s cubic-bezier(.2,.8,.2,1) both` }}>
                       <div style={{ position: "absolute", top: 0, left: "50%", width: 92, transform: "translateX(-50%)", pointerEvents: "none" }}><Gato cor={p.cor} tabby={p.tabby} expressao={p.exp} /></div>
                       <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 11, padding: "18px 16px 16px", borderRadius: 22, border: "1px solid var(--line)", background: "var(--surface)", boxShadow: "0 18px 40px -30px var(--shadow)" }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                           <span style={{ fontFamily: SORA, fontSize: 15, fontWeight: 500 }}>{p.nome}</span>
                           <span style={{ padding: "3px 9px", borderRadius: 999, background: p.soft, color: p.ink, fontSize: 11, fontWeight: 700 }}>{p.tag}</span>
                         </div>
                         {[{ k: "Entrou", v: fmt(p.dados.entrou), cor: "var(--in-ink)" }, { k: "Gastou", v: fmt(p.dados.gastou), cor: "var(--ink)" }].map((ln) => (
-                          <div key={ln.k} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12.5 }}>
+                          <div key={ln.k} style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", columnGap: 8, rowGap: 2, fontSize: 12.5 }}>
                             <span style={{ color: "var(--muted)" }}>{ln.k}</span>
                             <span style={{ fontWeight: 700, color: ln.cor, whiteSpace: "nowrap" }}>{ln.v}</span>
                           </div>
@@ -1513,7 +1514,7 @@ export default function DuoMetas() {
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "baseline", flexWrap: "wrap", gap: 10 }}>
-                      <span style={{ fontFamily: SORA, fontSize: 44, fontWeight: 300, letterSpacing: "-.045em", lineHeight: 1 }}>{detalhe.guardado}</span>
+                      <span style={{ fontFamily: SORA, fontSize: "clamp(34px, 11vw, 44px)", fontWeight: 300, letterSpacing: "-.045em", lineHeight: 1 }}>{detalhe.guardado}</span>
                       <span style={{ fontSize: 14, color: "var(--muted2)" }}>de {detalhe.alvo}</span>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1524,7 +1525,7 @@ export default function DuoMetas() {
                       </div>
                     </div>
                     {duo && (
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 170px), 1fr))", gap: 10 }}>
                         {detalhe.contrib.map((cc) => (
                           <div key={cc.ini} style={{ display: "flex", alignItems: "center", gap: 10, padding: 12, borderRadius: 16, background: cc.soft }}>
                             <Avatar av={cc.av} ini={cc.ini} size={30} fs={12} />
