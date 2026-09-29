@@ -9,6 +9,15 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600&family=Manrope:wght@400;500;600;700&display=swap" />
     <link rel="icon" href="/assets/nav.png" />
+    <!-- App instalável (PWA): manifesto, ícone da tela inicial e cor da barra do sistema -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="theme-color" content="#f5f6fb" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0d0f16" media="(prefers-color-scheme: dark)" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Mimo" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <script>
       // Aplica o tema antes da primeira pintura, senão a tela pisca clara
       // por um instante quando a preferência salva é escura.

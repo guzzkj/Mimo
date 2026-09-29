@@ -1,0 +1,143 @@
+/* Convite para instalar o app (PWA). Folha que sobe de baixo no celular,
+   com o mascote espiando por cima da borda, como no cartão do painel. */
+
+.instalar {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  align-items: end;
+  justify-items: center;
+  padding: 72px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: rgba(var(--shadow-rgb), 0.34);
+  backdrop-filter: blur(8px);
+  animation: mFade 0.25s ease both;
+}
+
+.instalar__folha {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 84px);
+  max-height: calc(100dvh - 84px);
+  border-radius: 26px;
+  border: 1px solid rgba(var(--ink-rgb), 0.12);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 -20px 60px -30px rgba(var(--shadow-rgb), 0.35);
+  animation: instalarSobe 0.45s var(--ease) both;
+}
+/* A rolagem fica num filho: overflow na própria folha cortaria o gato,
+   que fica para fora da borda de cima. */
+.instalar__conteudo {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 58px 22px 14px;
+  border-radius: inherit;
+}
+
+/* O gato fica "sentado" na borda de cima da folha. */
+.instalar__gato {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 108px;
+  transform: translate(-50%, -52%);
+  pointer-events: none;
+}
+.instalar__gato svg { display: block; width: 100%; height: auto; overflow: visible; }
+
+.instalar__titulo {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  text-align: center;
+  text-wrap: balance;
+}
+.instalar__sub {
+  margin: 0 auto;
+  max-width: 34ch;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+  text-align: center;
+  text-wrap: pretty;
+}
+
+.instalar__beneficios {
+  display: grid;
+  gap: 12px;
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.instalar__beneficios li { display: flex; align-items: flex-start; gap: 12px; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
+.instalar__beneficios strong { display: block; margin-bottom: 1px; font-size: 14px; font-weight: 700; color: var(--ink); }
+.instalar__icone {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+.instalar__icone svg { width: 19px; height: 19px; }
+
+.instalar__passos {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(var(--ink-rgb), 0.03);
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.instalar__passos-titulo { margin: 0 0 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--faint); }
+.instalar__passos ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.instalar__inline { display: inline-block; width: 16px; height: 16px; vertical-align: -3px; color: var(--accent-ink); }
+.instalar__nota { margin: 8px 0 0; font-size: 12.5px; color: var(--muted-2); }
+.instalar__nota--forte { margin: 0; font-size: 13.5px; color: var(--ink-2); }
+
+.instalar__acoes { display: flex; gap: 10px; margin-top: 20px; }
+.instalar__acoes .btn { flex: 1; padding: 14px 12px; text-align: center; }
+.instalar__btn-instalar { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.instalar__btn-instalar svg { width: 17px; height: 17px; }
+
+.instalar__nunca {
+  display: block;
+  margin: 6px auto 0;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--faint);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.instalar__nunca:hover { color: var(--ink-2); }
+
+.instalar .btn:focus-visible,
+.instalar__nunca:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+@keyframes instalarSobe { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: none; } }
+
+/* Tela larga (tablet em pé, por exemplo): folha centralizada */
+@media (min-width: 761px) {
+  .instalar { align-items: center; padding: 72px 32px 32px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .instalar, .instalar__folha { animation: none; }
+}
