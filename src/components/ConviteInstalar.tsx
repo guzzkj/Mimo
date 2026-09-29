@@ -62,7 +62,9 @@ export function ConviteInstalar() {
 
   if (!visivel) return null;
 
-  const modo = podeInstalarNativo ? "nativo" : ehNavegadorEmbutido() ? "embutido" : ehIOS() ? "ios" : "manual";
+  // iOS antes do prompt nativo: nenhum navegador do iOS instala por prompt,
+  // e a emulação do DevTools (UA de iPhone sobre Chrome) dispara o evento mesmo assim.
+  const modo = ehNavegadorEmbutido() ? "embutido" : ehIOS() ? "ios" : podeInstalarNativo ? "nativo" : "manual";
 
   return (
     <div className="instalar" onClick={(e) => { if (e.target === e.currentTarget) agoraNao(); }}>
