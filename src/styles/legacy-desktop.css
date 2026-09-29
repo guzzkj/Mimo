@@ -702,6 +702,8 @@ button:focus-visible {
   transform: rotateY(180deg);
   display: flex;
   flex-direction: column;
+  /* o verso tem a altura da frente (inset: 0): o que não couber fica dentro do cartão */
+  overflow: hidden;
   box-shadow: 0 3px 0 var(--card-edge-1), 0 8px 0 var(--card-edge-2), 0 34px 50px -22px rgba(var(--shadow-rgb), 0.3);
 }
 .card__head { display: flex; align-items: center; justify-content: space-between; }
@@ -716,7 +718,10 @@ button:focus-visible {
 .card__back-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
 .card__back-head span:first-child { font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
 .card__back-head span:last-child { font-size: 12px; color: var(--faint); }
-.card__list { flex: 1; display: flex; flex-direction: column; }
+.card__back-head, .card__face--back .card__foot { flex-shrink: 0; }
+/* min-height: 0 deixa o item flex encolher abaixo do conteúdo; a lista rola e o cabeçalho/rodapé ficam fixos */
+.card__list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; display: flex; flex-direction: column; }
+.card__list > * { flex-shrink: 0; }
 .card__row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(var(--ink-rgb), 0.07); }
 .card__row > span:first-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .card__row strong { display: block; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
