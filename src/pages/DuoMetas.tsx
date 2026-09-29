@@ -256,6 +256,8 @@ function exemploAportes(m: Meta, duo: boolean): AporteH[] {
 
 /** Rótulo "setembro de 2026" para daqui a k meses. */
 const mesLabel = (k: number) => rotuloMes(mesDaqui(k));
+// "janeiro de 2027" -> "jan. 2027": cabe nas duas colunas do bloco de ritmo no celular
+const shortMonth = (label: string) => label.replace(/^(\S{3})\S* de (\d{4})$/, "$1. $2");
 
 /** "a, b e c" */
 const juntar = (l: string[]) => (l.length < 2 ? l.join("") : l.slice(0, -1).join(", ") + " e " + l[l.length - 1]);
@@ -594,14 +596,31 @@ export default function DuoMetas() {
     const passo = ritmoReal || m.ritmo;
     const origemRitmo = ritmoReal ? "média dos últimos 3 meses" : "ritmo planejado";
     let ritmo: string;
+    // Fora do ritmo: comparativo explícito entre o ritmo atual e o necessário.
+    let plano: { status: "atrasado" | "no-prazo" | "adiantado"; titulo: string; atual: string; mesAtual: string; necessario: string; mesPrazo: string; diff: string; origem: string } | null = null;
     if (m.tot >= m.alvo) ritmo = "Meta concluída.";
     else if (!m.tot) ritmo = "Registre o primeiro aporte para ver quando " + (duo ? "vocês chegam" : "você chega") + " lá.";
     else {
       const n = Math.ceil(falta / passo);
       const base = "No ritmo atual (" + fmt(passo, false) + "/mês, " + origemRitmo + "), " + (duo ? "vocês chegam" : "você chega") + " lá em " + mesLabel(n);
       if (m.prazo == null) ritmo = base + ".";
-      else if (n <= m.prazo) ritmo = base + ", dentro do prazo.";
-      else ritmo = base + ", " + (n - m.prazo) + (n - m.prazo === 1 ? " mês" : " meses") + " depois do prazo. Com " + fmt(Math.ceil(falta / m.prazo / 50) * 50, false) + "/mês, " + (duo ? "chegam" : "chega") + " em " + mesLabel(m.prazo) + ".";
+      else {
+        // atrasado: valor arredondado a R$ 50 para ficar fácil de seguir; no ritmo:
+        // mínimo exato, que nunca passa do ritmo atual (então a folga é >= 0)
+        const necessario = n > m.prazo ? Math.ceil(falta / m.prazo / 50) * 50 : Math.ceil(falta / m.prazo);
+        const dif = Math.abs(n - m.prazo);
+        const meses = dif + (dif === 1 ? " mês" : " meses");
+        const status = n > m.prazo ? "atrasado" : n < m.prazo ? "adiantado" : "no-prazo";
+        ritmo = n <= m.prazo
+          ? base + ", dentro do prazo."
+          : base + ", " + meses + " depois do prazo. Com " + fmt(necessario, false) + "/mês, " + (duo ? "chegam" : "chega") + " em " + mesLabel(m.prazo) + ".";
+        plano = {
+          status,
+          titulo: status === "atrasado" ? "Fora do ritmo · " + meses + " de atraso" : status === "adiantado" ? "No ritmo · " + meses + " antes do prazo" : "No ritmo · bate no mês do prazo",
+          atual: fmt(passo, false), mesAtual: mesLabel(n), necessario: fmt(necessario, false), mesPrazo: mesLabel(m.prazo),
+          diff: fmt(Math.abs(necessario - passo), false), origem: origemRitmo,
+        };
+      }
     }
     const itens = m.itens ? ORDEM.flatMap((p) => ITENS.filter((i) => i.p === p)) : [];
     let acc = 0;
@@ -613,7 +632,7 @@ export default function DuoMetas() {
     const compraTitulo = maior ? (duo ? "Vocês já podem comprar " : "Você já pode comprar ") + maior.art + "!" : "Ainda não dá para comprar nenhum item";
     const compraSub = !itens.length ? "" : (maior && essOk ? "O que está guardado cobre todos os itens essenciais. " : "") + (prox ? "Faltam " + fmt(itensC.slice(0, itensC.indexOf(prox) + 1).reduce((a, i) => a + i.v, 0) - m.tot) + " para " + prox.art + "." : "Tudo pago. Hora de comprar.");
     return {
-      pct, falta, ritmo, passo, itensC, okList, maior, compraTitulo, compraSub, hist,
+      pct, falta, ritmo, plano, passo, itensC, okList, maior, compraTitulo, compraSub, hist,
       guardado: fmt(m.tot), alvo: fmt(m.alvo, false), pctTxt: pct.toFixed(1).replace(".", ",") + "% guardado", faltaTxt: falta ? "Faltam " + fmt(falta) : "Meta atingida",
       barras: duo ? [{ w: (m.g / m.alvo) * 100 + "%", cor: "#4e9e79" }, { w: (m.s / m.alvo) * 100 + "%", cor: "#e2a24f" }] : [{ w: pct + "%", cor: "var(--accent)" }],
       contrib: [{ ...P.gustavo, nome: "Você", v: fmt(m.g), pct: m.tot ? Math.round((m.g / m.tot) * 100) + "%" : "0%", soft: "var(--solo-soft)" }, { ...P.suelen, v: fmt(m.s), pct: m.tot ? Math.round((m.s / m.tot) * 100) + "%" : "0%", soft: "var(--duo-soft)" }],
@@ -1589,7 +1608,7 @@ export default function DuoMetas() {
               <button type="button" onClick={() => ir("metas")} style={VOLTAR}>← Metas</button>
               <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 380px), 1fr))", gap: 18, alignItems: "start" }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 18, padding: 26, borderRadius: 26, border: "1px solid var(--line)", background: "var(--surface)", boxShadow: "0 18px 44px -30px var(--shadow)" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "clamp(14px, 4.5vw, 18px)", padding: "clamp(18px, 5.5vw, 26px)", borderRadius: 26, border: "1px solid var(--line)", background: "var(--surface)", boxShadow: "0 18px 44px -30px var(--shadow)" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                       <span style={{ flex: "none", width: 48, height: 48, borderRadius: 15, display: "grid", placeItems: "center", background: "var(--accent-soft)", color: "var(--accent-ink)" }}><Ic d={ICON[m.ic] || ICON.produto} size={22} sw={1.7} /></span>
                       <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
@@ -1609,19 +1628,56 @@ export default function DuoMetas() {
                       </div>
                     </div>
                     {duo && (
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 170px), 1fr))", gap: 10 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 124px), 1fr))", gap: 8 }}>
                         {detalhe.contrib.map((cc) => (
-                          <div key={cc.ini} style={{ display: "flex", alignItems: "center", gap: 10, padding: 12, borderRadius: 16, background: cc.soft }}>
-                            <Avatar av={cc.av} ini={cc.ini} size={30} fs={12} />
-                            <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-                              <span style={{ fontSize: 12, color: "var(--muted)" }}>{cc.nome} · {cc.pct}</span>
-                              <span style={{ fontFamily: SORA, fontSize: 16, whiteSpace: "nowrap" }}>{cc.v}</span>
+                          <div key={cc.ini} style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0, padding: "10px 12px", borderRadius: 14, background: cc.soft }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+                              <Avatar av={cc.av} ini={cc.ini} size={22} fs={10} />
+                              <span style={{ fontSize: 11.5, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cc.nome} · {cc.pct}</span>
                             </div>
+                            <span style={{ fontFamily: SORA, fontSize: "clamp(14px, 4.2vw, 16px)", lineHeight: 1.2, whiteSpace: "nowrap" }}>{cc.v}</span>
                           </div>
                         ))}
                       </div>
                     )}
-                    <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6, color: "var(--muted2)", textWrap: "pretty" }}>{detalhe.ritmo}</p>
+                    {detalhe.plano ? (() => {
+                      const pl = detalhe.plano;
+                      const atrasado = pl.status === "atrasado";
+                      const tom = atrasado ? "var(--warn)" : "var(--in)";
+                      return (
+                        <div role="status" style={{ display: "flex", flexDirection: "column", gap: 10, padding: "12px 12px 11px", borderRadius: 16, border: "1px solid color-mix(in srgb, " + tom + " 35%, transparent)", background: "color-mix(in srgb, " + tom + " 8%, transparent)" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 700, lineHeight: 1.3, color: tom }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}>
+                              {atrasado ? <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /> : <><circle cx="12" cy="12" r="9.5" /><path d="m8 12.5 2.8 2.8L16.5 9.5" /></>}
+                            </svg>
+                            {pl.titulo}
+                          </div>
+                          {/* duas colunas fixas em qualquer largura: comparação lado a lado, sem empilhar no celular */}
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6 }}>
+                            {[
+                              { label: "Ritmo atual", valor: pl.atual, pre: "Bate em ", mes: pl.mesAtual, corMes: tom, destaque: !atrasado },
+                              { label: atrasado ? "Valor adequado" : "Mínimo p/ prazo", valor: pl.necessario, pre: atrasado ? "No prazo: " : "Prazo: ", mes: pl.mesPrazo, corMes: atrasado ? "var(--in)" : "var(--ink)", destaque: atrasado },
+                            ].map((c) => (
+                              <div key={c.label} style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, padding: "9px 10px", borderRadius: 11, background: "var(--surface)", boxShadow: c.destaque ? "inset 0 0 0 1.5px var(--in)" : "none" }}>
+                                <span style={{ fontSize: 11, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.label}</span>
+                                <span style={{ fontFamily: SORA, fontSize: "clamp(14.5px, 4.4vw, 17px)", lineHeight: 1.25 }}><span style={{ whiteSpace: "nowrap" }}>{c.valor}</span><span style={{ fontSize: 11, color: "var(--muted)" }}>/mês</span></span>
+                                <span style={{ fontSize: 11.5, lineHeight: 1.35, color: "var(--muted2)" }}>{c.pre}<b style={{ color: c.corMes, whiteSpace: "nowrap" }} title={c.mes}>{shortMonth(c.mes)}</b></span>
+                              </div>
+                            ))}
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                            <span style={{ fontSize: 12.5, lineHeight: 1.45, color: "var(--muted2)", textWrap: "pretty" }}>
+                              {atrasado
+                                ? <>{duo ? "Guardem" : "Guarde"} <b style={{ color: "var(--ink)", whiteSpace: "nowrap" }}>+{pl.diff}/mês</b> para voltar ao prazo.</>
+                                : <>Folga de <b style={{ color: "var(--ink)", whiteSpace: "nowrap" }}>{pl.diff}/mês</b>. {duo ? "Mantenham" : "Mantenha"} o ritmo.</>}
+                            </span>
+                            <span style={{ fontSize: 11, lineHeight: 1.4, color: "var(--faint)" }}>Ritmo atual: {pl.origem}</span>
+                          </div>
+                        </div>
+                      );
+                    })() : (
+                      <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6, color: "var(--muted2)", textWrap: "pretty" }}>{detalhe.ritmo}</p>
+                    )}
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                       <button type="button" onClick={abrirAporte} style={btnPrim()}>+ Adicionar aporte</button>
                       <button type="button" onClick={abrirEditar} className="mm-h-sec" style={btnSec()}>Editar</button>
