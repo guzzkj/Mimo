@@ -149,8 +149,6 @@ export function Moldura({ conta, app, ativo, onNavegar, onPrivacidade, autores, 
             perfilHref: "/ajustes/perfil",
             periodo,
             limitePct: app.derivado.limitePct,
-            tema,
-            onToggleTheme: alternarTema,
             notificacoes: { novas: naoLidas, onAbrir: () => setNotif(true) },
           }}
         />
