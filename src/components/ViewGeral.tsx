@@ -277,13 +277,17 @@ export function ViewGeral({
                 <div className="sg-cats">
                   {categoriasComGasto.slice(0, 3).map(({ nome, valor, cor, orcamento }) => {
                     const acima = orcamento > 0 && valor > orcamento;
+                    const pct = Math.round((valor / d.totalCategorias) * 100);
                     return (
                       <div className="sg-cat" key={nome} title={orcamento ? `Orçamento: ${fmt(orcamento)}` : undefined}>
                         <div className="sg-cat__head">
                           <span className="sg-cat__nome"><i style={{ background: cor }} />{nome}</span>
-                          <span className={`sg-cat__valor${acima ? " is-acima" : ""}`}>{fmt(valor)}</span>
+                          <span className="sg-cat__fim">
+                            <span className="sg-cat__pct">{pct}%</span>
+                            <span className={`sg-cat__valor${acima ? " is-acima" : ""}`}>{fmt(valor)}</span>
+                          </span>
                         </div>
-                        <div className="sg-cat__trilho"><div style={{ width: `${Math.round((valor / d.totalCategorias) * 100)}%`, background: cor }} /></div>
+                        <div className="sg-cat__trilho"><div style={{ width: `${pct}%`, background: cor }} /></div>
                       </div>
                     );
                   })}

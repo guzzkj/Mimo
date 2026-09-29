@@ -211,7 +211,7 @@
 /* Categorias: comparativo, link para a lista e estado vazio */
 .cat-row__link { padding: 0; border: none; background: transparent; color: inherit; font: inherit; font-size: 14.5px; font-weight: 600; cursor: pointer; text-align: left; }
 .cat-row__link:hover { color: var(--accent-ink); text-decoration: underline; text-underline-offset: 3px; }
-.cat-row__value { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.cat-row__value { display: flex; flex-direction: row; align-items: baseline; justify-content: flex-end; gap: 8px; white-space: nowrap; }
 .cat-row__delta { font-family: var(--font-body); font-size: 11.5px; font-weight: 700; letter-spacing: 0; }
 .cat-row__delta.is-sobe { color: var(--out); }
 .cat-row__delta.is-desce { color: var(--in-ink); }
@@ -298,6 +298,8 @@
 .sg-cat__nome i { flex: none; width: 8px; height: 8px; border-radius: 50%; }
 .sg-cat__valor { flex: none; font-family: var(--font-display); font-size: 14px; }
 .sg-cat__valor.is-acima { color: var(--out); }
+.sg-cat__fim { flex: none; display: inline-flex; align-items: baseline; gap: 8px; }
+.sg-cat__pct { font-size: 11.5px; font-variant-numeric: tabular-nums; color: var(--faint); }
 .sg-cat__trilho { height: 4px; border-radius: 999px; background: rgba(var(--ink-rgb), 0.07); overflow: hidden; }
 .sg-cat__trilho div { height: 100%; border-radius: 999px; transform-origin: left; animation: mGrowX 1s var(--ease) both; }
 
@@ -322,4 +324,169 @@
   .view--overview .card__foot { margin-top: 12px; }
   .view--overview .card__mark { height: 32px; }
   .view--overview .sg-card__grafico .projecao__area { height: 78px; }
+}
+
+/* Celular: visão geral solo pensada para caber o mês inteiro na primeira tela
+   (~380-410 x 780-830, descontando o dock). Ordem de corte, de cima para baixo:
+   - saldo com o selo de variação na mesma linha, valor menor;
+   - "livre após contas" como linha rótulo + valor sob a barra (antes parecia
+     o saldo repetido);
+   - entradas, saídas e a pagar em três colunas iguais;
+   - Cartão Mimo em duas linhas (nome · valor / compras · vencimento), com o
+     gato ao lado em vez de em cima: mesmo gato, zero altura extra;
+   - cartões do mês numa coluna só, com gráficos baixos: saldo, categorias,
+     contas e, no fim, as movimentações recentes;
+   - respiro no fim para o dock flutuante e a área segura do iPhone. */
+@media (max-width: 720px) {
+  .main { padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)); }
+
+  .view--overview { gap: 22px; }
+  .view--overview .mes-nav--geral { margin-bottom: 14px; }
+
+  .view--overview .hero { gap: 14px; }
+  .view--overview .hero__label { font-size: 11px; }
+
+  /* os wrappers somem do layout e os filhos entram na grade do saldo */
+  .view--overview .hero__balance {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "valor  delta"
+      "trilho trilho"
+      "rotulo livre";
+    align-items: center;
+    column-gap: 12px;
+    max-width: none;
+  }
+  .view--overview .hero__amounts,
+  .view--overview .hero__projected-row { display: contents; }
+  .view--overview .hero__value {
+    grid-area: valor;
+    margin-top: 6px;
+    font-size: clamp(30px, 8.6vw, 36px);
+    overflow-wrap: anywhere;
+  }
+  .view--overview .hero__delta {
+    grid-area: delta;
+    justify-self: end;
+    align-self: center;
+    margin: 6px 0 0;
+    padding: 3px 9px;
+    font-size: 11.5px;
+  }
+  .view--overview .hero__projected-track { grid-area: trilho; margin-top: 12px; }
+  .view--overview .hero__projected-row > span { grid-area: rotulo; margin-top: 6px; font-size: 11px; }
+  .view--overview .hero__projected {
+    grid-area: livre;
+    margin: 6px 0 0;
+    font-family: var(--font-display);
+    font-size: 15px;
+    letter-spacing: -0.02em;
+  }
+
+  .view--overview .stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: 10px;
+    margin-top: 12px;
+    padding-top: 12px;
+  }
+  .view--overview .stat { min-width: 0; gap: 4px; }
+  .view--overview .stat .eyebrow { font-size: 11px; }
+  .view--overview .stat strong {
+    font-size: clamp(14px, 4.3vw, 17px);
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* --- Cartão Mimo compacto, com o gato ao lado --- */
+
+  .view--overview .hero__right { padding: 0; }
+  .view--overview .card-stage { display: flex; align-items: center; gap: 8px; }
+  .view--overview .mascot {
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+    flex: none;
+    width: 56px;
+  }
+  .view--overview .mascot-tail { display: none; }
+  /* os corações saem da cabeça do gato, agora à esquerda do cartão */
+  .view--overview .coracoes { left: 28px; top: -150px; }
+
+  .view--overview .card { flex: 1; min-width: 0; min-height: 0; }
+  /* o verso lista as compras: ao virar, o cartão cresce para caber a lista */
+  .view--overview .card.is-flipped { min-height: 200px; }
+  .view--overview .card__face:not(.card__face--back) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "head    valor"
+      "detalhe vence";
+    align-items: center;
+    gap: 4px 12px;
+    padding: 12px 16px 12px;
+    border-radius: 18px;
+  }
+  .view--overview .card__head { grid-area: head; min-width: 0; }
+  .view--overview .card__title { min-width: 0; gap: 2px; }
+  .view--overview .card__title strong { font-size: 14px; }
+  .view--overview .card__title span {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .view--overview .card__mark { display: none; }
+  .view--overview .card__value { grid-area: valor; margin: 0; font-size: 22px; white-space: nowrap; }
+  .view--overview .card__detail {
+    grid-area: detalhe;
+    min-width: 0;
+    font-size: 11.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .view--overview .card__face:not(.card__face--back) .card__foot { display: contents; }
+  .view--overview .card__face:not(.card__face--back) .card__foot b { display: none; }
+  .view--overview .card__vence { grid-area: vence; justify-self: end; font-size: 11px; white-space: nowrap; }
+  .view--overview .card__face--back { padding: 14px 16px; border-radius: 18px; }
+  .view--overview .card__back-head { margin-bottom: 6px; }
+  .view--overview .card__row { padding: 7px 0; }
+  .view--overview .card__face--back .card__foot { margin-top: 8px; }
+
+  /* --- os cartões do mês --- */
+
+  /* hero e grade não são filhos diretos do flex .view--overview, então o gap
+     dele não vale aqui; 14px compensam as bordas empilhadas do cartão */
+  .view--overview .sg-grade-wrap { margin-top: 26px; }
+  /* uma coluna só, na ordem de leitura: saldo, categorias, contas e, por
+     último, as movimentações recentes (lista, não gráfico) */
+  .view--overview .mm-geral-grade { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .view--overview .mm-geral-grade > :nth-child(1) { order: 1; }
+  .view--overview .mm-geral-grade > :nth-child(4) { order: 2; }
+  .view--overview .mm-geral-grade > :nth-child(2) { order: 3; }
+  .view--overview .mm-geral-grade > :nth-child(3) { order: 4; }
+
+  .view--overview .sg-card { gap: 10px; padding: 14px 16px; border-radius: 20px; }
+  .view--overview .sg-card__olho { font-size: 11px; letter-spacing: 0.08em; white-space: nowrap; }
+  /* se a legenda não couber ao lado do título, desce para a linha de baixo */
+  .view--overview .sg-card__head { flex-wrap: wrap; gap: 4px 8px; }
+  .view--overview .sg-card__legenda { gap: 10px; font-size: 11px; }
+  /* repetem dados já visíveis no topo: "livre após contas" e total de saídas */
+  .view--overview .mm-geral-grade > :nth-child(1) .sg-card__rodape,
+  .view--overview .mm-geral-grade > :nth-child(4) .sg-card__lado { display: none; }
+  .view--overview .sg-card__rodape { font-size: 12px; }
+  .view--overview .sg-card__grafico .projecao { margin-top: 0; }
+  .view--overview .sg-card__grafico .projecao__area { height: 84px; }
+  .view--overview .sg-card__grafico .projecao__eixo { margin-top: 6px; font-size: 11px; }
+
+  .view--overview .sg-cats { gap: 9px; }
+  .view--overview .sg-cat__head { gap: 8px; font-size: 13px; }
+  .view--overview .sg-cat__nome { gap: 7px; }
+  .view--overview .sg-cat__valor { font-size: 13.5px; }
+  .view--overview .sg-cat__trilho { height: 3px; }
 }
