@@ -11,6 +11,7 @@ interface Props {
   onAnteriorMes: () => void;
   onProximoMes: () => void;
   onHojeMes: () => void;
+  onEscolherMes?: (mesRef: string) => void;
   /** Define (ou remove, com 0) o orçamento mensal de uma categoria. */
   onOrcamento?: (categoria: string, valor: number) => void;
   /** Abre Movimentações filtrada pela categoria. */
@@ -28,7 +29,7 @@ const delta = (atual: number, anterior: number) => {
   return { texto: `${p > 0 ? "▲" : "▼"} ${Math.abs(p)}%`, tom: p > 0 ? "sobe" as const : "desce" as const };
 };
 
-export function ViewCategorias({ mesRef, derivado: d, fmt, limites, onAnteriorMes, onProximoMes, onHojeMes, onOrcamento, onVerCategoria }: Props) {
+export function ViewCategorias({ mesRef, derivado: d, fmt, limites, onAnteriorMes, onProximoMes, onHojeMes, onEscolherMes, onOrcamento, onVerCategoria }: Props) {
   const [editando, setEditando] = useState<string | null>(null);
   const [rascunho, setRascunho] = useState("");
   const salvarOrc = (nome: string) => { onOrcamento?.(nome, numero(rascunho)); setEditando(null); };
@@ -71,6 +72,7 @@ export function ViewCategorias({ mesRef, derivado: d, fmt, limites, onAnteriorMe
       <p className="section__sub" style={{ margin: "-8px 0 14px" }}>{`Comparado com ${MESES_LONGOS[Number(mesAnterior(mesRef).slice(5)) - 1].toLowerCase()}. Clique numa categoria para ver os lançamentos.`}</p>
 
       <MonthNav
+        className="mes-nav--categorias"
         label={rotuloMes}
         desabilitarAnterior={mesRef <= limites.primeiro}
         desabilitarProximo={mesRef >= limites.ultimo}
@@ -78,6 +80,9 @@ export function ViewCategorias({ mesRef, derivado: d, fmt, limites, onAnteriorMe
         onAnterior={onAnteriorMes}
         onProximo={onProximoMes}
         onHoje={onHojeMes}
+        mesRef={mesRef}
+        limites={limites}
+        onEscolher={onEscolherMes}
       />
 
       {comOrc.length > 0 && (

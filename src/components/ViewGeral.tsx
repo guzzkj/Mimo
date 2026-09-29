@@ -25,6 +25,7 @@ interface Props {
   onAnteriorMes: () => void;
   onProximoMes: () => void;
   onHojeMes: () => void;
+  onEscolherMes?: (mesRef: string) => void;
   onVerarCartao: () => void;
   onRonronar: () => void;
   onVerTodas: () => void;
@@ -48,7 +49,7 @@ const linhaRecente = (onEditar: (id: number) => void) => (it: ItemDecorado, indi
 
 export function ViewGeral({
   mesRef, derivado: d, fmt, privado, tema, limites, flip, ronronando, coracoes,
-  onAnteriorMes, onProximoMes, onHojeMes, onVerarCartao, onRonronar, onVerTodas, onEditar,
+  onAnteriorMes, onProximoMes, onHojeMes, onEscolherMes, onVerarCartao, onRonronar, onVerTodas, onEditar,
 }: Props) {
   const vazio = d.mes.length === 0;
   const mesNumero = mesRef.slice(5);
@@ -101,6 +102,9 @@ export function ViewGeral({
           onAnterior={onAnteriorMes}
           onProximo={onProximoMes}
           onHoje={onHojeMes}
+          mesRef={mesRef}
+          limites={limites}
+          onEscolher={onEscolherMes}
         />
 
         <div className="hero">

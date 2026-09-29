@@ -83,6 +83,7 @@ export default function App() {
                 onAnteriorMes={() => actions.andarMes(-1)}
                 onProximoMes={() => actions.andarMes(1)}
                 onHojeMes={actions.irParaHoje}
+                onEscolherMes={actions.irParaMes}
                 onVerarCartao={actions.virarCartao}
                 onRonronar={actions.ronronar}
                 onVerTodas={() => actions.irPara("lista")}
@@ -123,6 +124,7 @@ export default function App() {
                 onAnteriorMes={() => actions.andarMes(-1)}
                 onProximoMes={() => actions.andarMes(1)}
                 onHojeMes={actions.irParaHoje}
+                onEscolherMes={actions.irParaMes}
                 onVerCategoria={actions.verCategoria}
                 onOrcamento={(categoria, valor) => {
                   const orcamentos = { ...ajustes.orcamentos, [categoria]: valor };

@@ -289,3 +289,55 @@
    rótulo nem o "Hoje" (que fica por cima, por vir depois no DOM) */
 .mes-nav__seta::after { content: ""; position: absolute; inset: -9px -4px; }
 .mes-nav__hoje { position: relative; }
+
+
+/* ---- Navegação de mês: calendário de mês e ano ------------------------- */
+
+/* em Categorias a pílula encostava no resumo de orçamento logo abaixo */
+.mes-nav--categorias { margin-bottom: 16px; }
+
+.mes-nav { position: relative; }
+.mes-nav__label--botao {
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  min-height: 28px; padding: 0 6px; border: none; border-radius: 9px;
+  background: transparent; font: inherit; font-size: 13px; font-weight: 600; color: var(--ink-2);
+  cursor: pointer; transition: background 0.2s ease;
+}
+.mes-nav__label--botao svg { width: 14px; height: 14px; color: var(--muted); transition: transform 0.2s ease; }
+.mes-nav__label--botao:hover,
+.mes-nav__label--botao.is-on { background: rgba(var(--accent-rgb), 0.12); color: var(--accent-ink); }
+.mes-nav__label--botao.is-on svg { transform: rotate(180deg); }
+
+.mes-cal {
+  position: absolute; top: calc(100% + 8px); left: 0; z-index: 30;
+  width: min(292px, calc(100vw - 32px)); padding: 12px;
+  border-radius: 18px; border: 1px solid var(--line); background: var(--surface);
+  box-shadow: 0 24px 50px -24px rgba(var(--shadow-rgb), 0.55);
+  animation: mesCalEntra 0.18s ease both;
+}
+@keyframes mesCalEntra { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .mes-cal { animation: none; } }
+.mes-cal__topo { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.mes-cal__topo strong { font-family: var(--font-display); font-size: 16px; font-weight: 500; color: var(--ink); }
+.mes-cal__ano-seta {
+  width: 44px; height: 44px; display: grid; place-items: center;
+  border: none; border-radius: 12px; background: transparent; color: var(--ink-2); cursor: pointer;
+}
+.mes-cal__ano-seta svg { width: 18px; height: 18px; }
+.mes-cal__ano-seta:hover:not(:disabled) { background: rgba(var(--accent-rgb), 0.12); color: var(--accent-ink); }
+.mes-cal__ano-seta:disabled { opacity: 0.25; cursor: default; }
+.mes-cal__grade { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.mes-cal__mes {
+  height: 44px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--surface-soft); color: var(--ink);
+  font: inherit; font-size: 14px; font-weight: 600; text-transform: capitalize; cursor: pointer;
+}
+.mes-cal__mes:hover:not(:disabled) { border-color: var(--accent-line); color: var(--accent-ink); }
+.mes-cal__mes.is-on { border-color: rgba(var(--accent-rgb), 0.5); background: var(--accent-soft); color: var(--ink); }
+.mes-cal__mes:disabled { opacity: 0.35; cursor: default; }
+/* toque de 44px sem crescer a pílula */
+.mes-nav__label--botao { position: relative; }
+.mes-nav__label--botao::after { content: ""; position: absolute; inset: -8px 0; }
+@media (max-width: 720px) {
+  .mes-nav__label--botao { min-width: 108px; font-size: 12.5px; }
+}
