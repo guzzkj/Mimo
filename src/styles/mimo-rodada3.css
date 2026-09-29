@@ -30,7 +30,7 @@
   border-bottom: 1px solid var(--line);
   background: var(--surface);
 }
-.menu-m__logo { height: 30px; }
+.menu-m__logo { height: 30px; filter: var(--logo-filtro); }
 .menu-m__fechar {
   flex: none; width: 44px; height: 44px; display: grid; place-items: center;
   border-radius: 14px; border: 1px solid var(--line); background: transparent; color: var(--ink);

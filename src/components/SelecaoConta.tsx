@@ -112,7 +112,7 @@ export function SelecaoConta({ onEscolher }: SelecaoContaProps) {
       <div className="pointer-events-none absolute -top-[180px] left-1/2 h-[420px] w-[760px] -translate-x-1/2 rounded-[50%] bg-[rgba(78,158,121,.10)] blur-[10px]" />
 
       <header className="relative flex flex-col items-center gap-4 text-center max-w-[620px] [animation:mRise_.7s_cubic-bezier(.2,.8,.2,1)_both]">
-        <img src="/uploads/Untitled-removebg-preview-4dfda8a5.png" alt="Mimo" className="block h-[62px] w-auto" />
+        <img src="/uploads/Untitled-removebg-preview-4dfda8a5.png" alt="Mimo" className="block h-[62px] w-auto" style={{ filter: "var(--logo-filtro)" }} />
         <h1 className="mt-1.5 mb-0 font-['Sora',sans-serif] text-[40px] font-light tracking-[-.04em] leading-[1.15] text-pretty">
           Como você quer usar o Mimo?
         </h1>
