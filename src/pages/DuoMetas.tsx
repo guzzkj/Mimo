@@ -10,7 +10,7 @@ import { useMimoApp } from "../hooks/useMimoApp";
 import { useTimers } from "../hooks/useTimers";
 import { categoriasDe, salvarAjustes } from "../lib/ajustes";
 import type { FiltroAutor } from "../lib/filtrosMovimentacoes";
-import { AUTORES, MOTOR_DUO, lerAcertos, nomeMes, resumoDuo, rotuloMes, salvarAcertos, useAcertos, type Acerto, type Regra } from "../lib/contaDuo";
+import { AUTORES, MOTOR_DUO, lerAcertos, nomeMes, resumoDuo, rotuloMes, salvarAcertos, useAcertos, type Acerto, type Regra, type ResumoDuo } from "../lib/contaDuo";
 import { MESES } from "../lib/constants";
 import { DIA_HOJE, HOJE_ISO, MES_REF, PROXIMO_MES, dataBr, dataSeed } from "../lib/helpers";
 import { usePlano } from "../lib/plano";
@@ -276,6 +276,24 @@ const H1: CSSProperties = { margin: 0, fontFamily: SORA, fontSize: 32, fontWeigh
 // padding + margem negativa: área de toque de 44px sem mudar o layout
 const VOLTAR: CSSProperties = { alignSelf: "flex-start", padding: "12px 0", margin: "-12px 0", border: "none", background: "transparent", color: "var(--accent-ink)", fontSize: 13, fontWeight: 700, cursor: "pointer" };
 const LINHA: CSSProperties = { display: "flex", alignItems: "center", borderBottom: "1px solid var(--line-soft)" };
+// Visão do casal: cartões em pares, sempre com a mesma altura na linha (stretch).
+// Cabeçalho, identificação, valor, barra, legenda e rodapé seguem a mesma ordem,
+// e o rodapé encosta embaixo para as bases ficarem alinhadas.
+const GRADE_PAR: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 18, alignItems: "stretch" };
+const CARTAO_PAR: CSSProperties = { ...CARTAO, padding: 18, minWidth: 0, display: "flex", flexDirection: "column", gap: 12 };
+const CAB_CARTAO: CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 };
+// nome à esquerda e valor à direita na mesma linha; em cartão estreito o valor desce
+const IDENT_LINHA: CSSProperties = { display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", columnGap: 14, rowGap: 10 };
+const IDENT_BTN: CSSProperties = { flex: "1 1 180px", display: "flex", alignItems: "center", gap: 11, padding: 0, border: "none", background: "transparent", color: "inherit", font: "inherit", textAlign: "left", cursor: "pointer", minWidth: 0 };
+const IDENT_IC: CSSProperties = { flex: "none", width: 36, height: 36, borderRadius: 12, display: "grid", placeItems: "center" };
+const IDENT_NOME: CSSProperties = { flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
+const IDENT_TXT: CSSProperties = { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 1 };
+const IDENT_LADO: CSSProperties = { fontSize: 12, color: "var(--faint)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
+const VALOR_LINHA: CSSProperties = { display: "flex", alignItems: "baseline", flexWrap: "wrap", columnGap: 6, rowGap: 0 };
+const VALOR_GRANDE: CSSProperties = { fontFamily: SORA, fontSize: 23, letterSpacing: "-.03em" };
+const LEGENDA: CSSProperties = { display: "flex", flexWrap: "wrap", alignItems: "center", columnGap: 16, rowGap: 6, fontSize: 12.5, color: "var(--muted)" };
+const RODAPE_CARTAO: CSSProperties = { marginTop: "auto", fontSize: 12.5, lineHeight: 1.5, color: "var(--muted2)", textWrap: "pretty" };
+const IC_LAZER = "M12 19.5s-7.5-4.6-7.5-10.1A4.1 4.1 0 0 1 12 7a4.1 4.1 0 0 1 7.5 2.4c0 5.5-7.5 10.1-7.5 10.1z";
 
 function Barra({ partes, h = 8, marcos, anim }: { partes: { w: string; cor: string; op?: string }[]; h?: number; marcos?: string[]; anim?: string }) {
   return (
@@ -489,8 +507,20 @@ export default function DuoMetas() {
   const pagasConj = r.pagasPelaConjunta;
   const fraseConj = !r.cIn && !pagasConj.length
     ? "Nada entrou ou saiu da conjunta em " + mesNome + " ainda."
-    : (r.cIn ? "Entraram " + fmt(r.cIn, false) + " na conjunta em " + mesNome + ". " : "")
+    : (r.cIn && !pagasConj.length ? "Entraram " + fmt(r.cIn, false) + " na conjunta em " + mesNome + ". " : "")
       + (pagasConj.length ? juntar(pagasConj.slice(0, 3)) + (pagasConj.length > 3 ? " e mais " + (pagasConj.length - 3) : "") + (pagasConj.length === 1 ? " foi pago" : " foram pagos") + " por ela." : "");
+  // contas da conjunta que ainda vão sair no mês: o saldo acima ainda não as desconta
+  const pendConj = r.doMes.filter((i) => i.quem === "conjunta" && i.tipo === "saida" && i.status === "pendente").sort((a, b) => (a.data < b.data ? -1 : 1));
+  const aPagar = pendConj.reduce((tt, i) => tt + i.valor, 0);
+  const aPagarNota = pendConj.length ? (pendConj.length === 1 ? pendConj[0].descricao : pendConj.length + " contas") + " · vence " + dataBr(pendConj[0].data).slice(0, 5) : "Nada pendente";
+  // gasto do mês contra o mês anterior (o gráfico de 6 meses ganha uma leitura)
+  const gastoMes = (x: ResumoDuo["porMes"][number] | undefined) => (x ? x.gustavo + x.suelen + x.conjunta : 0);
+  const gAtual = gastoMes(r.porMes[5]);
+  const gAnt = gastoMes(r.porMes[4]);
+  const varMes = gAnt ? Math.round(((gAtual - gAnt) / gAnt) * 100) : null;
+  const leituraMes = !gAtual ? "Nenhum gasto em " + mesNome + " ainda."
+    : "Em " + mesNome + (mesRef === MES_REF ? ", até agora" : "") + ", vocês gastaram " + fmt(gAtual, false)
+      + (varMes == null ? "." : varMes === 0 ? ", o mesmo que no mês anterior." : ", " + Math.abs(varMes) + "% " + (varMes > 0 ? "a mais" : "a menos") + " que no mês anterior.");
 
   const abrirLanc = app.actions.abrirNova;
   const abrirLazer = () => setS((p) => ({ ...p, modal: "lazer", tentou: {}, forms: { ...p.forms, lazer: { valor: lim ? String(lim) : "", modo: lazerModo } } }));
@@ -500,6 +530,14 @@ export default function DuoMetas() {
   const metas = metasDe(s, duo, t);
   const pctM = (m: MetaCalc) => Math.min(100, m.alvo ? (m.tot / m.alvo) * 100 : 0);
   const barrasM = (m: MetaCalc) => (duo ? [{ w: (m.g / m.alvo) * 100 + "%", cor: "#4e9e79" }, { w: (m.s / m.alvo) * 100 + "%", cor: "#e2a24f" }] : [{ w: pctM(m) + "%", cor: "var(--accent)" }]);
+  // Visão do casal: a meta em foco é a de prazo mais próximo que ainda não foi concluída
+  // (sem prazo vai para o fim; empate, a mais adiantada).
+  const metaFoco = metas.filter((mt) => mt.tot < mt.alvo).sort((x, y) => (x.prazo ?? 999) - (y.prazo ?? 999) || pctM(y) - pctM(x))[0] ?? null;
+  const metaFocoTxt = !metaFoco ? ""
+    : !metaFoco.tot ? "Registrem o primeiro aporte para ver quando chegam lá."
+      : metaFoco.prazo != null
+        ? "Faltam " + fmt(metaFoco.alvo - metaFoco.tot, false) + ". Guardando " + fmt(Math.ceil((metaFoco.alvo - metaFoco.tot) / metaFoco.prazo / 50) * 50, false) + " por mês, chegam lá em " + mesLabel(metaFoco.prazo) + "."
+        : "Faltam " + fmt(metaFoco.alvo - metaFoco.tot, false) + ". No ritmo de " + fmt(metaFoco.ritmo, false) + " por mês, chegam lá em " + mesLabel(Math.ceil((metaFoco.alvo - metaFoco.tot) / metaFoco.ritmo)) + ".";
   const irNova = (extra: Partial<Forms["meta"]> = {}) => {
     setS((p) => ({ ...p, aba: "manual", ok: null, tentou: {}, forms: { ...p.forms, meta: { ...VAZIO.meta, ...extra } } }));
     navigate("/metas/nova");
@@ -960,29 +998,27 @@ export default function DuoMetas() {
                 <span style={{ fontSize: 14, color: "var(--muted2)" }}>{duo ? "Juntando os números de vocês…" : "Buscando seus números…"}</span>
               </div>
               <Skel h={130} />
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))", gap: 18 }}>
-                {[1, 2, 3].map((k) => <Skel key={k} h={200} />)}
+              <div style={t === "duo-geral" ? GRADE_PAR : { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))", gap: 18 }}>
+                {(t === "duo-geral" ? [1, 2] : [1, 2, 3]).map((k) => <Skel key={k} h={200} />)}
               </div>
             </div>
           )}
 
           {t === "duo-geral" && !loading && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 30, ...TRANSICAO_PAGINA }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16, ...TRANSICAO_PAGINA }}>
               {!vazio && !quites && !dv.vazio && (
-                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "13px 14px 13px 18px", borderRadius: 18, border: "1px solid var(--duo-line)", background: "var(--duo-soft)", animation: "mmFade .4s ease both" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-                    <span style={{ flex: "none", width: 9, height: 9, borderRadius: "50%", background: "var(--duo)", animation: "mmPulse 2s ease-out infinite" }} />
-                    <span style={{ fontSize: 14, lineHeight: 1.45, color: "var(--ink2)" }}><strong>{divStatus}</strong> nas despesas compartilhadas de {mesNome}.</span>
-                  </div>
-                  <button type="button" onClick={() => ir("duo-divisao")} className="mm-h-borda-duo" style={{ height: 38, padding: "0 14px", borderRadius: 12, border: "1px solid var(--duo-line)", background: "var(--surface)", color: "var(--ink)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Ver divisão</button>
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "4px 10px", animation: "mmFade .4s ease both" }}>
+                  <span style={{ flex: "none", width: 7, height: 7, borderRadius: "50%", background: "var(--duo)" }} />
+                  <span style={{ fontSize: 13, lineHeight: 1.45, color: "var(--muted2)" }}><strong style={{ color: "var(--ink2)", fontWeight: 600 }}>{divStatus}</strong> nas despesas compartilhadas de {mesNome}.</span>
+                  <button type="button" className="alvo-toque" onClick={() => ir("duo-divisao")} style={LINK_TEXTO}>Ver divisão</button>
                 </div>
               )}
 
               <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 34, alignItems: "end" }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   <span style={{ fontSize: 12, letterSpacing: ".1em", textTransform: "uppercase", color: "var(--faint)" }}>Conta conjunta · {rotuloMes(mesRef)}</span>
                   <div style={{ display: "flex", alignItems: "flex-end", flexWrap: "wrap", gap: 14 }}>
-                    <span style={{ fontFamily: SORA, fontSize: cp ? 44 : 60, fontWeight: 300, letterSpacing: "-.045em", lineHeight: 1 }}>{fmt(r.saldoConjunta)}</span>
+                    <span style={{ fontFamily: SORA, fontSize: cp ? 40 : 46, fontWeight: 300, letterSpacing: "-.045em", lineHeight: 1 }}>{fmt(r.saldoConjunta)}</span>
                     {!vazio && (r.cIn || r.cOut) > 0 && (
                       <span style={{ marginBottom: 6, padding: "5px 11px", borderRadius: 999, border: `1px solid ${r.cIn >= r.cOut ? "var(--in-line)" : "var(--out-line)"}`, background: r.cIn >= r.cOut ? "var(--in-soft)" : "var(--out-soft)", color: r.cIn >= r.cOut ? "var(--in-ink)" : "var(--out-ink)", fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap" }}>
                         {(r.cIn >= r.cOut ? "+ " : "− ") + fmt(Math.abs(r.cIn - r.cOut)) + " no mês"}
@@ -993,11 +1029,16 @@ export default function DuoMetas() {
                     {geralVazio ? "A conta de vocês ainda está em silêncio. Registrem a primeira movimentação do mês." : fraseConj}
                   </p>
                   {geralVazio && <div><button type="button" onClick={abrirLanc} style={btnPrim({ height: 48 })}>Registrar a primeira movimentação</button></div>}
-                  <div style={{ display: "flex", flexWrap: "wrap", columnGap: 30, rowGap: 14, marginTop: 8, paddingTop: 20, borderTop: "1px solid var(--line)" }}>
-                    {[{ k: "Entradas", v: fmt(r.cIn), cor: "var(--in-ink)" }, { k: "Saídas", v: fmt(r.cOut), cor: "var(--out)" }, { k: "Movimentações", v: String(movs.length), cor: "var(--ink)" }].map((st) => (
+                  <div style={{ display: "flex", flexWrap: "wrap", columnGap: 30, rowGap: 14, marginTop: 4, paddingTop: 12, borderTop: "1px solid var(--line)" }}>
+                    {[
+                      { k: "Entradas", v: fmt(r.cIn), cor: "var(--in-ink)", nota: "" },
+                      { k: "Saídas", v: fmt(r.cOut), cor: "var(--out)", nota: "" },
+                      { k: "A pagar", v: fmt(aPagar), cor: aPagar ? "var(--duo-ink)" : "var(--faint)", nota: aPagarNota },
+                    ].map((st) => (
                       <div key={st.k} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                         <span style={{ fontSize: 11.5, letterSpacing: ".09em", textTransform: "uppercase", color: "var(--faint)" }}>{st.k}</span>
                         <span style={{ fontFamily: SORA, fontSize: 21, color: st.cor }}>{st.v}</span>
+                        {st.nota && <span style={{ marginTop: -2, fontSize: 11.5, color: "var(--faint)", whiteSpace: "nowrap" }}>{st.nota}</span>}
                       </div>
                     ))}
                   </div>
@@ -1007,8 +1048,8 @@ export default function DuoMetas() {
                     { ...P.gustavo, tag: "Você", soft: "var(--solo-soft)", ink: "var(--solo-ink)", exp: gExp, dados: r.gustavo, nota: r.gustavo.privados ? "Inclui " + r.gustavo.privados + (r.gustavo.privados === 1 ? " lançamento privado seu." : " lançamentos privados seus.") : "" },
                     { ...P.suelen, tag: "Parceira", soft: "var(--duo-soft)", ink: "var(--duo-ink)", exp: sExp, dados: r.suelen, nota: r.suelen.privados ? "Inclui " + r.suelen.privados + (r.suelen.privados === 1 ? " lançamento privado dela." : " lançamentos privados dela.") : "" },
                   ].map((p, i) => (
-                    <div key={p.nome} style={{ position: "relative", paddingTop: 62, minWidth: 0, animation: `mmRise .6s ${0.08 + i * 0.07}s cubic-bezier(.2,.8,.2,1) both` }}>
-                      <div style={{ position: "absolute", top: 0, left: "50%", width: 92, transform: "translateX(-50%)", pointerEvents: "none" }}><Gato cor={p.cor} tabby={p.tabby} expressao={p.exp} /></div>
+                    <div key={p.nome} style={{ position: "relative", paddingTop: 50, minWidth: 0, animation: `mmRise .6s ${0.08 + i * 0.07}s cubic-bezier(.2,.8,.2,1) both` }}>
+                      <div style={{ position: "absolute", top: 0, left: "50%", width: 76, transform: "translateX(-50%)", pointerEvents: "none" }}><Gato cor={p.cor} tabby={p.tabby} expressao={p.exp} /></div>
                       <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 11, padding: "18px 16px 16px", borderRadius: 22, border: "1px solid var(--line)", background: "var(--surface)", boxShadow: "0 18px 40px -30px var(--shadow)" }}>
                         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                           <span style={{ fontFamily: SORA, fontSize: 15, fontWeight: 500 }}>{p.nome}</span>
@@ -1027,47 +1068,86 @@ export default function DuoMetas() {
                 </div>
               </section>
 
-              <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))", gap: 18, alignItems: "start" }}>
-                <div style={{ ...CARTAO, display: "flex", flexDirection: "column", gap: 14 }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                    <span style={OLHO}>Divisão de despesas</span>
-                    <button type="button" className="alvo-toque" onClick={() => ir("duo-divisao")} style={LINK_TEXTO}>Detalhes</button>
+              {/* Os quatro cartões do mês numa grade só, todos com a mesma altura:
+                  meta e lazer (progresso até um alvo), lista e gráfico (o que aconteceu).
+                  2x2 a partir do tablet, 1 coluna no celular. */}
+              <div className="mm-geral-cq">
+              <section aria-label="Resumo do mês do casal" className="mm-geral-grade">
+                <div style={CARTAO_PAR}>
+                  <div style={CAB_CARTAO}>
+                    <span style={OLHO}>Meta do casal</span>
+                    <button type="button" className="alvo-toque" onClick={() => ir("metas")} style={LINK_TEXTO}>{metas.length > 1 ? "Ver as " + metas.length : "Ver metas"}</button>
                   </div>
-                  <span style={{ fontFamily: SORA, fontSize: 21, fontWeight: 400, letterSpacing: "-.02em", lineHeight: 1.3 }}>{divStatus}</span>
-                  <Barra partes={[{ w: pctW(dv.pG, dv.tot), cor: "#4e9e79" }, { w: pctW(dv.pS, dv.tot), cor: "#e2a24f" }]} anim="width .6s ease" />
-                  <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 8, fontSize: 12.5, color: "var(--muted)" }}>
-                    <span>Você pagou <strong style={{ color: "var(--ink)" }}>{fmt(dv.pG)}</strong></span>
-                    <span>Suelen pagou <strong style={{ color: "var(--ink)" }}>{fmt(dv.pS)}</strong></span>
-                  </div>
+                  {metaFoco ? (
+                    <>
+                      <div style={IDENT_LINHA}>
+                      <button type="button" onClick={() => ir("meta-detalhe", { metaSel: metaFoco.id })} className="mm-h-linha" title="Abrir meta" style={IDENT_BTN}>
+                        <span style={{ ...IDENT_IC, background: "var(--accent-soft)", color: "var(--accent-ink)" }}><Ic d={ICON[metaFoco.ic] || ICON.produto} size={18} sw={1.7} /></span>
+                        <span style={IDENT_TXT}>
+                          <span style={IDENT_NOME}>{metaFoco.nome}</span>
+                          <span style={IDENT_LADO}>{metaFoco.prazo != null ? "até " + mesLabel(metaFoco.prazo).replace(" de ", "/").replace(/^(\p{L}{3})\p{L}*/u, "$1") : "sem prazo"}</span>
+                        </span>
+                      </button>
+                      <div style={VALOR_LINHA}>
+                        <span style={VALOR_GRANDE}>{fmt(metaFoco.tot)}</span>
+                        <span style={{ fontSize: 13, color: "var(--muted2)" }}>de {fmt(metaFoco.alvo, false)}</span>
+                      </div>
+                      </div>
+                      <Barra partes={barrasM(metaFoco)} />
+                      <div style={LEGENDA}>
+                        {[{ nome: "Você", cor: "#4e9e79", v: fmt(metaFoco.g) }, { nome: "Suelen", cor: "#e2a24f", v: fmt(metaFoco.s) }].map((lp) => (
+                          <span key={lp.nome} style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: lp.cor }} />{lp.nome} <strong style={{ color: "var(--ink)" }}>{lp.v}</strong></span>
+                        ))}
+                        <strong style={{ marginLeft: "auto", color: "var(--ink)" }}>{Math.floor(pctM(metaFoco))}%</strong>
+                      </div>
+                      <span style={RODAPE_CARTAO}>{metaFocoTxt}</span>
+                    </>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      <span style={{ fontSize: 14, lineHeight: 1.55, color: "var(--muted2)", textWrap: "pretty" }}>{metas.length ? "Todas as metas de vocês foram concluídas. Qual é o próximo sonho?" : "Criem uma meta juntos e acompanhem quanto cada um está guardando."}</span>
+                      <div><button type="button" onClick={() => irNova()} className="mm-h-sec" style={btnSec({ height: 42, padding: "0 16px", borderRadius: 13, fontSize: 13 })}>Criar meta</button></div>
+                    </div>
+                  )}
                 </div>
 
-                <div style={{ ...CARTAO, display: "flex", flexDirection: "column", gap: 14 }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <div style={CARTAO_PAR}>
+                  <div style={CAB_CARTAO}>
                     <span style={OLHO}>Lazer do casal</span>
                     <button type="button" className="alvo-toque" onClick={abrirLazer} style={LINK_TEXTO}>{lim == null ? "Definir" : "Ajustar"}</button>
                   </div>
                   {lim != null ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                      <div style={{ display: "flex", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
-                        <span style={{ fontFamily: SORA, fontSize: 26, letterSpacing: "-.03em", color: lg + ls > lim ? "var(--out)" : undefined }}>{fmt(lg + ls)}</span>
+                    <>
+                      <div style={IDENT_LINHA}>
+                      <button type="button" onClick={abrirLazer} className="mm-h-linha" title="Ajustar limite de lazer" style={IDENT_BTN}>
+                        <span style={{ ...IDENT_IC, background: "var(--duo-soft)", color: "var(--duo-ink)" }}><Ic d={IC_LAZER} size={18} sw={1.7} /></span>
+                        <span style={IDENT_TXT}>
+                          <span style={IDENT_NOME}>Limite de {mesNome}</span>
+                          {lazerPend
+                            ? <span style={{ ...IDENT_LADO, color: "var(--duo-ink)", fontWeight: 700, animation: "mmFade .3s ease both" }}>Aguardando Suelen</span>
+                            : <span style={IDENT_LADO}>{lazerModo === "metade" ? "metade para cada" : "juntos"}</span>}
+                        </span>
+                      </button>
+                      <div style={VALOR_LINHA}>
+                        <span style={{ ...VALOR_GRANDE, color: lg + ls > lim ? "var(--out)" : undefined }}>{fmt(lg + ls)}</span>
                         <span style={{ fontSize: 13, color: "var(--muted2)" }}>de {fmt(lim, false)}</span>
-                        {lazerPend && <span style={{ padding: "3px 9px", borderRadius: 999, background: "var(--duo-soft)", color: "var(--duo-ink)", fontSize: 11, fontWeight: 700, animation: "mmFade .3s ease both" }}>Aguardando Suelen</span>}
+                      </div>
                       </div>
                       <Barra partes={lazerModo === "metade"
                         ? [{ w: Math.min(50, (lg / lim) * 100) + "%", cor: "#4e9e79" }, { w: Math.max(0, 50 - Math.min(50, (lg / lim) * 100)) + "%", cor: "transparent" }, { w: Math.min(50, (ls / lim) * 100) + "%", cor: "#e2a24f" }]
                         : [{ w: Math.min(100, (lg / lim) * 100) + "%", cor: "#4e9e79" }, { w: Math.min(100 - Math.min(100, (lg / lim) * 100), (ls / lim) * 100) + "%", cor: "#e2a24f" }]} marcos={lazerModo === "metade" ? ["50%"] : undefined} />
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 16, fontSize: 12.5, color: "var(--muted)" }}>
+                      <div style={LEGENDA}>
                         {[{ nome: "Você", cor: "#4e9e79", v: fmt(lg) }, { nome: "Suelen", cor: "#e2a24f", v: fmt(ls) }].map((lp) => (
                           <span key={lp.nome} style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: lp.cor }} />{lp.nome} <strong style={{ color: "var(--ink)" }}>{lp.v}</strong></span>
                         ))}
+                        <strong style={{ marginLeft: "auto", color: lg + ls > lim ? "var(--out)" : "var(--ink)" }}>{Math.floor(((lg + ls) / lim) * 100)}%</strong>
                       </div>
-                      <span style={{ fontSize: 12.5, lineHeight: 1.5, color: "var(--muted2)" }}>
+                      <span style={RODAPE_CARTAO}>
                         {lazerModo === "metade"
                           ? "Cada um tem " + fmt(lim / 2, false) + " no mês. " + (lg > lim / 2 ? "Você passou da sua metade." : ls > lim / 2 ? "Suelen passou da metade dela." : "Os dois estão dentro da parte de cada um.")
                           : lg + ls >= lim ? "O limite do mês foi atingido."
                             : "Restam " + fmt(lim - lg - ls) + (r.lazer.diasRestantes ? " para " + (r.lazer.diasRestantes === 1 ? "o último dia" : "os próximos " + r.lazer.diasRestantes + " dias") + "." : " no mês.")}
                       </span>
-                    </div>
+                    </>
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                       <span style={{ fontSize: 14, lineHeight: 1.55, color: "var(--muted2)", textWrap: "pretty" }}>Definam juntos quanto querem gastar com lazer no mês. O Mimo avisa os dois quando estiver perto do limite.</span>
@@ -1075,20 +1155,21 @@ export default function DuoMetas() {
                     </div>
                   )}
                 </div>
-
-                <div style={{ ...CARTAO, display: "flex", flexDirection: "column", gap: 4 }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 4 }}>
+                <div style={{ ...CARTAO_PAR, gap: 4 }}>
+                  <div style={{ ...CAB_CARTAO, marginBottom: 4 }}>
                     <span style={OLHO}>Últimas movimentações</span>
                     <button type="button" className="alvo-toque" onClick={() => ir("duo-movs")} style={LINK_TEXTO}>Ver todas</button>
                   </div>
-                  {movs.slice(0, 5).map((it, i) => {
+                  {movs.slice(0, 4).map((it, i) => {
                     const rw = row(it);
                     const oculto = it.privado && it.quem === "suelen";
+                    const pend = it.status === "pendente";
                     return (
-                      <button key={it.id} type="button" onClick={() => app.actions.abrirEdicao(it.id)} className="mm-h-linha" title={oculto ? "Lançamento privado de Suelen" : "Editar movimentação"} style={{ ...LINHA, gap: 11, padding: "9px 0", border: "none", borderBottom: "1px solid var(--line-soft)", background: "transparent", color: "inherit", font: "inherit", textAlign: "left", cursor: "pointer", animation: `mmFade .4s ${0.05 * i}s ease both` }}>
+                      <button key={it.id} type="button" onClick={() => app.actions.abrirEdicao(it.id)} className="mm-h-linha" title={oculto ? "Lançamento privado de Suelen" : "Editar movimentação"} style={{ ...LINHA, gap: 10, padding: "5px 0", border: "none", borderBottom: "1px solid var(--line-soft)", background: "transparent", color: "inherit", font: "inherit", textAlign: "left", cursor: "pointer", animation: `mmFade .4s ${0.05 * i}s ease both` }}>
                         <span title={rw.quemNome}><Avatar av={rw.av} ini={rw.ini} size={28} /></span>
                         <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontStyle: oculto ? "italic" : undefined, color: oculto ? "var(--muted)" : undefined }}>{rw.desc}</span>
-                        <span style={{ fontFamily: SORA, fontSize: 13, color: rw.cor, whiteSpace: "nowrap" }}>{rw.vFmt}</span>
+                        {pend && <span style={{ flex: "none", padding: "2px 8px", borderRadius: 999, background: "var(--duo-soft)", color: "var(--duo-ink)", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>vence {rw.data}</span>}
+                        <span style={{ fontFamily: SORA, fontSize: 13, color: pend ? "var(--muted)" : rw.cor, whiteSpace: "nowrap" }}>{rw.vFmt}</span>
                       </button>
                     );
                   })}
@@ -1099,40 +1180,42 @@ export default function DuoMetas() {
                     </div>
                   )}
                 </div>
-              </section>
 
-              {!vazio && (() => {
-                const mx = Math.max(1, ...r.porMes.map((x) => x.gustavo + x.suelen + x.conjunta));
-                return (
-                  <section style={{ ...CARTAO, display: "flex", flexDirection: "column", gap: 16 }}>
-                    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                      <span style={OLHO}>Quem gastou o quê · últimos 6 meses</span>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 14, fontSize: 12, color: "var(--muted)" }}>
-                        {[["Você", "#4e9e79"], ["Suelen", "#e2a24f"], ["Conta conjunta", "var(--accent)"]].map(([k, cor]) => (
-                          <span key={k} style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><span style={{ width: 9, height: 9, borderRadius: 3, background: cor }} />{k}</span>
-                        ))}
+                {!vazio && (() => {
+                  const mx = Math.max(1, ...r.porMes.map((x) => x.gustavo + x.suelen + x.conjunta));
+                  return (
+                    <div style={{ ...CARTAO_PAR, gap: 12 }}>
+                      <div style={{ ...CAB_CARTAO, flexWrap: "wrap" }}>
+                        <span style={OLHO}>Quem gastou o quê · 6 meses</span>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, fontSize: 12, color: "var(--muted)" }}>
+                          {[["Você", "#4e9e79"], ["Suelen", "#e2a24f"], ["Conjunta", "var(--accent)"]].map(([k, cor]) => (
+                            <span key={k} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 9, height: 9, borderRadius: 3, background: cor }} />{k}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: 12.5, lineHeight: 1.5, color: "var(--muted2)", textWrap: "pretty" }}>{leituraMes}</span>
+                      <div role="img" aria-label={"Saídas por pessoa nos últimos 6 meses: " + r.porMes.map((x) => x.label + " " + fmt(x.gustavo + x.suelen + x.conjunta, false)).join(", ")} style={{ flex: 1, minHeight: 120, display: "flex", alignItems: "flex-end", gap: 8, paddingTop: 6 }}>
+                        {r.porMes.map((x, i) => {
+                          const tot = x.gustavo + x.suelen + x.conjunta;
+                          const atual = x.chave === mesRef;
+                          return (
+                            <div key={x.chave} title={`${x.label}: você ${fmt(x.gustavo, false)} · Suelen ${fmt(x.suelen, false)} · conjunta ${fmt(x.conjunta, false)}`} style={{ flex: 1, minWidth: 0, height: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", gap: 6 }}>
+                              <span style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>{tot ? fmt(tot, false).replace("R$", "").trim() : "—"}</span>
+                              <div style={{ width: "100%", maxWidth: 46, height: Math.max(tot ? 4 : 0, (tot / mx) * 100) + "%", display: "flex", flexDirection: "column", borderRadius: 8, overflow: "hidden", transformOrigin: "bottom", animation: `mmCresce .7s ${i * 0.06}s cubic-bezier(.22,.9,.18,1) both`, outline: atual ? "2px solid var(--accent-line)" : undefined, outlineOffset: 2 }}>
+                                <div style={{ flex: x.conjunta, background: "var(--accent)" }} />
+                                <div style={{ flex: x.suelen, background: "#e2a24f" }} />
+                                <div style={{ flex: x.gustavo, background: "#4e9e79" }} />
+                              </div>
+                              <span style={{ fontSize: 11, color: atual ? "var(--ink)" : "var(--faint)", fontWeight: atual ? 700 : 400 }}>{x.label}</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-                    <div role="img" aria-label={"Saídas por pessoa nos últimos 6 meses: " + r.porMes.map((x) => x.label + " " + fmt(x.gustavo + x.suelen + x.conjunta, false)).join(", ")} style={{ display: "flex", alignItems: "flex-end", gap: 12, height: 170 }}>
-                      {r.porMes.map((x, i) => {
-                        const tot = x.gustavo + x.suelen + x.conjunta;
-                        const atual = x.chave === mesRef;
-                        return (
-                          <div key={x.chave} title={`${x.label}: você ${fmt(x.gustavo, false)} · Suelen ${fmt(x.suelen, false)} · conjunta ${fmt(x.conjunta, false)}`} style={{ flex: 1, minWidth: 0, height: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", gap: 6 }}>
-                            <span style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>{tot ? fmt(tot, false).replace("R$", "").trim() : "—"}</span>
-                            <div style={{ width: "100%", maxWidth: 46, height: Math.max(tot ? 4 : 0, (tot / mx) * 100) + "%", display: "flex", flexDirection: "column", borderRadius: 8, overflow: "hidden", transformOrigin: "bottom", animation: `mmCresce .7s ${i * 0.06}s cubic-bezier(.22,.9,.18,1) both`, outline: atual ? "2px solid var(--accent-line)" : undefined, outlineOffset: 2 }}>
-                              <div style={{ flex: x.conjunta, background: "var(--accent)" }} />
-                              <div style={{ flex: x.suelen, background: "#e2a24f" }} />
-                              <div style={{ flex: x.gustavo, background: "#4e9e79" }} />
-                            </div>
-                            <span style={{ fontSize: 11, color: atual ? "var(--ink)" : "var(--faint)", fontWeight: atual ? 700 : 400 }}>{x.label}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-                );
-              })()}
+                  );
+                })()}
+              </section>
+              </div>
             </div>
           )}
 

@@ -949,20 +949,18 @@ export default function Configuracoes() {
 
                 {t === "aparencia" && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-                    <div role="radiogroup" aria-label="Tema" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 170px), 1fr))", gap: 12 }}>
+                    <div role="radiogroup" aria-label="Tema" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                       {TEMAS.map(([k, label, desc, fundo, card, linha]) => {
                         const on = s.temaLocal === k;
                         return (
-                          <button key={k} type="button" role="radio" aria-checked={on} onClick={(e) => { up({ temaLocal: k }); aplicarEscolhaTema(k, e.currentTarget); }} className={on ? undefined : "mm-h-card"} style={{ display: "flex", flexDirection: "column", gap: 12, padding: "12px 12px 14px", borderRadius: 20, border: `1.5px solid ${on ? "var(--accent)" : "var(--line2)"}`, background: "var(--surface)", color: "var(--ink)", textAlign: "left", cursor: "pointer" }}>
-                            <span style={{ position: "relative", height: 96, borderRadius: 14, overflow: "hidden", border: "1px solid var(--line)", background: fundo }}>
-                              <span style={{ position: "absolute", left: 12, top: 12, width: "40%", height: 8, borderRadius: 4, background: linha }} />
-                              <span style={{ position: "absolute", left: 12, top: 30, right: 12, height: 34, borderRadius: 9, background: card }} />
-                              <span style={{ position: "absolute", left: 12, bottom: 12, width: "30%", height: 8, borderRadius: 4, background: "#6f5cf0" }} />
+                          <button key={k} type="button" role="radio" aria-checked={on} onClick={(e) => { up({ temaLocal: k }); aplicarEscolhaTema(k, e.currentTarget); }} className={on ? undefined : "mm-h-card"} style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", padding: "12px 18px 12px 12px", borderRadius: 20, border: `1.5px solid ${on ? "var(--accent)" : "var(--line2)"}`, background: "var(--surface)", color: "var(--ink)", textAlign: "left", cursor: "pointer" }}>
+                            <span aria-hidden="true" style={{ position: "relative", flex: "none", width: 72, height: 48, borderRadius: 10, overflow: "hidden", border: "1px solid var(--line)", background: fundo }}>
+                              <span style={{ position: "absolute", left: 8, top: 7, width: "40%", height: 5, borderRadius: 3, background: linha }} />
+                              <span style={{ position: "absolute", left: 8, top: 17, right: 8, height: 16, borderRadius: 5, background: card }} />
+                              <span style={{ position: "absolute", left: 8, bottom: 6, width: "30%", height: 5, borderRadius: 3, background: "#6f5cf0" }} />
                             </span>
-                            <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                              <span style={{ display: "flex", flexDirection: "column", gap: 2 }}><span style={{ fontSize: 14, fontWeight: 700 }}>{label}</span><span style={{ fontSize: 12, color: "var(--faint)" }}>{desc}</span></span>
-                              <span style={{ flex: "none", width: 20, height: 20, borderRadius: "50%", border: `2px solid ${on ? "var(--accent)" : "var(--line2)"}`, display: "grid", placeItems: "center", transition: "border-color .2s ease" }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: on ? "var(--accent)" : "transparent", transform: on ? "scale(1)" : "scale(.4)", transition: "transform .25s cubic-bezier(.2,.8,.2,1), background .2s ease" }} /></span>
-                            </span>
+                            <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}><span style={{ fontSize: 14, fontWeight: 700 }}>{label}</span><span style={{ fontSize: 12, color: "var(--faint)" }}>{desc}</span></span>
+                            <span style={{ flex: "none", width: 20, height: 20, borderRadius: "50%", border: `2px solid ${on ? "var(--accent)" : "var(--line2)"}`, display: "grid", placeItems: "center", transition: "border-color .2s ease" }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: on ? "var(--accent)" : "transparent", transform: on ? "scale(1)" : "scale(.4)", transition: "transform .25s cubic-bezier(.2,.8,.2,1), background .2s ease" }} /></span>
                           </button>
                         );
                       })}

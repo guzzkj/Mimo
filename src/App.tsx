@@ -152,8 +152,6 @@ export default function App() {
             perfilHref: "/ajustes/perfil",
             periodo,
             limitePct: derivado.limitePct,
-            tema: state.tema,
-            onToggleTheme: actions.alternarTema,
             notificacoes: { novas: naoLidas, onAbrir: () => setNotifAberto(true) },
           }}
         />

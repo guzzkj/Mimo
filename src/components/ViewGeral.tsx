@@ -2,15 +2,10 @@ import type { CSSProperties } from "react";
 import { useMemo } from "react";
 import { decorar } from "../lib/derive";
 import { mesAnterior, MESES, MESES_LONGOS } from "../lib/helpers";
-import { token } from "../lib/storage";
 import type { Derivado, ItemDecorado, Tema } from "../types";
 import { CountValue } from "./CountValue";
-import { DonutChart } from "./charts/DonutChart";
-import { FlowChart } from "./charts/FlowChart";
 import { ProjecaoChart } from "./charts/ProjecaoChart";
 import { MonthNav } from "./MonthNav";
-import { TagsMovimentacao } from "./TagsMovimentacao";
-import { Vencimentos } from "./Vencimentos";
 
 interface Props {
   mesRef: string;
@@ -33,22 +28,19 @@ interface Props {
   onEditar: (id: number) => void;
 }
 
+const ESTADO_CONTA = { pago: "paga", pendente: "a vencer", atrasado: "atrasada" } as const;
+
+// Linha compacta dos cartões da visão geral: marcador, texto, valor.
 const linhaRecente = (onEditar: (id: number) => void) => (it: ItemDecorado, indice: number) => (
-  <button type="button" className="recent recent--botao" style={{ "--i": indice } as CSSProperties} key={it.id} onClick={() => onEditar(it.id)} title="Editar movimentação">
-    <div className={`badge ${it.classeCor}`} style={{ background: it.iconBg }}>{it.sinal}</div>
-    <div className="recent__text">
-      <strong>{it.descricao}</strong>
-      <span>{it.categoria}</span>
-      <TagsMovimentacao item={it} />
-    </div>
-    <span className="recent__date">{it.dataLabel}</span>
-    <span className={`recent__status ${it.statusClasse}`}>{it.statusLabel}</span>
-    <span className={`recent__value ${it.classeCor}`}>{it.valorFmt}</span>
+  <button type="button" className="sg-linha" style={{ "--i": indice } as CSSProperties} key={it.id} onClick={() => onEditar(it.id)} title="Editar movimentação">
+    <span className={`badge sg-linha__badge ${it.classeCor}`} style={{ background: it.iconBg }}>{it.sinal}</span>
+    <span className="sg-linha__texto"><strong>{it.descricao}</strong><small>{`${it.dataLabel} · ${it.categoria}`}</small></span>
+    <span className={`sg-linha__valor ${it.classeCor}`}>{it.valorFmt}</span>
   </button>
 );
 
 export function ViewGeral({
-  mesRef, derivado: d, fmt, privado, tema, limites, flip, ronronando, coracoes,
+  mesRef, derivado: d, fmt, privado, limites, flip, ronronando, coracoes,
   onAnteriorMes, onProximoMes, onHojeMes, onEscolherMes, onVerarCartao, onRonronar, onVerTodas, onEditar,
 }: Props) {
   const vazio = d.mes.length === 0;
@@ -59,12 +51,6 @@ export function ViewGeral({
   const livre = d.livre;
   const livrePct = d.saldo > 0 ? Math.max(2, Math.min(100, Math.round((Math.max(0, livre) / d.saldo) * 100))) : 0;
 
-  // A sparkline mostra só as saídas: o salário não achata os outros dias.
-  const maxDia = useMemo(() => Object.values(d.dias).reduce((max, { saidas }) => Math.max(max, saidas), 1), [d.dias]);
-
-  const [primeiroSerie] = d.serie;
-  const ultimoSerie = d.serie[d.serie.length - 1];
-
   // Cartão Mimo = fatura do cartão de crédito no mês em foco.
   const nomeMes = MESES_LONGOS[Number(mesNumero) - 1].toLowerCase();
   const parceladas = d.faturaItens.filter((i) => i.parcela).length;
@@ -73,13 +59,20 @@ export function ViewGeral({
     : "Nenhuma compra no crédito";
   const venceFatura = `Vence ${d.faturaVence.slice(8)}/${d.faturaVence.slice(5, 7)}`;
   const categoriasComGasto = useMemo(() => d.categorias.filter((c) => c.valor > 0), [d.categorias]);
-  // A rosca soma 100% das saídas: além das 5 maiores, o resto vira "Demais".
-  const fatiasRosca = useMemo(() => {
-    const resto = categoriasComGasto.slice(5).reduce((t, c) => t + c.valor, 0);
-    return resto ? [...categoriasComGasto.slice(0, 5), { nome: "Demais", valor: resto, cor: "#8790a6", orcamento: 0, anterior: 0 }] : categoriasComGasto;
-  }, [categoriasComGasto]);
+  const recentes = useMemo(() => d.ordenados.slice(0, 3).map((i) => decorar(i, fmt)), [d.ordenados, fmt]);
 
-  const recentes = useMemo(() => d.ordenados.slice(0, 6).map((i) => decorar(i, fmt)), [d.ordenados, fmt]);
+  // Contas do mês: as que ainda vão sair primeiro, depois as pagas, por dia.
+  const contas = useMemo(() => Object.entries(d.vencimentos)
+    .flatMap(([dia, l]) => l.map((v) => ({ ...v, dia: Number(dia) })))
+    .sort((a, b) => Number(a.estado === "pago") - Number(b.estado === "pago") || a.dia - b.dia), [d.vencimentos]);
+  const contasPagas = contas.filter((c) => c.estado === "pago").length;
+  const contasAbertas = contas.filter((c) => c.estado !== "pago");
+  const totalAberto = contasAbertas.reduce((t, c) => t + c.valor, 0);
+
+  const [maiorCat] = categoriasComGasto;
+  const leituraCat = maiorCat && d.totalCategorias
+    ? `${maiorCat.nome} leva ${Math.round((maiorCat.valor / d.totalCategorias) * 100)}% das saídas do mês.`
+    : "";
 
   return (
     <section className="view view--overview" aria-label="Visão geral">
@@ -121,33 +114,6 @@ export function ViewGeral({
               <div className="hero__projected-row">
                 <div className="hero__projected-track"><div className="hero__projected-fill" /></div>
                 <span>Livre após contas</span>
-              </div>
-              {!vazio && (
-                <p className="hero__phrase">
-                  {`Você registrou ${d.mes.length} movimentações em ${MESES_LONGOS[Number(mesNumero) - 1].toLowerCase()}.`}
-                  {` Resultado do mês: ${d.resultado >= 0 ? "+" : "−"} ${fmt(Math.abs(d.resultado))}.`}
-                </p>
-              )}
-
-              <div className="sparkline">
-                <div className="sparkline__bars">
-                  {Array.from({ length: d.diasDoMes }, (_, i) => i + 1).map((dia) => {
-                    const total = d.dias[dia]?.saidas ?? 0;
-                    const altura = total ? `${Math.max(14, Math.round((total / maxDia) * 100))}%` : "3px";
-                    const cor = total ? token("--out") : `rgba(${token("--ink-rgb")}, 0.14)`;
-                    const dica = `Dia ${dia}${total ? `: ${fmt(total)} em saídas` : ": sem saídas"}`;
-                    return (
-                      <div className={`sparkline__day${dia === d.diaDeHoje ? " is-today" : ""}`} title={dica} key={dia}>
-                        <i style={{ height: altura, background: cor }} />
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="sparkline__axis">
-                  <span>1</span>
-                  <b>{d.diaDeHoje ? `hoje ${d.diaDeHoje}` : ""}</b>
-                  <span>{d.diasDoMes}</span>
-                </div>
               </div>
             </div>
 
@@ -244,92 +210,89 @@ export function ViewGeral({
           </div>
         </div>
 
-        <section className="section">
-          <div className="section__head">
-            <div>
-              <h2 className="section__title">{d.ehMesAtual ? "Saldo até o fim do mês" : "Saldo no mês"}</h2>
-              <span className="section__sub">
-                {d.ehMesAtual
-                  ? `Hoje ${fmt(d.projecao[d.diaDeHoje - 1]?.real ?? d.saldo)} · previsto para o dia ${d.diasDoMes}: ${fmt(livre)}`
-                  : d.projecao[d.projecao.length - 1]?.real == null
-                    ? `Previsto para o dia ${d.diasDoMes}: ${fmt(livre)}`
-                    : `Terminou em ${fmt(d.projecao[d.projecao.length - 1].real ?? 0)}`}
-              </span>
-            </div>
-            <div className="legend">
-              <span><i className="legend__linha" />Realizado</span>
-              {d.projecao.some((p) => p.previsto != null) &&<span><i className="legend__linha legend__linha--prev" />Previsto</span>}
-            </div>
-          </div>
-          <ProjecaoChart pontos={d.projecao} diaDeHoje={d.diaDeHoje} fmt={fmt} mesCurto={MESES[Number(mesNumero) - 1]} />
-        </section>
-
-        <Vencimentos mesRef={mesRef} derivado={d} fmt={fmt} onEditar={onEditar} />
-
-        <section className="section">
-          <div className="section__head">
-            <div>
-              <h2 className="section__title">Fluxo dos últimos meses</h2>
-              <span className="section__sub">{`${primeiroSerie.label} de ${primeiroSerie.chave.slice(0, 4)} até ${ultimoSerie.label} de ${ultimoSerie.chave.slice(0, 4)}`}</span>
-            </div>
-            <div className="legend">
-              <span><i className="is-in" />Entrada</span>
-              <span><i className="is-out" />Saída</span>
-            </div>
-          </div>
-          <div className="chart">
-            <FlowChart serie={d.serie} fmt={fmt} privado={privado} tema={tema} />
-          </div>
-        </section>
-
-        <section className="band">
-          <h2 className="band__title">Para onde o dinheiro vai</h2>
-          <div className="band__body">
-            <div className="donut">
-              <div className="mascote mascote--faixa">
-                <svg viewBox="0 0 200 150" aria-hidden="true"><use href="#mimo-rabo" /></svg>
-              </div>
-              <DonutChart categorias={fatiasRosca} fmt={fmt} tema={tema} />
-              <div className="donut__hole">
-                <div>
-                  <small>Saídas</small>
-                  <CountValue as="strong" valor={d.saidas} fmt={fmt} privado={privado} />
+        {/* Os quatro cartões do mês em 2x2, todos com a mesma altura:
+            o que vem pela frente (saldo previsto, contas) em cima,
+            o que já aconteceu (movimentações, categorias) embaixo. */}
+        <div className="mm-geral-cq sg-grade-wrap">
+          <section aria-label="Resumo do mês" className="mm-geral-grade">
+            <div className="sg-card">
+              <div className="sg-card__head">
+                <span className="sg-card__olho">{d.ehMesAtual ? "Saldo até o fim do mês" : "Saldo no mês"}</span>
+                <div className="legend sg-card__legenda">
+                  <span><i className="legend__linha" />Realizado</span>
+                  {d.projecao.some((p) => p.previsto != null) && <span><i className="legend__linha legend__linha--prev" />Previsto</span>}
                 </div>
               </div>
+              <div className="sg-card__grafico">
+                <ProjecaoChart pontos={d.projecao} diaDeHoje={d.diaDeHoje} fmt={fmt} mesCurto={MESES[Number(mesNumero) - 1]} />
+              </div>
+              <span className="sg-card__rodape">
+                {d.ehMesAtual
+                  ? `Hoje ${fmt(d.projecao[d.diaDeHoje - 1]?.real ?? d.saldo)} · previsto para o dia ${d.diasDoMes}: ${fmt(livre)}.`
+                  : d.projecao[d.projecao.length - 1]?.real == null
+                    ? `Previsto para o dia ${d.diasDoMes}: ${fmt(livre)}.`
+                    : `Terminou em ${fmt(d.projecao[d.projecao.length - 1].real ?? 0)}.`}
+              </span>
             </div>
-            <div className="cat-legend">
-              {categoriasComGasto.slice(0, 5).map(({ nome, valor, cor, orcamento }) => {
-                const ultimos = d.mes
-                  .filter((i) => i.tipo === "saida" && i.categoria === nome)
-                  .slice(0, 3)
-                  .map((i) => `${i.data.slice(8)}/${i.data.slice(5, 7)} ${i.descricao}`)
-                  .join("  ·  ");
-                const p = Math.round((valor / d.totalCategorias) * 100);
-                return (
-                  <div className="cat" key={nome}>
-                    <div className="cat__head">
-                      <span className="cat__name">
-                        <i style={{ background: cor }} />
-                        <span className="cat__label">{nome}</span>
-                        <span className="cat__detail">{ultimos || nome}</span>
-                      </span>
-                      <span className="cat__value" title={orcamento ? `Orçamento: ${fmt(orcamento)}` : undefined} style={orcamento && valor > orcamento ? { color: "var(--out)" } : undefined}>{fmt(valor)}</span>
-                    </div>
-                    <div className="cat__track"><div className="cat__fill" style={{ width: `${p}%`, background: cor }} /></div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
 
-        <section className="section">
-          <div className="section__head" style={{ marginBottom: 12 }}>
-            <h2 className="section__title">Movimentações recentes</h2>
-            <button className="link-button" type="button" onClick={onVerTodas}>Ver todas</button>
-          </div>
-          <div>{recentes.map(linhaRecente(onEditar))}</div>
-        </section>
+            <div className="sg-card">
+              <div className="sg-card__head">
+                <span className="sg-card__olho">Contas do mês</span>
+                {contas.length > 0 && <span className="sg-card__lado">{`${contasPagas} de ${contas.length} pagas`}</span>}
+              </div>
+              {contas.length ? (
+                <ul className="sg-contas">
+                  {contas.slice(0, 3).map((c) => (
+                    <li key={c.id}>
+                      <button type="button" className="sg-linha" onClick={() => onEditar(c.id)} title={`${c.descricao}: ${ESTADO_CONTA[c.estado]}`}>
+                        <i className={`venc__pt venc__pt--${c.estado}`} />
+                        <span className="sg-linha__texto"><strong>{c.descricao}</strong><small>{`dia ${String(c.dia).padStart(2, "0")} · ${ESTADO_CONTA[c.estado]}`}</small></span>
+                        <span className="sg-linha__valor">{fmt(c.valor)}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : <span className="sg-card__vazio">Nenhuma conta recorrente ou em aberto neste mês.</span>}
+              {contas.length > 0 && (
+                <span className="sg-card__rodape">
+                  {contasAbertas.length ? `Falta pagar ${fmt(totalAberto)} em ${contasAbertas.length} ${contasAbertas.length === 1 ? "conta" : "contas"}.` : "Tudo pago neste mês."}
+                </span>
+              )}
+            </div>
+
+            <div className="sg-card">
+              <div className="sg-card__head">
+                <span className="sg-card__olho">Movimentações recentes</span>
+                <button className="sg-card__link" type="button" onClick={onVerTodas}>Ver todas</button>
+              </div>
+              {recentes.length ? <div>{recentes.map(linhaRecente(onEditar))}</div> : <span className="sg-card__vazio">Nada registrado neste mês ainda.</span>}
+            </div>
+
+            <div className="sg-card">
+              <div className="sg-card__head">
+                <span className="sg-card__olho">Para onde o dinheiro vai</span>
+                {d.saidas > 0 && <span className="sg-card__lado">{`${fmt(d.saidas)} em saídas`}</span>}
+              </div>
+              {categoriasComGasto.length ? (
+                <div className="sg-cats">
+                  {categoriasComGasto.slice(0, 3).map(({ nome, valor, cor, orcamento }) => {
+                    const acima = orcamento > 0 && valor > orcamento;
+                    return (
+                      <div className="sg-cat" key={nome} title={orcamento ? `Orçamento: ${fmt(orcamento)}` : undefined}>
+                        <div className="sg-cat__head">
+                          <span className="sg-cat__nome"><i style={{ background: cor }} />{nome}</span>
+                          <span className={`sg-cat__valor${acima ? " is-acima" : ""}`}>{fmt(valor)}</span>
+                        </div>
+                        <div className="sg-cat__trilho"><div style={{ width: `${Math.round((valor / d.totalCategorias) * 100)}%`, background: cor }} /></div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : <span className="sg-card__vazio">Nenhuma saída neste mês.</span>}
+              {leituraCat && <span className="sg-card__rodape">{leituraCat}</span>}
+            </div>
+          </section>
+        </div>
       </div>
     </section>
   );

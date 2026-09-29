@@ -1,8 +1,7 @@
-import { Bell, ChevronRight, Download, Eye, EyeOff, Moon, PanelLeft, Sun, X } from "lucide-react";
+import { Bell, ChevronRight, Download, Eye, EyeOff, PanelLeft, X } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useDialogo } from "../hooks/useDialogo";
-import type { Tema } from "../types";
 import type { DockNavItem } from "./Dock";
 import { AvatarPadrao } from "./Topbar";
 
@@ -14,8 +13,6 @@ export interface MenuConta {
   perfilHref: string;
   periodo: string;
   limitePct: number;
-  tema: Tema;
-  onToggleTheme: (botao: HTMLElement) => void;
   notificacoes: { novas: number; onAbrir: () => void };
 }
 
@@ -31,8 +28,9 @@ interface Props {
   onExportarCsv?: () => void;
 }
 
-// Menu de tela cheia do celular: substitui a Topbar (conta, tema, sino) e a
-// antiga folha "Mais", reunindo todos os destinos e ações num lugar só.
+// Menu de tela cheia do celular: substitui a Topbar (conta, sino) e a antiga
+// folha "Mais", reunindo todos os destinos e ações num lugar só. O tema é
+// trocado só em Configurações > Aparência.
 export function MenuMobile({ destinos, conta, drawerOn, privado, csv, onFechar, onTogglePainel, onTogglePrivacidade, onExportarCsv }: Props) {
   const caixaRef = useDialogo<HTMLDivElement>(true);
 
@@ -49,7 +47,6 @@ export function MenuMobile({ destinos, conta, drawerOn, privado, csv, onFechar, 
   }, [onFechar]);
 
   const acao = (fn?: () => void) => () => { onFechar(); fn?.(); };
-  const escuro = conta?.tema === "escuro";
 
   return (
     <div className="menu-m" ref={caixaRef} role="dialog" aria-modal="true" aria-label="Menu">
@@ -77,10 +74,6 @@ export function MenuMobile({ destinos, conta, drawerOn, privado, csv, onFechar, 
                   {conta.notificacoes.novas > 0 && <b className="menu-m__badge" aria-hidden="true">{conta.notificacoes.novas}</b>}
                 </span>
                 Notificações
-              </button>
-              <button type="button" className="menu-m__atalho" aria-pressed={escuro} onClick={(e) => conta.onToggleTheme(e.currentTarget)}>
-                <span className="menu-m__icone">{escuro ? <Moon /> : <Sun />}</span>
-                {escuro ? "Tema escuro" : "Tema claro"}
               </button>
             </div>
           </>
