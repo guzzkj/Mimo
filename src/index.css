@@ -15,3 +15,5 @@
 @import "./styles/mimo-rodada3.css";
 /* Busca e filtros da tela de movimentações (barra fixa e folha no celular) */
 @import "./styles/filtros-mov.css";
+/* Convite para instalar o app no celular (PWA) */
+@import "./styles/instalar-app.css";

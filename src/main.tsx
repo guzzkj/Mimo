@@ -3,6 +3,11 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
+import { ConviteInstalar } from './components/ConviteInstalar.tsx'
+import { MascotDefs } from './components/MascotDefs.tsx'
+import { registrarServiceWorker } from './lib/instalacao.ts'
+
+registrarServiceWorker()
 
 // Telas portadas de docs/ref, carregadas sob demanda.
 const FluxoAcesso = lazy(() => import('./pages/FluxoAcesso.tsx'))
@@ -11,6 +16,8 @@ const Configuracoes = lazy(() => import('./pages/Configuracoes.tsx'))
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+    {/* Símbolos do mascote uma vez só, para qualquer rota (painel, Duo, convite de instalação) */}
+    <MascotDefs />
     <BrowserRouter>
       <Suspense fallback={null}>
         <Routes>
@@ -38,6 +45,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
+      <ConviteInstalar />
     </BrowserRouter>
   </StrictMode>,
 )

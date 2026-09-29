@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Dock } from "./components/Dock";
 import { Drawer } from "./components/Drawer";
-import { MascotDefs } from "./components/MascotDefs";
 import { ModalExcluir } from "./components/ModalExcluir";
 import { ModalForm } from "./components/ModalForm";
 import { PainelNotificacoes } from "./components/PainelNotificacoes";
@@ -41,7 +40,6 @@ export default function App() {
 
   return (
     <>
-      <MascotDefs />
       <Preloader />
 
       <div className="app">
