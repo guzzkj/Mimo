@@ -42,7 +42,7 @@ interface Props {
   onTogglePrivacidade?: () => void;
   onExportarCsv?: () => void;
   onNova?: () => void;
-  /** Conta, tema e sino: no celular a Topbar some e eles vão para o menu. */
+  /** Conta e sino: no celular a Topbar some e eles vão para o menu. */
   menu?: MenuConta;
 }
 
