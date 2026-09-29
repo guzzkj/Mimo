@@ -211,7 +211,7 @@
 /* Categorias: comparativo, link para a lista e estado vazio */
 .cat-row__link { padding: 0; border: none; background: transparent; color: inherit; font: inherit; font-size: 14.5px; font-weight: 600; cursor: pointer; text-align: left; }
 .cat-row__link:hover { color: var(--accent-ink); text-decoration: underline; text-underline-offset: 3px; }
-.cat-row__value { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.cat-row__value { display: flex; flex-direction: row; align-items: baseline; justify-content: flex-end; gap: 8px; white-space: nowrap; }
 .cat-row__delta { font-family: var(--font-body); font-size: 11.5px; font-weight: 700; letter-spacing: 0; }
 .cat-row__delta.is-sobe { color: var(--out); }
 .cat-row__delta.is-desce { color: var(--in-ink); }
@@ -298,6 +298,8 @@
 .sg-cat__nome i { flex: none; width: 8px; height: 8px; border-radius: 50%; }
 .sg-cat__valor { flex: none; font-family: var(--font-display); font-size: 14px; }
 .sg-cat__valor.is-acima { color: var(--out); }
+.sg-cat__fim { flex: none; display: inline-flex; align-items: baseline; gap: 8px; }
+.sg-cat__pct { font-size: 11.5px; font-variant-numeric: tabular-nums; color: var(--faint); }
 .sg-cat__trilho { height: 4px; border-radius: 999px; background: rgba(var(--ink-rgb), 0.07); overflow: hidden; }
 .sg-cat__trilho div { height: 100%; border-radius: 999px; transform-origin: left; animation: mGrowX 1s var(--ease) both; }
 
