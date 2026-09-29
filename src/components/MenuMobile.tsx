@@ -28,8 +28,9 @@ interface Props {
   onExportarCsv?: () => void;
 }
 
-// Menu de tela cheia do celular: substitui a Topbar (conta, sino) e a
-// antiga folha "Mais", reunindo todos os destinos e ações num lugar só.
+// Menu de tela cheia do celular: substitui a Topbar (conta, sino) e a antiga
+// folha "Mais", reunindo todos os destinos e ações num lugar só. O tema é
+// trocado só em Configurações > Aparência.
 export function MenuMobile({ destinos, conta, drawerOn, privado, csv, onFechar, onTogglePainel, onTogglePrivacidade, onExportarCsv }: Props) {
   const caixaRef = useDialogo<HTMLDivElement>(true);
 

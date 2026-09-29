@@ -179,6 +179,15 @@ export function useMimoApp(opcoes: OpcoesMimoApp = {}) {
 
   const irParaHoje = useCallback(() => patch({ mesRef: MES_REF }), [patch]);
 
+  // Pula direto para um mês escolhido no calendário (fora do período com dados, ignora).
+  const irParaMes = useCallback((alvo: string) => {
+    setState((s) => {
+      const { primeiro, ultimo } = limitesDeMes(s.itens);
+      if (alvo < primeiro || alvo > ultimo) return s;
+      return { ...s, mesRef: alvo };
+    });
+  }, []);
+
   // Abre a lista já filtrada por uma categoria (clique em Categorias).
   const verCategoria = useCallback((categoria: string) => {
     setState((s) => ({ ...s, view: "lista", categoriaFiltro: categoria, tipoFiltro: "todos", pagina: 1 }));
@@ -452,6 +461,7 @@ export function useMimoApp(opcoes: OpcoesMimoApp = {}) {
       irPara,
       andarMes,
       irParaHoje,
+    irParaMes,
       verCategoria,
       abrirNova,
       abrirEdicao,

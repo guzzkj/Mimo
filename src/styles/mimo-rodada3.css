@@ -248,3 +248,78 @@
   .filters--extra { margin-top: -10px; }
   .projecao__area { height: 140px; }
 }
+
+/* Visão geral Duo: os quatro cartões do mês em 2x2, todos com a mesma altura.
+   Container query porque a largura útil depende da barra lateral. */
+.mm-geral-cq { container-type: inline-size; }
+.mm-geral-grade { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: stretch; }
+@container (min-width: 640px) {
+  .mm-geral-grade { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Visão geral solo: a mesma grade 2x2 da visão Duo (.mm-geral-grade) */
+.sg-grade-wrap { margin-top: 18px; }
+.sg-card {
+  min-width: 0; display: flex; flex-direction: column; gap: 12px;
+  padding: 18px; border-radius: 24px; border: 1px solid var(--line);
+  background: var(--surface); box-shadow: 0 18px 44px -32px var(--shadow);
+  animation: mRise 0.7s var(--ease) 0.1s both;
+}
+.sg-card__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sg-card__olho { font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+.sg-card__lado { font-size: 12px; color: var(--faint); white-space: nowrap; }
+.sg-card__legenda { gap: 12px; font-size: 12px; }
+.sg-card__link { padding: 0; border: none; background: transparent; color: var(--accent-ink); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.sg-card__link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.sg-card__rodape { margin-top: auto; font-size: 12.5px; line-height: 1.5; color: var(--muted-2); text-wrap: pretty; }
+.sg-card__vazio { font-size: 13.5px; line-height: 1.55; color: var(--muted-2); }
+.sg-card__grafico .projecao__area { height: 92px; }
+
+.sg-contas { margin: 0; padding: 0; list-style: none; }
+.sg-linha {
+  width: 100%; display: flex; align-items: center; gap: 11px; padding: 5px 0;
+  border: none; border-bottom: 1px solid var(--line-soft); background: transparent;
+  color: inherit; font: inherit; text-align: left; cursor: pointer;
+  animation: mFade 0.6s ease both; animation-delay: calc(var(--i, 0) * 34ms);
+}
+.sg-contas li:last-child .sg-linha, .sg-linha:last-child { border-bottom: none; }
+.sg-linha:hover .sg-linha__texto strong { color: var(--accent-ink); }
+.sg-linha .venc__pt { flex: none; }
+.sg-linha__badge { flex: none; width: 30px; height: 30px; border-radius: 10px; font-size: 13px; }
+.sg-linha__texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; line-height: 1.3; }
+.sg-linha__texto strong { font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: color 0.2s ease; }
+.sg-linha__texto small { font-size: 11.5px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sg-linha__valor { flex: none; font-family: var(--font-display); font-size: 14px; letter-spacing: -0.02em; white-space: nowrap; }
+
+.sg-cats { display: flex; flex-direction: column; gap: 10px; }
+.sg-cat { display: flex; flex-direction: column; gap: 5px; line-height: 1.3; }
+.sg-cat__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13.5px; }
+.sg-cat__nome { display: inline-flex; align-items: center; gap: 9px; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sg-cat__nome i { flex: none; width: 8px; height: 8px; border-radius: 50%; }
+.sg-cat__valor { flex: none; font-family: var(--font-display); font-size: 14px; }
+.sg-cat__valor.is-acima { color: var(--out); }
+.sg-cat__trilho { height: 4px; border-radius: 999px; background: rgba(var(--ink-rgb), 0.07); overflow: hidden; }
+.sg-cat__trilho div { height: 100%; border-radius: 999px; transform-origin: left; animation: mGrowX 1s var(--ease) both; }
+
+/* Desktop: hero mais baixo para o mês inteiro caber na tela sem rolar */
+@media (min-width: 1081px) {
+  .view--overview { gap: 20px; }
+  .view--overview .mes-nav--geral { margin-bottom: 14px; }
+  .view--overview .hero { align-items: start; }
+  .view--overview .hero__balance { max-width: 660px; }
+  .view--overview .hero__amounts { margin: 10px 0 6px; gap: 14px; }
+  .view--overview .hero__value { font-size: 52px; }
+  .view--overview .hero__projected { margin-bottom: 8px; font-size: 22px; }
+  .view--overview .hero__projected-row { margin: 0 0 8px; }
+  .view--overview .stats { margin-top: 12px; padding-top: 12px; }
+  /* o cartão sobe até a altura do seletor de mês: a coluna da direita fica livre ali */
+  .view--overview .hero__right { margin-top: -62px; padding: 72px 10px 0; }
+  .view--overview .mascot { width: 128px; top: -90px; }
+  .view--overview .mascot-tail { width: 90px; right: -50px; }
+  .view--overview .card { min-height: 196px; }
+  .view--overview .card__face { padding: 20px 22px 18px; }
+  .view--overview .card__value { margin: 10px 0 4px; font-size: 28px; }
+  .view--overview .card__foot { margin-top: 12px; }
+  .view--overview .card__mark { height: 32px; }
+  .view--overview .sg-card__grafico .projecao__area { height: 78px; }
+}
