@@ -1,10 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Moldura, type DestinoDock } from "../components/Moldura";
 import { ViewLista } from "../components/ViewLista";
 import { btnPrim, btnSec, campoSt, CARTAO, ERRO_CAMPO, LINK_TEXTO, numBR, OLHO, opcao, OPCIONAL, ROTULO, segmento, SORA, brl } from "../components/mimo/estilos";
 import { Gato, type Expressao } from "../components/mimo/Gato";
-import { Avatar, Chave, Ic, Presenca, Skel, Spinner } from "../components/mimo/ui";
+import { Avatar, Ic, Presenca, Skel, Spinner } from "../components/mimo/ui";
 import { useDialogo } from "../hooks/useDialogo";
 import { useMimoApp } from "../hooks/useMimoApp";
 import { useTimers } from "../hooks/useTimers";
@@ -21,7 +21,7 @@ import type { Autor, Item } from "../types";
 //   3a Visão do casal (/duo) · 3b Movimentações (/duo/movimentacoes)
 //   3c Divisão (/duo/divisao) · 3d Limite de lazer (modal) · 3e Lançamento
 //   (o formulário comum do painel, com quem vê e dividir)
-//   4a Metas (/metas) · 4b/4c Criar (/metas/nova, /metas/catalogo)
+//   4a Metas (/metas) · 4b/4c Criar (/metas/nova, /metas/itens)
 //   4d Detalhe (/metas/:id) · 4e Aporte e 4f Marcos (modais)
 //   4g Por prioridade (/metas/:id/prioridade)
 // A Visão do casal, a Divisão e o Lazer saem das movimentações do motor Duo
@@ -31,20 +31,24 @@ import type { Autor, Item } from "../types";
 // aporte, marco-25/50/75/100).
 
 type Quem = "gustavo" | "suelen" | "conjunta";
-type Tela = "duo-geral" | "duo-movs" | "duo-divisao" | "metas" | "meta-nova" | "meta-catalogo" | "meta-detalhe" | "meta-prioridade";
+type Tela = "duo-geral" | "duo-movs" | "duo-divisao" | "metas" | "meta-nova" | "meta-itens" | "meta-detalhe" | "meta-prioridade";
 type Modal = "lazer" | "aporte" | "marco" | "editar" | null;
 type Dados = "vazio" | "dados" | "pendencia" | "loading";
-type FormKey = "meta" | "cat" | "aporte" | "lazer" | "editar";
+type FormKey = "meta" | "itens" | "aporte" | "lazer" | "editar";
 type Pessoa = { nome: string; rot: string; av: string; ini: string; cor: string; tabby: boolean };
 
-interface Meta { id: string; nome: string; ic: string; alvo: number; g: number; s: number; prazo: number | null; ritmo: number; itens?: boolean }
+type Prio = "essencial" | "urgente" | "conforto";
+/** Item de uma meta de itens (ex.: montar a casa). `art` é o nome com artigo, só nos itens de exemplo. */
+interface ItemMeta { id: string; nome: string; p: Prio; v: number; art?: string }
+/** Meta com `itens`: o alvo é sempre a soma dos itens. */
+interface Meta { id: string; nome: string; ic: string; alvo: number; g: number; s: number; prazo: number | null; ritmo: number; itens?: ItemMeta[] }
 interface MetaCalc extends Meta { tot: number }
 interface AporteH { d: string; quem: "gustavo" | "suelen"; v: number; nota: string }
 
 interface Forms {
   editar: { nome: string; alvo: string; prazo: string };
   meta: { nome: string; ic: string; alvo: string; prazo: string; inicial: string; inicialS: string };
-  cat: { q: string; sel: string | null; auto: boolean; prazo: string; inicial: string };
+  itens: { nome: string; prazo: string; inicial: string; inicialS: string; lista: ItemMeta[] };
   aporte: { quem: "gustavo" | "suelen"; valor: string; data: string; nota: string };
   lazer: { valor: string; modo: "juntos" | "metade" };
 }
@@ -52,7 +56,7 @@ interface Forms {
 interface S {
   modal: Modal; marco: number; dados: Dados; forms: Forms; tentou: Partial<Record<FormKey, boolean>>;
   privado: boolean; regra: Regra;
-  metaSel: string; aba: "manual" | "catalogo"; enviando: FormKey | "acerto" | null; buscando: boolean;
+  metaSel: string; enviando: FormKey | "acerto" | null;
   ok: FormKey | null; aportes: Record<string, AporteH[]>; criadas: Meta[];
   /** Metas arquivadas e ajustes (nome, alvo, prazo) feitos nas metas de exemplo. */
   arquivadas: string[]; edicoes: Record<string, Partial<Meta>>;
@@ -73,44 +77,41 @@ const ICON: Record<string, string> = {
   carro: "M4 15.5h16v3.5h-3v-1.5H7V19H4z M5.5 15.5 7.3 9h9.4l1.8 6.5",
   produto: "M4 7.5 12 3.5l8 4v9l-8 4-8-4z M4 7.5l8 4 8-4 M12 11.5v9",
 };
-type Prio = "essencial" | "importante" | "conforto";
-const ITENS: { nome: string; art: string; p: Prio; v: number }[] = [
-  { nome: "Geladeira Brastemp Frost Free 480L", art: "a geladeira", p: "essencial", v: 4899 },
-  { nome: "Máquina de lavar Electrolux 12kg", art: "a máquina de lavar", p: "essencial", v: 2799 },
-  { nome: "Fogão Consul 5 bocas", art: "o fogão", p: "essencial", v: 1699 },
-  { nome: "Cama box queen com colchão", art: "a cama", p: "importante", v: 3200 },
-  { nome: "Sofá retrátil 3 lugares", art: "o sofá", p: "importante", v: 3450 },
-  { nome: "Mesa de jantar 4 lugares", art: "a mesa de jantar", p: "importante", v: 1890 },
-  { nome: "Smart TV Samsung 55\" 4K", art: "a TV", p: "conforto", v: 3299 },
-  { nome: "Air fryer e micro-ondas", art: "a air fryer e o micro-ondas", p: "conforto", v: 1180 },
-  { nome: "Rack e tapete da sala", art: "o rack e o tapete", p: "conforto", v: 1584 },
+// Itens de exemplo da meta da casa (soma 24.000, o alvo da meta de fábrica).
+const ITENS_CASA: ItemMeta[] = [
+  { id: "i1", nome: "Geladeira Brastemp Frost Free 480L", art: "a geladeira", p: "essencial", v: 4899 },
+  { id: "i2", nome: "Máquina de lavar Electrolux 12kg", art: "a máquina de lavar", p: "essencial", v: 2799 },
+  { id: "i3", nome: "Fogão Consul 5 bocas", art: "o fogão", p: "essencial", v: 1699 },
+  { id: "i4", nome: "Cama box queen com colchão", art: "a cama", p: "urgente", v: 3200 },
+  { id: "i5", nome: "Sofá retrátil 3 lugares", art: "o sofá", p: "urgente", v: 3450 },
+  { id: "i6", nome: "Mesa de jantar 4 lugares", art: "a mesa de jantar", p: "urgente", v: 1890 },
+  { id: "i7", nome: "Smart TV Samsung 55\" 4K", art: "a TV", p: "conforto", v: 3299 },
+  { id: "i8", nome: "Air fryer e micro-ondas", art: "a air fryer e o micro-ondas", p: "conforto", v: 1180 },
+  { id: "i9", nome: "Rack e tapete da sala", art: "o rack e o tapete", p: "conforto", v: 1584 },
 ];
-const PRIO: Record<Prio, { label: string; cor: string }> = { essencial: { label: "Essencial", cor: "#6f5cf0" }, importante: { label: "Importante", cor: "rgba(111,92,240,.55)" }, conforto: { label: "Conforto", cor: "rgba(111,92,240,.26)" } };
-const ORDEM: Prio[] = ["essencial", "importante", "conforto"];
-const TOTAL_ITENS = ITENS.reduce((a, i) => a + i.v, 0);
+const PRIO: Record<Prio, { label: string; plural: string; cor: string; dica: string }> = {
+  essencial: { label: "Essencial", plural: "essenciais", cor: "#6f5cf0", dica: "Sem isso não dá para morar" },
+  urgente: { label: "Urgente", plural: "urgentes", cor: "rgba(111,92,240,.55)", dica: "Precisa logo depois da mudança" },
+  conforto: { label: "Conforto", plural: "de conforto", cor: "rgba(111,92,240,.26)", dica: "Pode esperar" },
+};
+const ORDEM: Prio[] = ["essencial", "urgente", "conforto"];
+/** Qualquer prioridade fora das três (ex.: dado antigo) conta como urgente. */
+const prioDe = (p: string): Prio => (p === "essencial" || p === "conforto" ? p : "urgente");
+const somaItens = (l: ItemMeta[]) => l.reduce((a, i) => a + i.v, 0);
+/** Itens na ordem em que o guardado os cobre: essenciais, urgentes, conforto. */
+const itensOrdenados = (l: ItemMeta[]) => ORDEM.flatMap((p) => l.filter((i) => prioDe(i.p) === p)).map((i) => ({ ...i, p: prioDe(i.p) }));
+const novoIdItem = () => "it" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const METAS_DUO: Meta[] = [
-  { id: "casa", nome: "Montar a casa nova", ic: "casa", alvo: 24000, g: 6300, s: 5100, prazo: 6, ritmo: 1825, itens: true },
+  { id: "casa", nome: "Montar a casa nova", ic: "casa", alvo: 24000, g: 6300, s: 5100, prazo: 6, ritmo: 1825, itens: ITENS_CASA },
   { id: "japao", nome: "Viagem ao Japão", ic: "viagem", alvo: 28000, g: 11200, s: 9800, prazo: 7, ritmo: 2400 },
   { id: "casamento", nome: "Casamento", ic: "anel", alvo: 45000, g: 7100, s: 5500, prazo: 13, ritmo: 1500 },
   { id: "banheiro", nome: "Reforma do banheiro", ic: "reforma", alvo: 8000, g: 900, s: 1100, prazo: null, ritmo: 400 },
 ];
 const METAS_SOLO: Meta[] = [
-  { id: "casa", nome: "Montar o apê", ic: "casa", alvo: 24000, g: 11400, s: 0, prazo: 6, ritmo: 1825, itens: true },
+  { id: "casa", nome: "Montar o apê", ic: "casa", alvo: 24000, g: 11400, s: 0, prazo: 6, ritmo: 1825, itens: ITENS_CASA },
   { id: "chile", nome: "Viagem ao Chile", ic: "viagem", alvo: 9500, g: 7200, s: 0, prazo: 3, ritmo: 800 },
   { id: "cozinha", nome: "Reforma da cozinha", ic: "reforma", alvo: 18000, g: 9300, s: 0, prazo: 9, ritmo: 950 },
   { id: "reserva", nome: "Reserva de emergência", ic: "escudo", alvo: 20000, g: 4100, s: 0, prazo: null, ritmo: 500 },
-];
-const CATALOGO = [
-  { id: "g1", cat: "Geladeira", marca: "Brastemp", modelo: "Frost Free Inverse 480L BRE85", preco: 4899, vr: -3.2 },
-  { id: "g2", cat: "Geladeira", marca: "Electrolux", modelo: "Inverter Frost Free 454L IB7S", preco: 4349, vr: 1.4 },
-  { id: "g3", cat: "Geladeira", marca: "Consul", modelo: "Frost Free Duplex 410L CRM50", preco: 3199, vr: -0.8 },
-  { id: "g4", cat: "Geladeira", marca: "Samsung", modelo: "French Door 470L RF48", preco: 6190, vr: 2.1 },
-  { id: "f1", cat: "Fogão", marca: "Consul", modelo: "5 bocas CFS5", preco: 1699, vr: -1.1 },
-  { id: "m1", cat: "Máquina de lavar", marca: "Electrolux", modelo: "12kg LFE12", preco: 2799, vr: -0.4 },
-  { id: "s1", cat: "Sofá", marca: "Tok&Stok", modelo: "Retrátil 3 lugares Duda", preco: 3450, vr: 1.8 },
-  { id: "t1", cat: "Smart TV", marca: "Samsung", modelo: "55\" Crystal UHD 4K", preco: 3299, vr: -4.5 },
-  { id: "t2", cat: "Smart TV", marca: "LG", modelo: "55\" OLED evo C4", preco: 6499, vr: -2.0 },
-  { id: "n1", cat: "Notebook", marca: "Apple", modelo: "MacBook Air M3 13\"", preco: 9299, vr: 0.6 },
 ];
 const HOJE = HOJE_ISO;
 /** "aaaa-mm" daqui a N meses (negativo: meses atrás). */
@@ -118,21 +119,21 @@ const mesDaqui = (n: number) => dataSeed(-n, 1).slice(0, 7);
 const VAZIO: Forms = {
   editar: { nome: "", alvo: "", prazo: "" },
   meta: { nome: "", ic: "casa", alvo: "", prazo: "", inicial: "", inicialS: "" },
-  cat: { q: "", sel: null, auto: true, prazo: "", inicial: "" },
+  itens: { nome: "", prazo: "", inicial: "", inicialS: "", lista: [] },
   aporte: { quem: "gustavo", valor: "", data: HOJE, nota: "" },
   lazer: { valor: "", modo: "juntos" },
 };
 const CHEIO: Forms = {
   editar: { nome: "Viagem ao Japão", alvo: "30.000", prazo: mesDaqui(8) },
   meta: { nome: "Viagem para Salvador", ic: "viagem", alvo: "6.500", prazo: mesDaqui(4), inicial: "800", inicialS: "600" },
-  cat: { q: "geladeira", sel: "g1", auto: true, prazo: mesDaqui(3), inicial: "1.200" },
+  itens: { nome: "Montar a casa nova", prazo: mesDaqui(8), inicial: "1.200", inicialS: "", lista: ITENS_CASA.slice(0, 4).map((i) => ({ id: i.id, nome: i.nome, p: i.p, v: i.v })) },
   aporte: { quem: "gustavo", valor: "800", data: HOJE, nota: "Parte do salário" },
   lazer: { valor: "800", modo: "juntos" },
 };
 const ERRO: Forms = {
   editar: { nome: "", alvo: "0", prazo: mesDaqui(-3) },
   meta: { nome: "", ic: "casa", alvo: "5.000", prazo: mesDaqui(-3), inicial: "4.000", inicialS: "3.500" },
-  cat: { q: "geladeira xpto 9000", sel: null, auto: true, prazo: "", inicial: "" },
+  itens: { nome: "", prazo: mesDaqui(-3), inicial: "", inicialS: "", lista: [] },
   aporte: { quem: "gustavo", valor: "15.000", data: dataSeed(-1, 2), nota: "" },
   lazer: { valor: "0", modo: "juntos" },
 };
@@ -140,7 +141,7 @@ const ERRO: Forms = {
 // ---- rotas ---------------------------------------------------------------------
 function lerRota(path: string): { tela: Tela; metaId?: string } | null {
   const p = path.replace(/\/+$/, "") || "/";
-  const fixas: Record<string, Tela> = { "/duo": "duo-geral", "/duo/movimentacoes": "duo-movs", "/duo/divisao": "duo-divisao", "/metas": "metas", "/metas/nova": "meta-nova", "/metas/catalogo": "meta-catalogo" };
+  const fixas: Record<string, Tela> = { "/duo": "duo-geral", "/duo/movimentacoes": "duo-movs", "/duo/divisao": "duo-divisao", "/metas": "metas", "/metas/nova": "meta-nova", "/metas/itens": "meta-itens" };
   if (fixas[p]) return { tela: fixas[p] };
   let m = /^\/metas\/([^/]+)\/prioridade$/.exec(p);
   if (m) return { tela: "meta-prioridade", metaId: decodeURIComponent(m[1]) };
@@ -151,12 +152,12 @@ function lerRota(path: string): { tela: Tela; metaId?: string } | null {
 function rotaDe(tela: Tela, metaId: string) {
   const r: Record<Tela, string> = {
     "duo-geral": "/duo", "duo-movs": "/duo/movimentacoes", "duo-divisao": "/duo/divisao", metas: "/metas", "meta-nova": "/metas/nova",
-    "meta-catalogo": "/metas/catalogo", "meta-detalhe": `/metas/${encodeURIComponent(metaId)}`, "meta-prioridade": `/metas/${encodeURIComponent(metaId)}/prioridade`,
+    "meta-itens": "/metas/itens", "meta-detalhe": `/metas/${encodeURIComponent(metaId)}`, "meta-prioridade": `/metas/${encodeURIComponent(metaId)}/prioridade`,
   };
   return r[tela];
 }
 
-const clonar = (f: Forms): Forms => ({ editar: { ...f.editar }, meta: { ...f.meta }, cat: { ...f.cat }, aporte: { ...f.aporte }, lazer: { ...f.lazer } });
+const clonar = (f: Forms): Forms => ({ editar: { ...f.editar }, meta: { ...f.meta }, itens: { ...f.itens, lista: [...f.itens.lista] }, aporte: { ...f.aporte }, lazer: { ...f.lazer } });
 
 interface Salvas { criadas: Meta[]; aportes: Record<string, AporteH[]>; arquivadas: string[]; edicoes: Record<string, Partial<Meta>> }
 
@@ -169,7 +170,7 @@ function init(tela: Tela, metaId: string | undefined, est: string, duo: boolean,
   const mk = /^marco-(25|50|75|100)$/.exec(abrir);
   if (mk) { modal = "marco"; marco = Number(mk[1]); }
   if (!duo && modal === "lazer") modal = null;
-  const fKey: FormKey | null = modal && modal !== "marco" ? modal : tela === "meta-nova" ? "meta" : tela === "meta-catalogo" ? "cat" : null;
+  const fKey: FormKey | null = modal && modal !== "marco" ? modal : tela === "meta-nova" ? "meta" : tela === "meta-itens" ? "itens" : null;
   const fEst = fKey ? ({ dados: "preenchendo", pendencia: "preenchendo" } as Record<string, string>)[est] || est : null;
   const dados: Dados = fKey || modal ? "dados" : ((({ vazio: "vazio", pendencia: "pendencia", loading: "loading" } as Record<string, Dados>)[est]) || "dados");
   const forms = clonar(VAZIO);
@@ -177,14 +178,13 @@ function init(tela: Tela, metaId: string | undefined, est: string, duo: boolean,
     const src = fEst === "vazio" ? VAZIO : fEst === "erro" ? ERRO : CHEIO;
     (forms as unknown as Record<string, unknown>)[fKey] = { ...src[fKey] };
   }
-  if (fKey === "cat" && fEst === "loading") forms.cat = { ...VAZIO.cat, q: "geladeira" };
   const tentou: S["tentou"] = {};
   if (fEst === "erro" && fKey) tentou[fKey] = true;
   const s: S = {
     modal, marco, dados, forms, tentou,
     privado: false, regra: "meio",
-    metaSel: metaId ?? "casa", aba: tela === "meta-catalogo" ? "catalogo" : "manual",
-    enviando: fEst === "loading" && fKey !== "cat" ? fKey : null, buscando: fKey === "cat" && fEst === "loading",
+    metaSel: metaId ?? "casa",
+    enviando: fEst === "loading" ? fKey : null,
     ok: null,
     // sem estado forçado, as metas criadas, os aportes e as edições voltam do navegador
     ...(est === "dados" ? metasSalvas(duo) : { criadas: [], aportes: {}, arquivadas: [], edicoes: {} }),
@@ -331,6 +331,71 @@ function Moeda({ f, h = 48, fs, pad = "0 12px 0 42px", style }: { f: CampoF; h?:
   );
 }
 
+// Formulário curto para incluir um item numa meta de itens: nome, valor e prioridade.
+function NovoItem({ onAdd, rotulo = "Adicionar item" }: { onAdd: (item: Omit<ItemMeta, "id">) => void; rotulo?: string }) {
+  const [nome, setNome] = useState("");
+  const [valor, setValor] = useState("");
+  const [p, setP] = useState<Prio>("essencial");
+  const [tentou, setTentou] = useState(false);
+  const v = numBR(valor);
+  const erroNome = tentou && nome.trim().length < 2 ? "Dê um nome para o item." : "";
+  const erroValor = tentou && !(v > 0) ? "Informe um valor maior que zero." : "";
+  const enviar = (e: FormEvent) => {
+    e.preventDefault();
+    if (nome.trim().length < 2 || !(v > 0)) { setTentou(true); return; }
+    onAdd({ nome: nome.trim(), v, p });
+    setNome("");
+    setValor("");
+    setTentou(false);
+  };
+  return (
+    <form onSubmit={enviar} noValidate style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 160px), 1fr))", gap: 10 }}>
+        <label style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+          <span style={ROTULO}>Item</span>
+          <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Geladeira" aria-invalid={!!erroNome} style={campoSt(erroNome ? "var(--out-line)" : "var(--line2)", { height: 44, fontSize: 14 })} />
+          {erroNome && <span style={ERRO_CAMPO}>{erroNome}</span>}
+        </label>
+        <label style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+          <span style={ROTULO}>Valor</span>
+          <Moeda f={{ v: valor, on: (e) => setValor(e.target.value), borda: erroValor ? "var(--out-line)" : "var(--line2)" }} h={44} fs={14} />
+          {erroValor && <span style={ERRO_CAMPO}>{erroValor}</span>}
+        </label>
+      </div>
+      <div role="radiogroup" aria-label="Prioridade" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6 }}>
+        {ORDEM.map((k) => (
+          <button key={k} type="button" role="radio" aria-checked={p === k} title={PRIO[k].dica} onClick={() => setP(k)} style={{ minHeight: 44, padding: "6px 8px", borderRadius: 12, border: `1px solid ${opcao(p === k).borda}`, background: opcao(p === k).bg, color: opcao(p === k).cor, fontSize: 12.5, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+            <span style={{ flex: "none", width: 8, height: 8, borderRadius: 2, background: PRIO[k].cor }} />{PRIO[k].label}
+          </button>
+        ))}
+      </div>
+      <span style={{ fontSize: 11.5, color: "var(--faint)" }}>{PRIO[p].label}: {PRIO[p].dica.toLowerCase()}.</span>
+      <button type="submit" className="mm-h-sec" style={btnSec({ height: 44, fontSize: 13.5 })}>+ {rotulo}</button>
+    </form>
+  );
+}
+
+// Linha de item: prioridade, nome, valor e, se couber, o botão de remover.
+function LinhaItem({ it, valor, ok, i = 0, onRemover }: { it: ItemMeta; valor: string; ok?: boolean; i?: number; onRemover?: () => void }) {
+  return (
+    <div style={{ ...LINHA, gap: 12, padding: "10px 0" }}>
+      {ok !== undefined && (
+        <span style={{ flex: "none", width: 22, height: 22, borderRadius: "50%", display: "grid", placeItems: "center", border: `1.5px solid ${ok ? "var(--in)" : "var(--line2)"}`, background: ok ? "var(--in)" : "transparent", color: "#ffffff", animation: ok ? `mmPop .4s ${0.1 + i * 0.05}s cubic-bezier(.2,.8,.2,1) both` : undefined }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity={ok ? 1 : 0} aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>
+        </span>
+      )}
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
+        <span style={{ fontSize: 13.5, fontWeight: 600, color: ok === false ? "var(--muted)" : "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.nome}</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "var(--faint)" }}><span style={{ width: 8, height: 8, borderRadius: 2, background: PRIO[it.p].cor }} />{PRIO[it.p].label}</span>
+      </div>
+      <span style={{ fontFamily: SORA, fontSize: 13.5, whiteSpace: "nowrap" }}>{valor}</span>
+      {onRemover && (
+        <button type="button" onClick={onRemover} title={"Remover " + it.nome} aria-label={"Remover " + it.nome} className="mm-h-linha" style={{ flex: "none", width: 36, height: 36, margin: "-4px -6px -4px 0", borderRadius: 10, border: "none", background: "transparent", color: "var(--faint)", display: "grid", placeItems: "center", cursor: "pointer" }}><Ic d="M6 6l12 12M18 6 6 18" size={14} sw={2} /></button>
+      )}
+    </div>
+  );
+}
+
 function GatosDuplos({ w, ml, exp, corpo = false }: { w: number; ml: number; exp: Expressao; corpo?: boolean }) {
   return (
     <div style={{ display: "flex" }}>
@@ -390,10 +455,12 @@ export default function DuoMetas() {
 
   if (!rota) return <Navigate to={duo ? "/duo" : "/metas"} replace />;
   if (!duo && t.startsWith("duo")) return <Navigate to="/metas" replace />;
-  // "Por prioridade" só existe para metas com lista de itens (hoje, a da casa)
+  // /metas/catalogo saiu do produto (preços eram de exemplo); links antigos caem na lista de itens
+  if (loc.pathname.replace(/\/+$/, "") === "/metas/catalogo") return <Navigate to="/metas/itens" replace />;
+  // "Por prioridade" só existe para metas com lista de itens
   if (t === "meta-prioridade") {
     const alvo = metasDe(s, duo, t).find((x) => x.id === metaSel);
-    if (alvo && !alvo.itens) return <Navigate to={rotaDe("meta-detalhe", metaSel)} replace />;
+    if (alvo && !alvo.itens?.length) return <Navigate to={rotaDe("meta-detalhe", metaSel)} replace />;
   }
 
   const up = (patch: Partial<S> | ((p: S) => Partial<S>)) => setS((p) => ({ ...p, ...(typeof patch === "function" ? patch(p) : patch) }));
@@ -430,15 +497,19 @@ export default function DuoMetas() {
       const m = metaDe(st);
       if (x.nome.trim().length < 2) e.nome = "Dê um nome para a meta.";
       const a = numBR(x.alvo);
-      if (!(a > 0)) e.alvo = "Informe um alvo maior que zero.";
-      else if (m && a < m.tot) e.alvo = "O alvo não pode ser menor que o já guardado (" + fm(m.tot, false) + ").";
+      // meta de itens: o alvo é a soma dos itens e não se edita aqui
+      const alvoLivre = !m?.itens?.length;
+      if (alvoLivre && !(a > 0)) e.alvo = "Informe um alvo maior que zero.";
+      else if (alvoLivre && m && a < m.tot) e.alvo = "O alvo não pode ser menor que o já guardado (" + fm(m.tot, false) + ").";
       if (x.prazo && x.prazo < PROXIMO_MES) e.prazo = prazoMin;
     }
-    if (f === "cat") {
-      const x = st.forms.cat;
-      const it = CATALOGO.find((c) => c.id === x.sel);
-      if (!it) e.sel = "Escolha um produto do catálogo.";
-      if (it && (numBR(x.inicial) || 0) > it.preco) e.inicial = "O valor já guardado passa do preço de referência.";
+    if (f === "itens") {
+      const x = st.forms.itens;
+      if (x.nome.trim().length < 2) e.nome = "Dê um nome para a meta.";
+      const tot = somaItens(x.lista);
+      if (!x.lista.length) e.lista = "Adicione pelo menos um item.";
+      const i = (numBR(x.inicial) || 0) + (duo ? (numBR(x.inicialS) || 0) : 0);
+      if (tot > 0 && i > tot) e.inicial = "O valor já guardado passa do total dos itens (" + fm(tot, false) + ").";
       if (x.prazo && x.prazo < PROXIMO_MES) e.prazo = prazoMin;
     }
     if (f === "aporte") {
@@ -541,40 +612,29 @@ export default function DuoMetas() {
         ? "Faltam " + fmt(metaFoco.alvo - metaFoco.tot, false) + ". Guardando " + fmt(Math.ceil((metaFoco.alvo - metaFoco.tot) / metaFoco.prazo / 50) * 50, false) + " por mês, chegam lá em " + mesLabel(metaFoco.prazo) + "."
         : "Faltam " + fmt(metaFoco.alvo - metaFoco.tot, false) + ". No ritmo de " + fmt(metaFoco.ritmo, false) + " por mês, chegam lá em " + mesLabel(Math.ceil((metaFoco.alvo - metaFoco.tot) / metaFoco.ritmo)) + ".";
   const irNova = (extra: Partial<Forms["meta"]> = {}) => {
-    setS((p) => ({ ...p, aba: "manual", ok: null, tentou: {}, forms: { ...p.forms, meta: { ...VAZIO.meta, ...extra } } }));
+    setS((p) => ({ ...p, ok: null, tentou: {}, forms: { ...p.forms, meta: { ...VAZIO.meta, ...extra } } }));
     navigate("/metas/nova");
   };
-  const irCatalogo = () => { up({ aba: "catalogo", ok: null, tentou: {} }); navigate("/metas/catalogo"); };
+  const irItens = (extra: Partial<Forms["itens"]> = {}) => {
+    setS((p) => ({ ...p, ok: null, tentou: {}, forms: { ...p.forms, itens: { ...VAZIO.itens, ...extra } } }));
+    navigate("/metas/itens");
+  };
   const fm = { nome: campo("meta", "nome"), alvo: campo("meta", "alvo"), prazo: campo("meta", "prazo"), inicial: campo("meta", "inicial"), inicialS: campo("meta", "inicialS") };
-  const c = s.forms.cat;
-  const q = c.q.trim().toLowerCase();
-  const res = q ? CATALOGO.filter((it) => q.split(/\s+/).every((w) => (it.cat + " " + it.marca + " " + it.modelo).toLowerCase().includes(w))) : [];
-  const sel = CATALOGO.find((it) => it.id === c.sel);
-  const varLbl = (v: number) => (v > 0 ? "+" : "−") + Math.abs(v).toFixed(1).replace(".", ",") + "% no mês";
-  const catErrs = s.tentou.cat ? errosDe(s, "cat") : {};
-  let spark: { linha: string; area: string } | null = null;
-  if (sel) {
-    const h = [1.05, 1.07, 1.03, 1.02, 1 / (1 + sel.vr / 100), 1].map((k) => sel.preco * k);
-    const mn = Math.min(...h) * 0.98;
-    const mx = Math.max(...h) * 1.01;
-    const pts = h.map((v, i) => [i * 60, 66 - ((v - mn) / (mx - mn)) * 60]);
-    const linha = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
-    spark = { linha, area: linha + " L300 70 L0 70 Z" };
-  }
+  const fi = { nome: campo("itens", "nome"), prazo: campo("itens", "prazo"), inicial: campo("itens", "inicial"), inicialS: campo("itens", "inicialS") };
+  const listaNova = s.forms.itens.lista;
+  const totalNova = somaItens(listaNova);
+  const itensErrs = s.tentou.itens ? errosDe(s, "itens") : {};
   // prazo "aaaa-mm" vira quantos meses faltam a partir do mês atual
   const mesesAte = (prazo: string) => { const [y, mo] = prazo.split("-").map(Number); const [ya, ma] = MES_REF.split("-").map(Number); return y && mo ? Math.max(1, (y - ya) * 12 + (mo - ma)) : null; };
-  const salvarMeta = (nome: string, ic: string, alvo: number, g: number, sv: number, prazo = ""): Meta => {
+  const ritmoDe = (alvo: number, guardado: number, meses: number | null) => Math.max(300, Math.round((alvo - guardado) / (meses ?? 12)));
+  const salvarMeta = (nome: string, ic: string, alvo: number, g: number, sv: number, prazo = "", itens?: ItemMeta[]): Meta => {
     const meses = mesesAte(prazo);
-    return { id: "n" + Date.now(), nome, ic, alvo, g, s: sv, prazo: meses, ritmo: Math.max(300, Math.round((alvo - g - sv) / (meses ?? 12))) };
+    return { id: "n" + Date.now(), nome, ic, alvo, g, s: sv, prazo: meses, ritmo: ritmoDe(alvo, g + sv, meses), ...(itens ? { itens } : {}) };
   };
-  const criarOk = !!s.ok && (s.ok === "meta" || s.ok === "cat") && (t === "meta-nova" || t === "meta-catalogo");
-  const criarOkTexto = s.ok === "cat" && sel
-    ? "“" + sel.marca + " " + sel.modelo + "” virou meta com alvo de " + fmt(sel.preco) + (c.auto ? ". O alvo acompanha o preço de referência todo mês." : ".")
+  const criarOk = (s.ok === "meta" && t === "meta-nova") || (s.ok === "itens" && t === "meta-itens");
+  const criarOkTexto = s.ok === "itens"
+    ? "“" + (s.forms.itens.nome.trim() || "Montar a casa nova") + "” foi criada com " + listaNova.length + (listaNova.length === 1 ? " item" : " itens") + " e alvo de " + fmt(totalNova) + "."
     : "“" + (s.forms.meta.nome || "Viagem para Salvador") + "” foi criada com alvo de " + fmt(numBR(s.forms.meta.alvo) || 6500) + ".";
-  const catBuscar = (v: string) => {
-    setS((p) => ({ ...p, buscando: !!v.trim(), forms: { ...p.forms, cat: { ...p.forms.cat, q: v, sel: null } } }));
-    later(() => { if (sRef.current.forms.cat.q === v) up({ buscando: false }); }, 650);
-  };
 
   // ---- detalhe (4d) e prioridade (4g) --------------------------------------------------
   // Os 7 meses que terminam no atual (histórico) e os 7 seguintes (projeção).
@@ -622,15 +682,17 @@ export default function DuoMetas() {
         };
       }
     }
-    const itens = m.itens ? ORDEM.flatMap((p) => ITENS.filter((i) => i.p === p)) : [];
+    const itens = itensOrdenados(m.itens ?? []);
     let acc = 0;
     const itensC = itens.map((i) => { acc += i.v; return { ...i, ok: acc <= m.tot }; });
     const okList = itensC.filter((i) => i.ok);
     const prox = itensC.find((i) => !i.ok);
     const maior = okList.slice().sort((a, b) => b.v - a.v)[0];
     const essOk = itensC.filter((i) => i.p === "essencial").every((i) => i.ok);
-    const compraTitulo = maior ? (duo ? "Vocês já podem comprar " : "Você já pode comprar ") + maior.art + "!" : "Ainda não dá para comprar nenhum item";
-    const compraSub = !itens.length ? "" : (maior && essOk ? "O que está guardado cobre todos os itens essenciais. " : "") + (prox ? "Faltam " + fmt(itensC.slice(0, itensC.indexOf(prox) + 1).reduce((a, i) => a + i.v, 0) - m.tot) + " para " + prox.art + "." : "Tudo pago. Hora de comprar.");
+    // itens de exemplo têm o nome com artigo ("a geladeira"); os da pessoa vão entre aspas
+    const art = (i: ItemMeta) => i.art ?? "“" + i.nome + "”";
+    const compraTitulo = maior ? (duo ? "Vocês já podem comprar " : "Você já pode comprar ") + art(maior) + "!" : "Ainda não dá para comprar nenhum item";
+    const compraSub = !itens.length ? "" : (maior && essOk ? "O que está guardado cobre todos os itens essenciais. " : "") + (prox ? "Faltam " + fmt(itensC.slice(0, itensC.indexOf(prox) + 1).reduce((a, i) => a + i.v, 0) - m.tot) + " para " + art(prox) + "." : "Tudo pago. Hora de comprar.");
     return {
       pct, falta, ritmo, plano, passo, itensC, okList, maior, compraTitulo, compraSub, hist,
       guardado: fmt(m.tot), alvo: fmt(m.alvo, false), pctTxt: pct.toFixed(1).replace(".", ",") + "% guardado", faltaTxt: falta ? "Faltam " + fmt(falta) : "Meta atingida",
@@ -642,17 +704,20 @@ export default function DuoMetas() {
   const C = 2 * Math.PI * 70;
   const donut: { label: string; cor: string; pct: string; dash: string; off: string }[] = [];
   const prios: { label: string; cor: string; coberto: string; total: string; w: string; nota: string }[] = [];
-  if (m) {
+  if (m?.itens?.length) {
+    const lista = itensOrdenados(m.itens);
+    const totalItens = somaItens(lista);
     let off = 0;
     let sobra = m.tot;
-    ORDEM.forEach((p) => {
-      const tot = ITENS.filter((i) => i.p === p).reduce((a, i) => a + i.v, 0);
+    ORDEM.forEach((p, k) => {
+      const tot = somaItens(lista.filter((i) => i.p === p));
       const cob = Math.min(tot, Math.max(0, sobra));
       sobra -= tot;
-      const len = (tot / TOTAL_ITENS) * C;
-      donut.push({ label: PRIO[p].label, cor: PRIO[p].cor, pct: Math.round((tot / TOTAL_ITENS) * 100) + "%", dash: len.toFixed(1) + " " + (C - len).toFixed(1), off: (-off).toFixed(1) });
+      const len = totalItens ? (tot / totalItens) * C : 0;
+      donut.push({ label: PRIO[p].label, cor: PRIO[p].cor, pct: Math.round(totalItens ? (tot / totalItens) * 100 : 0) + "%", dash: len.toFixed(1) + " " + (C - len).toFixed(1), off: (-off).toFixed(1) });
       off += len;
-      prios.push({ label: PRIO[p].label, cor: PRIO[p].cor, coberto: fmt(cob, false), total: fmt(tot, false), w: (cob / tot) * 100 + "%", nota: cob >= tot ? "Totalmente coberto" : cob > 0 ? Math.round((cob / tot) * 100) + "% coberto" : "Começa depois dos importantes" });
+      const antes = k ? " depois dos itens " + PRIO[ORDEM[k - 1]].plural : "";
+      prios.push({ label: PRIO[p].label, cor: PRIO[p].cor, coberto: fmt(cob, false), total: fmt(tot, false), w: (tot ? (cob / tot) * 100 : 0) + "%", nota: !tot ? "Nenhum item nesta prioridade" : cob >= tot ? "Totalmente coberto" : cob > 0 ? Math.round((cob / tot) * 100) + "% coberto" : "Começa" + antes });
     });
   }
   // Evolução e linha do tempo saem do histórico de aportes da própria meta:
@@ -767,14 +832,36 @@ export default function DuoMetas() {
     const mm = metaDe(st);
     if (!mm) return;
     const f = st.forms.editar;
-    const alvo = numBR(f.alvo);
+    const alvo = mm.itens?.length ? mm.alvo : numBR(f.alvo);
     const meses = f.prazo ? mesesAte(f.prazo) : null;
-    const mudanca: Partial<Meta> = { nome: f.nome.trim(), alvo, prazo: meses, ritmo: Math.max(300, Math.round((alvo - mm.tot) / (meses ?? 12))) };
-    setS((p) => (mm.id.startsWith("n")
-      ? { ...p, modal: null, criadas: p.criadas.map((x) => (x.id === mm.id ? { ...x, ...mudanca } : x)) }
-      : { ...p, modal: null, edicoes: { ...p.edicoes, [mm.id]: { ...p.edicoes[mm.id], ...mudanca } } }));
+    aplicarMudanca(mm.id, { nome: f.nome.trim(), alvo, prazo: meses, ritmo: ritmoDe(alvo, mm.tot, meses) });
+    up({ modal: null });
     toast("Meta atualizada.");
   });
+  // metas criadas aqui mudam na própria lista; as de exemplo guardam só a edição
+  const aplicarMudanca = (id: string, mudanca: Partial<Meta>) => setS((p) => (id.startsWith("n")
+    ? { ...p, criadas: p.criadas.map((x) => (x.id === id ? { ...x, ...mudanca } : x)) }
+    : { ...p, edicoes: { ...p.edicoes, [id]: { ...p.edicoes[id], ...mudanca } } }));
+  // Meta de itens: o alvo acompanha a soma e nunca fica abaixo do já guardado.
+  const mudarItens = (mm: MetaCalc, lista: ItemMeta[]) => {
+    const alvo = somaItens(lista);
+    if (!lista.length) { toast("A meta precisa de pelo menos um item."); return false; }
+    if (alvo < mm.tot) { toast("Sem esse item o total fica abaixo do já guardado (" + fmt(mm.tot, false) + ")."); return false; }
+    aplicarMudanca(mm.id, { itens: lista, alvo, ritmo: ritmoDe(alvo, mm.tot, mm.prazo) });
+    return true;
+  };
+  const adicionarItem = (item: Omit<ItemMeta, "id">) => {
+    if (!m) return;
+    if (mudarItens(m, [...(m.itens ?? []), { ...item, id: novoIdItem() }])) toast("“" + item.nome + "” entrou na meta. Novo alvo: " + fmt(somaItens(m.itens ?? []) + item.v, false) + ".");
+  };
+  const removerItem = (id: string) => {
+    if (!m?.itens) return;
+    const antes = m.itens;
+    const it = antes.find((i) => i.id === id);
+    if (!it || !mudarItens(m, antes.filter((i) => i.id !== id))) return;
+    const mid = m.id;
+    toast("“" + it.nome + "” saiu da meta.", { label: "Desfazer", onClick: () => aplicarMudanca(mid, { itens: antes, alvo: somaItens(antes), ritmo: ritmoDe(somaItens(antes), m.tot, m.prazo) }) });
+  };
   const arquivar = () => {
     if (!m) return;
     const id = m.id;
@@ -809,7 +896,12 @@ export default function DuoMetas() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 190px), 1fr))", gap: 12 }}>
                 <label style={{ display: "flex", flexDirection: "column", gap: 7, minWidth: 0 }}>
                   <span style={ROTULO}>Valor alvo</span>
-                  <Moeda f={fe.alvo} />
+                  {m?.itens?.length ? (
+                    <>
+                      <span style={{ ...campoSt("var(--line)"), display: "flex", alignItems: "center", color: "var(--muted)" }}>{fmt(m.alvo)}</span>
+                      <span style={{ fontSize: 11.5, lineHeight: 1.4, color: "var(--faint)" }}>Soma dos itens. Mude os itens para mudar o alvo.</span>
+                    </>
+                  ) : <Moeda f={fe.alvo} />}
                   {fe.alvo.erro && <span style={ERRO_CAMPO}>{fe.alvo.erro}</span>}
                 </label>
                 <label style={{ display: "flex", flexDirection: "column", gap: 7, minWidth: 0 }}>
@@ -1353,7 +1445,7 @@ export default function DuoMetas() {
                   <h1 style={H1}>Metas</h1>
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-                  <button type="button" onClick={irCatalogo} className="mm-h-sec" style={btnSec({ height: 46, padding: "0 16px", fontSize: 13.5 })}>Escolher do catálogo</button>
+                  <button type="button" onClick={() => irItens()} className="mm-h-sec" style={btnSec({ height: 46, padding: "0 16px", fontSize: 13.5 })}>Lista de itens</button>
                   <button type="button" onClick={() => irNova()} style={btnPrim({ height: 46, padding: "0 18px", fontSize: 13.5 })}>+ Nova meta</button>
                 </div>
               </div>
@@ -1404,7 +1496,7 @@ export default function DuoMetas() {
                   <span style={{ maxWidth: 400, fontSize: 14, lineHeight: 1.6, color: "var(--muted2)", textWrap: "pretty" }}>{duo ? "Criem uma meta juntos e acompanhem quanto cada um está guardando. Comece por uma sugestão ou do zero." : "Crie uma meta e acompanhe quanto falta. Comece por uma sugestão ou do zero."}</span>
                   <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 8, marginTop: 4 }}>
                     {(duo ? [["Casa nova", "casa"], ["Casamento", "anel"], ["Viagem", "viagem"], ["Reserva de emergência", "escudo"]] : [["Casa própria", "casa"], ["Viagem", "viagem"], ["Carro", "carro"], ["Reserva de emergência", "escudo"]]).map(([label, ic]) => (
-                      <button key={label} type="button" onClick={() => irNova({ nome: label, ic })} className="mm-h-sec" style={{ height: 40, padding: "0 14px", borderRadius: 999, border: "1px solid var(--line2)", background: "var(--surface)", color: "var(--ink2)", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7 }}><Ic d={ICON[ic]} size={15} />{label}</button>
+                      <button key={label} type="button" onClick={() => (label === "Casa nova" ? irItens({ nome: label }) : irNova({ nome: label, ic }))} className="mm-h-sec" style={{ height: 40, padding: "0 14px", borderRadius: 999, border: "1px solid var(--line2)", background: "var(--surface)", color: "var(--ink2)", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7 }}><Ic d={ICON[ic]} size={15} />{label}</button>
                     ))}
                   </div>
                 </div>
@@ -1412,20 +1504,20 @@ export default function DuoMetas() {
             </div>
           )}
 
-          {(t === "meta-nova" || t === "meta-catalogo") && (
+          {(t === "meta-nova" || t === "meta-itens") && (
             <div style={{ display: "flex", flexDirection: "column", gap: 20, ...TRANSICAO_PAGINA }}>
               <button type="button" onClick={() => ir("metas")} style={VOLTAR}>← Metas</button>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <h1 style={H1}>Nova meta</h1>
-                <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: "var(--muted2)" }}>{t === "meta-catalogo" ? "Escolha um produto e use o preço de referência como alvo." : duo ? "Definam quanto querem juntar e, se quiserem, até quando." : "Defina quanto quer juntar e, se quiser, até quando."}</p>
+                <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: "var(--muted2)" }}>{t === "meta-itens" ? (duo ? "Listem o que precisam comprar. O alvo é a soma dos itens, e o guardado cobre primeiro os essenciais." : "Liste o que precisa comprar. O alvo é a soma dos itens, e o guardado cobre primeiro os essenciais.") : duo ? "Definam quanto querem juntar e, se quiserem, até quando." : "Defina quanto quer juntar e, se quiser, até quando."}</p>
               </div>
               {!s.ok && (
                 <div style={{ display: "inline-flex", alignSelf: "flex-start", gap: 4, padding: 4, borderRadius: 14, background: "var(--line-soft)" }}>
-                  {([["manual", "Valor manual", ""], ["catalogo", "Do catálogo", "V2"]] as const).map(([k, label, tag]) => {
-                    const on = k === "catalogo" ? t === "meta-catalogo" : t === "meta-nova";
+                  {([["meta-nova", "Valor único"], ["meta-itens", "Lista de itens"]] as const).map(([k, label]) => {
+                    const on = t === k;
                     return (
-                      <button key={k} type="button" aria-pressed={on} onClick={() => { up({ aba: k }); navigate(k === "catalogo" ? "/metas/catalogo" : "/metas/nova", { replace: true }); }} style={{ height: 38, padding: "0 14px", borderRadius: 11, border: "none", ...segmento(on), fontSize: 13, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7 }}>
-                        {label}{tag && <span style={{ padding: "2px 7px", borderRadius: 999, background: "var(--accent-soft)", color: "var(--accent-ink)", fontSize: 10.5 }}>{tag}</span>}
+                      <button key={k} type="button" aria-pressed={on} onClick={() => { up({ tentou: {} }); navigate(rotaDe(k, metaSel), { replace: true }); }} style={{ height: 38, padding: "0 14px", borderRadius: 11, border: "none", ...segmento(on), fontSize: 13, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7 }}>
+                        {label}
                       </button>
                     );
                   })}
@@ -1483,106 +1575,62 @@ export default function DuoMetas() {
                 </div>
               )}
 
-              {!s.ok && t === "meta-catalogo" && (
-                <div key="catalogo" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", gap: 18, alignItems: "start", animation: "mmFade .3s ease both" }}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: 22, borderRadius: 26, border: "1px solid var(--line)", background: "var(--surface)", boxShadow: "0 18px 44px -30px var(--shadow)" }}>
-                    <div style={{ position: "relative" }}>
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--faint)" }} aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></svg>
-                      <input aria-label="Buscar produto" value={c.q} onChange={(e) => catBuscar(e.target.value)} placeholder="Produto, marca ou modelo" style={campoSt("var(--line2)", { height: 50, padding: "0 14px 0 44px", borderRadius: 15 })} />
+              {!s.ok && t === "meta-itens" && (
+                <div key="itens" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 18, alignItems: "start", animation: "mmFade .3s ease both" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 18, padding: 22, borderRadius: 26, border: "1px solid var(--line)", background: "var(--surface)", boxShadow: "0 18px 44px -30px var(--shadow)" }}>
+                    <label style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                      <span style={ROTULO}>Nome da meta</span>
+                      <input value={fi.nome.v} onChange={fi.nome.on} placeholder="Ex.: Montar a casa nova" style={campoSt(fi.nome.borda)} />
+                      {fi.nome.erro && <span style={ERRO_CAMPO}>{fi.nome.erro}</span>}
+                    </label>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      <span style={OLHO}>Novo item</span>
+                      <NovoItem onAdd={(it) => setForm("itens", "lista", [...sRef.current.forms.itens.lista, { ...it, id: novoIdItem() }])} />
                     </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                      {["Geladeira", "Fogão", "Máquina de lavar", "Sofá", "Smart TV", "Notebook"].map((label) => (
-                        <Opcao key={label} on={q === label.toLowerCase()} onClick={() => setS((p) => ({ ...p, forms: { ...p.forms, cat: { ...p.forms.cat, q: label.toLowerCase(), sel: null } } }))} style={{ height: 34, padding: "0 12px", borderRadius: 999, fontSize: 12.5, fontWeight: 600 }}>{label}</Opcao>
-                      ))}
-                    </div>
-                    {s.buscando && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--muted2)" }}>
-                          <div style={{ width: 52 }}><Gato cor="#4e9e79" expressao="atento" corpo={false} /></div>
-                          Procurando nas lojas…
-                        </div>
-                        {[1, 2, 3].map((k) => <Skel key={k} h={64} r={16} />)}
-                      </div>
-                    )}
-                    {!s.buscando && !q && <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6, color: "var(--muted2)", textWrap: "pretty" }}>Busque o que {duo ? "vocês" : "você"} quer comprar. O preço de referência é a média das principais lojas e é atualizado todo mês.</p>}
-                    {!s.buscando && !!q && !res.length && (
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "18px 8px", textAlign: "center", animation: "mmFade .3s ease both" }}>
-                        <div style={{ width: 96 }}><Gato cor="#4e9e79" expressao="preocupado" corpo={false} /></div>
-                        <span style={{ fontFamily: SORA, fontSize: 17 }}>Não achamos “{c.q}”</span>
-                        <span style={{ maxWidth: 320, fontSize: 13, lineHeight: 1.55, color: "var(--muted2)" }}>Confira o nome do modelo ou busque só pela marca. Se o produto não estiver no catálogo, dá para criar a meta com valor manual.</span>
-                        <button type="button" onClick={() => { up({ aba: "manual" }); navigate("/metas/nova", { replace: true }); }} className="mm-h-sec" style={btnSec({ height: 40, padding: "0 14px", borderRadius: 12, fontSize: 13 })}>Criar com valor manual</button>
-                      </div>
-                    )}
-                    {!s.buscando && res.length > 0 && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        <span style={{ fontSize: 12, color: "var(--faint)" }}>{res.length + (res.length === 1 ? " resultado" : " resultados") + " · preço médio de referência"}</span>
-                        {res.map((it, i) => {
-                          const on = it.id === c.sel;
-                          return (
-                            <button key={it.id} type="button" aria-pressed={on} onClick={() => setForm("cat", "sel", it.id)} className={on ? undefined : "mm-h-sec"} style={{ display: "flex", alignItems: "center", gap: 12, padding: 12, borderRadius: 16, border: `1px solid ${on ? "var(--accent-line)" : "var(--line)"}`, background: on ? "var(--accent-soft)" : "var(--surface)", color: "var(--ink)", textAlign: "left", cursor: "pointer", animation: `mmRise .4s ${i * 0.04}s cubic-bezier(.2,.8,.2,1) both` }}>
-                              <span style={{ flex: "none", width: 40, height: 40, borderRadius: 12, display: "grid", placeItems: "center", background: "var(--line-soft)", color: "var(--muted)" }}><Ic d={ICON.produto} size={19} sw={1.6} /></span>
-                              <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
-                                <span style={{ fontSize: 13.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.marca} {it.modelo}</span>
-                                <span style={{ fontSize: 11.5, color: "var(--faint)" }}>{it.cat} · <span style={{ color: it.vr < 0 ? "var(--in-ink)" : "var(--out-ink)" }}>{varLbl(it.vr)}</span></span>
-                              </span>
-                              <span style={{ fontFamily: SORA, fontSize: 14, whiteSpace: "nowrap" }}>{fmt(it.preco, false)}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
                   </div>
 
-                  <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: 22, borderRadius: 26, border: `1px solid ${catErrs.sel ? "var(--out-line)" : "var(--line)"}`, background: "var(--surface)", boxShadow: "0 18px 44px -30px var(--shadow)", transition: "border-color .2s ease" }}>
-                    {sel && spark ? (
-                      <div key={sel.id} style={{ display: "flex", flexDirection: "column", gap: 16, animation: "mmFade .3s ease both" }}>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                          <span style={OLHO}>{sel.cat} · {sel.marca}</span>
-                          <span style={{ fontFamily: SORA, fontSize: 20, letterSpacing: "-.02em", lineHeight: 1.3 }}>{sel.modelo}</span>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "baseline", flexWrap: "wrap", gap: 10 }}>
-                          <span style={{ fontFamily: SORA, fontSize: 32, fontWeight: 300, letterSpacing: "-.035em" }}>{fmt(sel.preco)}</span>
-                          <span style={{ padding: "3px 9px", borderRadius: 999, background: sel.vr < 0 ? "var(--in-soft)" : "var(--out-soft)", color: sel.vr < 0 ? "var(--in-ink)" : "var(--out-ink)", fontSize: 11.5, fontWeight: 700 }}>{varLbl(sel.vr)}</span>
-                        </div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                          <svg viewBox="0 0 300 70" width="100%" height="70" preserveAspectRatio="none" style={{ display: "block", overflow: "visible" }} aria-hidden="true">
-                            <path d={spark.area} fill="var(--accent-soft)" style={{ animation: "mmFade .6s ease both" }} />
-                            <path d={spark.linha} fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-                          </svg>
-                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5, color: "var(--faint)" }}>{[5, 4, 3, 2, 1, 0].map((k) => { const x = MESES[Number(mesDaqui(-k).slice(5)) - 1]; return <span key={k}>{x}</span>; })}</div>
-                          <span style={{ fontSize: 11.5, color: "var(--faint)" }}>Média de 6 lojas · atualizado em {dataBr(MES_REF + "-01")}</span>
-                        </div>
-                        <button type="button" aria-pressed={c.auto} onClick={() => setForm("cat", "auto", !c.auto)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, padding: 14, borderRadius: 16, border: "1px solid var(--line2)", background: "var(--field)", color: "var(--ink)", textAlign: "left", cursor: "pointer" }}>
-                          <span style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                            <span style={{ fontSize: 13.5, fontWeight: 700 }}>Atualizar o alvo todo mês</span>
-                            <span style={{ fontSize: 12, lineHeight: 1.45, color: "var(--muted2)" }}>O valor da meta acompanha o preço de referência.</span>
-                          </span>
-                          <Chave on={c.auto} />
-                        </button>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 150px), 1fr))", gap: 12 }}>
-                          <label style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                            <span style={ROTULO}>Prazo <span style={OPCIONAL}>· opcional</span></span>
-                            <input type="month" value={c.prazo} onChange={campo("cat", "prazo").on} style={campoSt(campo("cat", "prazo").borda, { height: 46, padding: "0 12px", fontSize: 14 })} />
-                          </label>
-                          <label style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                            <span style={ROTULO}>Já guardado</span>
-                            <input inputMode="decimal" value={c.inicial} onChange={campo("cat", "inicial").on} placeholder="R$ 0,00" style={campoSt(campo("cat", "inicial").borda, { height: 46, padding: "0 12px", fontSize: 14 })} />
-                          </label>
-                        </div>
-                        {(catErrs.inicial || catErrs.prazo) && <span style={ERRO_CAMPO}>{catErrs.inicial || catErrs.prazo}</span>}
-                        <BotaoEnvio env={s.enviando === "cat"} label={"Criar meta com " + fmt(sel.preco, false)} labelEnv="Criando…" style={{ height: 50, borderRadius: 16 }} onClick={() => enviar("cat", (st) => {
-                          const it = CATALOGO.find((x) => x.id === st.forms.cat.sel);
-                          if (!it) return;
-                          setS((p) => ({ ...p, ok: "cat", criadas: [...p.criadas, salvarMeta(it.cat + " " + it.marca, "produto", it.preco, numBR(p.forms.cat.inicial) || 0, 0, p.forms.cat.prazo)] }));
-                        })} />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: 22, borderRadius: 26, border: `1px solid ${itensErrs.lista ? "var(--out-line)" : "var(--line)"}`, background: "var(--surface)", boxShadow: "0 18px 44px -30px var(--shadow)", transition: "border-color .2s ease" }}>
+                    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
+                      <span style={OLHO}>Itens da meta</span>
+                      <span style={{ fontSize: 12, color: "var(--faint)" }}>{listaNova.length + (listaNova.length === 1 ? " item" : " itens")}</span>
+                    </div>
+                    {listaNova.length ? (
+                      <div style={{ display: "flex", flexDirection: "column", marginTop: -6 }}>
+                        {itensOrdenados(listaNova).map((it) => (
+                          <LinhaItem key={it.id} it={it} valor={fmt(it.v, false)} onRemover={() => setForm("itens", "lista", sRef.current.forms.itens.lista.filter((x) => x.id !== it.id))} />
+                        ))}
                       </div>
                     ) : (
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "26px 10px", textAlign: "center" }}>
-                        <div style={{ width: 110 }}><Gato cor="#4e9e79" expressao="curioso" /></div>
-                        <span style={{ maxWidth: 300, fontSize: 13.5, lineHeight: 1.6, color: "var(--muted2)" }}>Escolha um produto para ver o preço de referência e como ele variou nos últimos 6 meses.</span>
-                        {catErrs.sel && <span style={ERRO_CAMPO}>{catErrs.sel}</span>}
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "14px 8px", textAlign: "center" }}>
+                        <div style={{ width: 96 }}><Gato cor="#4e9e79" expressao="curioso" corpo={false} /></div>
+                        <span style={{ maxWidth: 300, fontSize: 13.5, lineHeight: 1.6, color: "var(--muted2)", textWrap: "pretty" }}>Adicione o que {duo ? "vocês precisam" : "você precisa"} comprar, com o valor e a prioridade de cada item.</span>
                       </div>
                     )}
+                    {itensErrs.lista && <span style={ERRO_CAMPO}>{itensErrs.lista}</span>}
+                    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, paddingTop: 2 }}>
+                      <span style={{ fontSize: 13, color: "var(--muted)" }}>Alvo da meta</span>
+                      <span style={{ fontFamily: SORA, fontSize: 24, fontWeight: 300, letterSpacing: "-.03em" }}>{fmt(totalNova)}</span>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 150px), 1fr))", gap: 12 }}>
+                      <label style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                        <span style={ROTULO}>Prazo <span style={OPCIONAL}>· opcional</span></span>
+                        <input type="month" value={fi.prazo.v} onChange={fi.prazo.on} style={campoSt(fi.prazo.borda, { height: 46, padding: "0 12px", fontSize: 14 })} />
+                      </label>
+                      {(duo ? [{ ...P.gustavo, f: fi.inicial, ph: "Você" }, { ...P.suelen, f: { ...fi.inicialS, borda: fi.inicial.borda }, ph: "Suelen" }] : [{ ...P.gustavo, f: fi.inicial, ph: "0,00" }]).map((ic, k) => (
+                        <label key={ic.ini} style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                          <span style={ROTULO}>{k ? "\u00a0" : <>Já guardado <span style={OPCIONAL}>· opcional</span></>}</span>
+                          <div style={{ position: "relative" }}>
+                            {duo && <Avatar av={ic.av} ini={ic.ini} size={24} fs={10.5} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }} />}
+                            <input inputMode="decimal" aria-label={duo ? "Já guardado por " + ic.ph : "Já guardado"} value={ic.f.v} onChange={ic.f.on} placeholder={ic.ph} style={campoSt(ic.f.borda, { height: 46, padding: duo ? "0 12px 0 46px" : "0 12px", fontSize: 14 })} />
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                    {(itensErrs.inicial || itensErrs.prazo) && <span style={ERRO_CAMPO}>{itensErrs.inicial || itensErrs.prazo}</span>}
+                    <BotaoEnvio env={s.enviando === "itens"} label={listaNova.length ? "Criar meta com " + fmt(totalNova, false) : "Criar meta"} labelEnv="Criando…" style={{ height: 50, borderRadius: 16 }} onClick={() => enviar("itens", (st) => {
+                      const f = st.forms.itens;
+                      setS((p) => ({ ...p, ok: "itens", criadas: [...p.criadas, salvarMeta(f.nome.trim(), "casa", somaItens(f.lista), numBR(f.inicial) || 0, duo ? numBR(f.inicialS) || 0 : 0, f.prazo, f.lista)] }));
+                    })} />
                   </div>
                 </div>
               )}
@@ -1596,7 +1644,7 @@ export default function DuoMetas() {
                   <span style={{ maxWidth: 400, fontSize: 14, lineHeight: 1.6, color: "var(--muted2)", textWrap: "pretty" }}>{criarOkTexto}</span>
                   <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 10, marginTop: 6 }}>
                     <button type="button" onClick={() => ir("metas")} style={btnPrim({ height: 46, padding: "0 18px" })}>Ver metas</button>
-                    <button type="button" onClick={() => setS((p) => ({ ...p, ok: null, tentou: {}, forms: { ...p.forms, meta: { ...VAZIO.meta }, cat: { ...VAZIO.cat } } }))} className="mm-h-sec" style={btnSec({ height: 46 })}>Criar outra</button>
+                    <button type="button" onClick={() => setS((p) => ({ ...p, ok: null, tentou: {}, forms: { ...p.forms, meta: { ...VAZIO.meta }, itens: { ...VAZIO.itens, lista: [] } } }))} className="mm-h-sec" style={btnSec({ height: 46 })}>Criar outra</button>
                   </div>
                 </div>
               )}
@@ -1724,17 +1772,14 @@ export default function DuoMetas() {
                         <span style={{ fontSize: 12, color: "var(--faint)" }}>{detalhe.okList.length + " de " + detalhe.itensC.length + " cobertos"}</span>
                       </div>
                       {detalhe.itensC.map((it, i) => (
-                        <div key={it.nome} style={{ ...LINHA, gap: 12, padding: "10px 0" }}>
-                          <span style={{ flex: "none", width: 22, height: 22, borderRadius: "50%", display: "grid", placeItems: "center", border: `1.5px solid ${it.ok ? "var(--in)" : "var(--line2)"}`, background: it.ok ? "var(--in)" : "transparent", color: "#ffffff", animation: it.ok ? `mmPop .4s ${0.1 + i * 0.05}s cubic-bezier(.2,.8,.2,1) both` : undefined }}>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity={it.ok ? 1 : 0} aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>
-                          </span>
-                          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
-                            <span style={{ fontSize: 13.5, fontWeight: 600, color: it.ok ? "var(--ink)" : "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.nome}</span>
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "var(--faint)" }}><span style={{ width: 8, height: 8, borderRadius: 2, background: PRIO[it.p].cor }} />{PRIO[it.p].label}</span>
-                          </div>
-                          <span style={{ fontFamily: SORA, fontSize: 13.5, whiteSpace: "nowrap" }}>{fmt(it.v, false)}</span>
-                        </div>
+                        <LinhaItem key={it.id} it={it} ok={it.ok} i={i} valor={fmt(it.v, false)} onRemover={() => removerItem(it.id)} />
                       ))}
+                      <details style={{ marginTop: 12 }}>
+                        <summary className="mm-h-tracejado mm-sem-marcador" style={{ listStyle: "none", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 44, borderRadius: 13, border: "1px dashed var(--line2)", color: "var(--muted)", fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}>+ Adicionar item</summary>
+                        <div style={{ paddingTop: 14 }}>
+                          <NovoItem onAdd={adicionarItem} rotulo="Adicionar à meta" />
+                        </div>
+                      </details>
                     </div>
                   </div>
                 )}
@@ -1747,9 +1792,8 @@ export default function DuoMetas() {
             <div style={{ display: "flex", flexDirection: "column", gap: 20, ...TRANSICAO_PAGINA }}>
               <button type="button" onClick={() => ir("meta-detalhe")} style={VOLTAR}>← {m.nome}</button>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <span style={{ alignSelf: "flex-start", padding: "4px 10px", borderRadius: 999, border: "1px dashed var(--accent-line)", color: "var(--accent-ink)", fontSize: 11.5, fontWeight: 700 }}>Conceito · V2/V3</span>
                 <h1 style={H1}>Progresso por prioridade</h1>
-                <p style={{ margin: 0, maxWidth: 620, fontSize: 14, lineHeight: 1.6, color: "var(--muted2)", textWrap: "pretty" }}>O valor guardado cobre primeiro os itens essenciais, depois os importantes e por último os de conforto.</p>
+                <p style={{ margin: 0, maxWidth: 620, fontSize: 14, lineHeight: 1.6, color: "var(--muted2)", textWrap: "pretty" }}>O valor guardado cobre primeiro os itens essenciais, depois os urgentes e por último os de conforto.</p>
               </div>
               <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 18, alignItems: "stretch" }}>
                 <div style={{ ...CARTAO, padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>

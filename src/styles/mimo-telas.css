@@ -109,6 +109,8 @@
 .mm-h-tracejado:hover { border-color: var(--accent-line) !important; color: var(--accent-ink) !important; }
 .mm-h-linha:hover { background: var(--line-soft) !important; }
 .mm-h-sec:hover { border-color: var(--accent-line) !important; }
+/* <summary> sem o triângulo padrão (Safari usa o pseudo-elemento) */
+.mm-sem-marcador::-webkit-details-marker { display: none; }
 
 @keyframes mmRiseFx { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
 @keyframes mmRise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
