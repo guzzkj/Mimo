@@ -23,7 +23,6 @@ import type { Autor, Item } from "../types";
 //   (o formulário comum do painel, com quem vê e dividir)
 //   4a Metas (/metas) · 4b/4c Criar (/metas/nova, /metas/itens)
 //   4d Detalhe (/metas/:id) · 4e Aporte e 4f Marcos (modais)
-//   4g Por prioridade (/metas/:id/prioridade)
 // A Visão do casal, a Divisão e o Lazer saem das movimentações do motor Duo
 // (useMimoApp) e dos ajustes da conta; metas e aportes ficam no navegador.
 // ?estado= reproduz os estados do protótipo (vazio, pendencia, loading,
@@ -31,15 +30,14 @@ import type { Autor, Item } from "../types";
 // aporte, marco-25/50/75/100).
 
 type Quem = "gustavo" | "suelen" | "conjunta";
-type Tela = "duo-geral" | "duo-movs" | "duo-divisao" | "metas" | "meta-nova" | "meta-itens" | "meta-detalhe" | "meta-prioridade";
+type Tela = "duo-geral" | "duo-movs" | "duo-divisao" | "metas" | "meta-nova" | "meta-itens" | "meta-detalhe";
 type Modal = "lazer" | "aporte" | "marco" | "editar" | null;
 type Dados = "vazio" | "dados" | "pendencia" | "loading";
 type FormKey = "meta" | "itens" | "aporte" | "lazer" | "editar";
 type Pessoa = { nome: string; rot: string; av: string; ini: string; cor: string; tabby: boolean };
 
-type Prio = "essencial" | "urgente" | "conforto";
 /** Item de uma meta de itens (ex.: montar a casa). `art` é o nome com artigo, só nos itens de exemplo. */
-interface ItemMeta { id: string; nome: string; p: Prio; v: number; art?: string }
+interface ItemMeta { id: string; nome: string; v: number; art?: string }
 /** Meta com `itens`: o alvo é sempre a soma dos itens. */
 interface Meta { id: string; nome: string; ic: string; alvo: number; g: number; s: number; prazo: number | null; ritmo: number; itens?: ItemMeta[] }
 interface MetaCalc extends Meta { tot: number }
@@ -79,27 +77,17 @@ const ICON: Record<string, string> = {
 };
 // Itens de exemplo da meta da casa (soma 24.000, o alvo da meta de fábrica).
 const ITENS_CASA: ItemMeta[] = [
-  { id: "i1", nome: "Geladeira Brastemp Frost Free 480L", art: "a geladeira", p: "essencial", v: 4899 },
-  { id: "i2", nome: "Máquina de lavar Electrolux 12kg", art: "a máquina de lavar", p: "essencial", v: 2799 },
-  { id: "i3", nome: "Fogão Consul 5 bocas", art: "o fogão", p: "essencial", v: 1699 },
-  { id: "i4", nome: "Cama box queen com colchão", art: "a cama", p: "urgente", v: 3200 },
-  { id: "i5", nome: "Sofá retrátil 3 lugares", art: "o sofá", p: "urgente", v: 3450 },
-  { id: "i6", nome: "Mesa de jantar 4 lugares", art: "a mesa de jantar", p: "urgente", v: 1890 },
-  { id: "i7", nome: "Smart TV Samsung 55\" 4K", art: "a TV", p: "conforto", v: 3299 },
-  { id: "i8", nome: "Air fryer e micro-ondas", art: "a air fryer e o micro-ondas", p: "conforto", v: 1180 },
-  { id: "i9", nome: "Rack e tapete da sala", art: "o rack e o tapete", p: "conforto", v: 1584 },
+  { id: "i1", nome: "Geladeira Brastemp Frost Free 480L", art: "a geladeira", v: 4899 },
+  { id: "i2", nome: "Máquina de lavar Electrolux 12kg", art: "a máquina de lavar", v: 2799 },
+  { id: "i3", nome: "Fogão Consul 5 bocas", art: "o fogão", v: 1699 },
+  { id: "i4", nome: "Cama box queen com colchão", art: "a cama", v: 3200 },
+  { id: "i5", nome: "Sofá retrátil 3 lugares", art: "o sofá", v: 3450 },
+  { id: "i6", nome: "Mesa de jantar 4 lugares", art: "a mesa de jantar", v: 1890 },
+  { id: "i7", nome: "Smart TV Samsung 55\" 4K", art: "a TV", v: 3299 },
+  { id: "i8", nome: "Air fryer e micro-ondas", art: "a air fryer e o micro-ondas", v: 1180 },
+  { id: "i9", nome: "Rack e tapete da sala", art: "o rack e o tapete", v: 1584 },
 ];
-const PRIO: Record<Prio, { label: string; plural: string; cor: string; dica: string }> = {
-  essencial: { label: "Essencial", plural: "essenciais", cor: "#6f5cf0", dica: "Sem isso não dá para morar" },
-  urgente: { label: "Urgente", plural: "urgentes", cor: "rgba(111,92,240,.55)", dica: "Precisa logo depois da mudança" },
-  conforto: { label: "Conforto", plural: "de conforto", cor: "rgba(111,92,240,.26)", dica: "Pode esperar" },
-};
-const ORDEM: Prio[] = ["essencial", "urgente", "conforto"];
-/** Qualquer prioridade fora das três (ex.: dado antigo) conta como urgente. */
-const prioDe = (p: string): Prio => (p === "essencial" || p === "conforto" ? p : "urgente");
 const somaItens = (l: ItemMeta[]) => l.reduce((a, i) => a + i.v, 0);
-/** Itens na ordem em que o guardado os cobre: essenciais, urgentes, conforto. */
-const itensOrdenados = (l: ItemMeta[]) => ORDEM.flatMap((p) => l.filter((i) => prioDe(i.p) === p)).map((i) => ({ ...i, p: prioDe(i.p) }));
 const novoIdItem = () => "it" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const METAS_DUO: Meta[] = [
   { id: "casa", nome: "Montar a casa nova", ic: "casa", alvo: 24000, g: 6300, s: 5100, prazo: 6, ritmo: 1825, itens: ITENS_CASA },
@@ -126,7 +114,7 @@ const VAZIO: Forms = {
 const CHEIO: Forms = {
   editar: { nome: "Viagem ao Japão", alvo: "30.000", prazo: mesDaqui(8) },
   meta: { nome: "Viagem para Salvador", ic: "viagem", alvo: "6.500", prazo: mesDaqui(4), inicial: "800", inicialS: "600" },
-  itens: { nome: "Montar a casa nova", prazo: mesDaqui(8), inicial: "1.200", inicialS: "", lista: ITENS_CASA.slice(0, 4).map((i) => ({ id: i.id, nome: i.nome, p: i.p, v: i.v })) },
+  itens: { nome: "Montar a casa nova", prazo: mesDaqui(8), inicial: "1.200", inicialS: "", lista: ITENS_CASA.slice(0, 4).map((i) => ({ id: i.id, nome: i.nome, v: i.v })) },
   aporte: { quem: "gustavo", valor: "800", data: HOJE, nota: "Parte do salário" },
   lazer: { valor: "800", modo: "juntos" },
 };
@@ -144,7 +132,7 @@ function lerRota(path: string): { tela: Tela; metaId?: string } | null {
   const fixas: Record<string, Tela> = { "/duo": "duo-geral", "/duo/movimentacoes": "duo-movs", "/duo/divisao": "duo-divisao", "/metas": "metas", "/metas/nova": "meta-nova", "/metas/itens": "meta-itens" };
   if (fixas[p]) return { tela: fixas[p] };
   let m = /^\/metas\/([^/]+)\/prioridade$/.exec(p);
-  if (m) return { tela: "meta-prioridade", metaId: decodeURIComponent(m[1]) };
+  if (m) return { tela: "meta-detalhe", metaId: decodeURIComponent(m[1]) };
   m = /^\/metas\/([^/]+)$/.exec(p);
   if (m) return { tela: "meta-detalhe", metaId: decodeURIComponent(m[1]) };
   return null;
@@ -152,7 +140,7 @@ function lerRota(path: string): { tela: Tela; metaId?: string } | null {
 function rotaDe(tela: Tela, metaId: string) {
   const r: Record<Tela, string> = {
     "duo-geral": "/duo", "duo-movs": "/duo/movimentacoes", "duo-divisao": "/duo/divisao", metas: "/metas", "meta-nova": "/metas/nova",
-    "meta-itens": "/metas/itens", "meta-detalhe": `/metas/${encodeURIComponent(metaId)}`, "meta-prioridade": `/metas/${encodeURIComponent(metaId)}/prioridade`,
+    "meta-itens": "/metas/itens", "meta-detalhe": `/metas/${encodeURIComponent(metaId)}`,
   };
   return r[tela];
 }
@@ -331,11 +319,10 @@ function Moeda({ f, h = 48, fs, pad = "0 12px 0 42px", style }: { f: CampoF; h?:
   );
 }
 
-// Formulário curto para incluir um item numa meta de itens: nome, valor e prioridade.
+// Formulário curto para incluir um item numa meta de itens: nome e valor.
 function NovoItem({ onAdd, rotulo = "Adicionar item" }: { onAdd: (item: Omit<ItemMeta, "id">) => void; rotulo?: string }) {
   const [nome, setNome] = useState("");
   const [valor, setValor] = useState("");
-  const [p, setP] = useState<Prio>("essencial");
   const [tentou, setTentou] = useState(false);
   const v = numBR(valor);
   const erroNome = tentou && nome.trim().length < 2 ? "Dê um nome para o item." : "";
@@ -343,7 +330,7 @@ function NovoItem({ onAdd, rotulo = "Adicionar item" }: { onAdd: (item: Omit<Ite
   const enviar = (e: FormEvent) => {
     e.preventDefault();
     if (nome.trim().length < 2 || !(v > 0)) { setTentou(true); return; }
-    onAdd({ nome: nome.trim(), v, p });
+    onAdd({ nome: nome.trim(), v });
     setNome("");
     setValor("");
     setTentou(false);
@@ -362,20 +349,12 @@ function NovoItem({ onAdd, rotulo = "Adicionar item" }: { onAdd: (item: Omit<Ite
           {erroValor && <span style={ERRO_CAMPO}>{erroValor}</span>}
         </label>
       </div>
-      <div role="radiogroup" aria-label="Prioridade" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6 }}>
-        {ORDEM.map((k) => (
-          <button key={k} type="button" role="radio" aria-checked={p === k} title={PRIO[k].dica} onClick={() => setP(k)} style={{ minHeight: 44, padding: "6px 8px", borderRadius: 12, border: `1px solid ${opcao(p === k).borda}`, background: opcao(p === k).bg, color: opcao(p === k).cor, fontSize: 12.5, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-            <span style={{ flex: "none", width: 8, height: 8, borderRadius: 2, background: PRIO[k].cor }} />{PRIO[k].label}
-          </button>
-        ))}
-      </div>
-      <span style={{ fontSize: 11.5, color: "var(--faint)" }}>{PRIO[p].label}: {PRIO[p].dica.toLowerCase()}.</span>
       <button type="submit" className="mm-h-sec" style={btnSec({ height: 44, fontSize: 13.5 })}>+ {rotulo}</button>
     </form>
   );
 }
 
-// Linha de item: prioridade, nome, valor e, se couber, o botão de remover.
+// Linha de item: nome, valor e, se couber, o botão de remover.
 function LinhaItem({ it, valor, ok, i = 0, onRemover }: { it: ItemMeta; valor: string; ok?: boolean; i?: number; onRemover?: () => void }) {
   return (
     <div style={{ ...LINHA, gap: 12, padding: "10px 0" }}>
@@ -384,10 +363,7 @@ function LinhaItem({ it, valor, ok, i = 0, onRemover }: { it: ItemMeta; valor: s
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity={ok ? 1 : 0} aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>
         </span>
       )}
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
-        <span style={{ fontSize: 13.5, fontWeight: 600, color: ok === false ? "var(--muted)" : "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.nome}</span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "var(--faint)" }}><span style={{ width: 8, height: 8, borderRadius: 2, background: PRIO[it.p].cor }} />{PRIO[it.p].label}</span>
-      </div>
+      <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 600, color: ok === false ? "var(--muted)" : "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.nome}</span>
       <span style={{ fontFamily: SORA, fontSize: 13.5, whiteSpace: "nowrap" }}>{valor}</span>
       {onRemover && (
         <button type="button" onClick={onRemover} title={"Remover " + it.nome} aria-label={"Remover " + it.nome} className="mm-h-linha" style={{ flex: "none", width: 36, height: 36, margin: "-4px -6px -4px 0", borderRadius: 10, border: "none", background: "transparent", color: "var(--faint)", display: "grid", placeItems: "center", cursor: "pointer" }}><Ic d="M6 6l12 12M18 6 6 18" size={14} sw={2} /></button>
@@ -457,11 +433,8 @@ export default function DuoMetas() {
   if (!duo && t.startsWith("duo")) return <Navigate to="/metas" replace />;
   // /metas/catalogo saiu do produto (preços eram de exemplo); links antigos caem na lista de itens
   if (loc.pathname.replace(/\/+$/, "") === "/metas/catalogo") return <Navigate to="/metas/itens" replace />;
-  // "Por prioridade" só existe para metas com lista de itens
-  if (t === "meta-prioridade") {
-    const alvo = metasDe(s, duo, t).find((x) => x.id === metaSel);
-    if (alvo && !alvo.itens?.length) return <Navigate to={rotaDe("meta-detalhe", metaSel)} replace />;
-  }
+  // "Por prioridade" saiu do produto (itens têm o mesmo peso); links antigos voltam ao detalhe
+  if (/^\/metas\/[^/]+\/prioridade\/?$/.test(loc.pathname)) return <Navigate to={rotaDe("meta-detalhe", metaSel)} replace />;
 
   const up = (patch: Partial<S> | ((p: S) => Partial<S>)) => setS((p) => ({ ...p, ...(typeof patch === "function" ? patch(p) : patch) }));
   const fmtDe = (st: S) => (v: number, dec = true) => (st.privado ? "R$ ••••" : brl(v, dec));
@@ -636,7 +609,7 @@ export default function DuoMetas() {
     ? "“" + (s.forms.itens.nome.trim() || "Montar a casa nova") + "” foi criada com " + listaNova.length + (listaNova.length === 1 ? " item" : " itens") + " e alvo de " + fmt(totalNova) + "."
     : "“" + (s.forms.meta.nome || "Viagem para Salvador") + "” foi criada com alvo de " + fmt(numBR(s.forms.meta.alvo) || 6500) + ".";
 
-  // ---- detalhe (4d) e prioridade (4g) --------------------------------------------------
+  // ---- detalhe (4d) --------------------------------------------------
   // Os 7 meses que terminam no atual (histórico) e os 7 seguintes (projeção).
   const JANELA = Array.from({ length: 14 }, (_, i) => mesDaqui(i - 6));
   const m = metaDe(s);
@@ -682,17 +655,17 @@ export default function DuoMetas() {
         };
       }
     }
-    const itens = itensOrdenados(m.itens ?? []);
+    // o guardado cobre os itens na ordem da lista; todos têm o mesmo peso
+    const itens = m.itens ?? [];
     let acc = 0;
     const itensC = itens.map((i) => { acc += i.v; return { ...i, ok: acc <= m.tot }; });
     const okList = itensC.filter((i) => i.ok);
     const prox = itensC.find((i) => !i.ok);
     const maior = okList.slice().sort((a, b) => b.v - a.v)[0];
-    const essOk = itensC.filter((i) => i.p === "essencial").every((i) => i.ok);
     // itens de exemplo têm o nome com artigo ("a geladeira"); os da pessoa vão entre aspas
     const art = (i: ItemMeta) => i.art ?? "“" + i.nome + "”";
     const compraTitulo = maior ? (duo ? "Vocês já podem comprar " : "Você já pode comprar ") + art(maior) + "!" : "Ainda não dá para comprar nenhum item";
-    const compraSub = !itens.length ? "" : (maior && essOk ? "O que está guardado cobre todos os itens essenciais. " : "") + (prox ? "Faltam " + fmt(itensC.slice(0, itensC.indexOf(prox) + 1).reduce((a, i) => a + i.v, 0) - m.tot) + " para " + art(prox) + "." : "Tudo pago. Hora de comprar.");
+    const compraSub = !itens.length ? "" : (prox ? "Faltam " + fmt(itensC.slice(0, itensC.indexOf(prox) + 1).reduce((a, i) => a + i.v, 0) - m.tot) + " para " + art(prox) + "." : "Tudo pago. Hora de comprar.");
     return {
       pct, falta, ritmo, plano, passo, itensC, okList, maior, compraTitulo, compraSub, hist,
       guardado: fmt(m.tot), alvo: fmt(m.alvo, false), pctTxt: pct.toFixed(1).replace(".", ",") + "% guardado", faltaTxt: falta ? "Faltam " + fmt(falta) : "Meta atingida",
@@ -701,25 +674,6 @@ export default function DuoMetas() {
     };
   })() : null;
 
-  const C = 2 * Math.PI * 70;
-  const donut: { label: string; cor: string; pct: string; dash: string; off: string }[] = [];
-  const prios: { label: string; cor: string; coberto: string; total: string; w: string; nota: string }[] = [];
-  if (m?.itens?.length) {
-    const lista = itensOrdenados(m.itens);
-    const totalItens = somaItens(lista);
-    let off = 0;
-    let sobra = m.tot;
-    ORDEM.forEach((p, k) => {
-      const tot = somaItens(lista.filter((i) => i.p === p));
-      const cob = Math.min(tot, Math.max(0, sobra));
-      sobra -= tot;
-      const len = totalItens ? (tot / totalItens) * C : 0;
-      donut.push({ label: PRIO[p].label, cor: PRIO[p].cor, pct: Math.round(totalItens ? (tot / totalItens) * 100 : 0) + "%", dash: len.toFixed(1) + " " + (C - len).toFixed(1), off: (-off).toFixed(1) });
-      off += len;
-      const antes = k ? " depois dos itens " + PRIO[ORDEM[k - 1]].plural : "";
-      prios.push({ label: PRIO[p].label, cor: PRIO[p].cor, coberto: fmt(cob, false), total: fmt(tot, false), w: (tot ? (cob / tot) * 100 : 0) + "%", nota: !tot ? "Nenhum item nesta prioridade" : cob >= tot ? "Totalmente coberto" : cob > 0 ? Math.round((cob / tot) * 100) + "% coberto" : "Começa" + antes });
-    });
-  }
   // Evolução e linha do tempo saem do histórico de aportes da própria meta:
   // o que já estava guardado antes da janela entra como ponto de partida.
   const histMeta = detalhe?.hist ?? [];
@@ -1037,7 +991,7 @@ export default function DuoMetas() {
     </div>
   ) : null;
 
-  // Evolução e linha do tempo da meta (aportes reais): no detalhe de qualquer meta e em "Por prioridade".
+  // Evolução e linha do tempo da meta (aportes reais): no detalhe de qualquer meta.
   const graficosMeta = m && detalhe ? (
     <>
         <div style={{ ...CARTAO, padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
@@ -1509,7 +1463,7 @@ export default function DuoMetas() {
               <button type="button" onClick={() => ir("metas")} style={VOLTAR}>← Metas</button>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <h1 style={H1}>Nova meta</h1>
-                <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: "var(--muted2)" }}>{t === "meta-itens" ? (duo ? "Listem o que precisam comprar. O alvo é a soma dos itens, e o guardado cobre primeiro os essenciais." : "Liste o que precisa comprar. O alvo é a soma dos itens, e o guardado cobre primeiro os essenciais.") : duo ? "Definam quanto querem juntar e, se quiserem, até quando." : "Defina quanto quer juntar e, se quiser, até quando."}</p>
+                <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: "var(--muted2)" }}>{t === "meta-itens" ? (duo ? "Listem o que precisam comprar. O alvo é a soma dos itens, e o guardado vai cobrindo os itens na ordem da lista." : "Liste o que precisa comprar. O alvo é a soma dos itens, e o guardado vai cobrindo os itens na ordem da lista.") : duo ? "Definam quanto querem juntar e, se quiserem, até quando." : "Defina quanto quer juntar e, se quiser, até quando."}</p>
               </div>
               {!s.ok && (
                 <div style={{ display: "inline-flex", alignSelf: "flex-start", gap: 4, padding: 4, borderRadius: 14, background: "var(--line-soft)" }}>
@@ -1596,14 +1550,14 @@ export default function DuoMetas() {
                     </div>
                     {listaNova.length ? (
                       <div style={{ display: "flex", flexDirection: "column", marginTop: -6 }}>
-                        {itensOrdenados(listaNova).map((it) => (
+                        {listaNova.map((it) => (
                           <LinhaItem key={it.id} it={it} valor={fmt(it.v, false)} onRemover={() => setForm("itens", "lista", sRef.current.forms.itens.lista.filter((x) => x.id !== it.id))} />
                         ))}
                       </div>
                     ) : (
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "14px 8px", textAlign: "center" }}>
                         <div style={{ width: 96 }}><Gato cor="#4e9e79" expressao="curioso" corpo={false} /></div>
-                        <span style={{ maxWidth: 300, fontSize: 13.5, lineHeight: 1.6, color: "var(--muted2)", textWrap: "pretty" }}>Adicione o que {duo ? "vocês precisam" : "você precisa"} comprar, com o valor e a prioridade de cada item.</span>
+                        <span style={{ maxWidth: 300, fontSize: 13.5, lineHeight: 1.6, color: "var(--muted2)", textWrap: "pretty" }}>Adicione o que {duo ? "vocês precisam" : "você precisa"} comprar, com o valor de cada item.</span>
                       </div>
                     )}
                     {itensErrs.lista && <span style={ERRO_CAMPO}>{itensErrs.lista}</span>}
@@ -1730,7 +1684,6 @@ export default function DuoMetas() {
                       <button type="button" onClick={abrirAporte} style={btnPrim()}>+ Adicionar aporte</button>
                       <button type="button" onClick={abrirEditar} className="mm-h-sec" style={btnSec()}>Editar</button>
                       <button type="button" onClick={arquivar} className="mm-h-sec" style={btnSec({ color: "var(--muted)" })}>Arquivar</button>
-                      {detalhe.itensC.length > 0 && <button type="button" onClick={() => ir("meta-prioridade")} className="mm-h-sec" style={btnSec()}>Ver por prioridade</button>}
                     </div>
                   </div>
                   <div style={{ ...CARTAO, display: "flex", flexDirection: "column" }}>
@@ -1783,54 +1736,6 @@ export default function DuoMetas() {
                     </div>
                   </div>
                 )}
-              </section>
-              {graficosMeta}
-            </div>
-          )}
-
-          {t === "meta-prioridade" && m && detalhe && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 20, ...TRANSICAO_PAGINA }}>
-              <button type="button" onClick={() => ir("meta-detalhe")} style={VOLTAR}>← {m.nome}</button>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <h1 style={H1}>Progresso por prioridade</h1>
-                <p style={{ margin: 0, maxWidth: 620, fontSize: 14, lineHeight: 1.6, color: "var(--muted2)", textWrap: "pretty" }}>O valor guardado cobre primeiro os itens essenciais, depois os urgentes e por último os de conforto.</p>
-              </div>
-              <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 18, alignItems: "stretch" }}>
-                <div style={{ ...CARTAO, padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
-                  <span style={OLHO}>Coberto por prioridade</span>
-                  {prios.map((p, i) => (
-                    <div key={p.label} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
-                        <span style={{ fontSize: 14, fontWeight: 700 }}>{p.label}</span>
-                        <span style={{ fontSize: 12.5, color: "var(--muted)" }}><strong style={{ color: "var(--ink)" }}>{p.coberto}</strong> de {p.total}</span>
-                      </div>
-                      <div style={{ height: 10, borderRadius: 99, overflow: "hidden", background: "var(--line-soft)" }}>
-                        <div style={{ width: p.w, height: "100%", borderRadius: 99, background: p.cor, transformOrigin: "left", animation: `mGrowX .9s ${0.15 + i * 0.12}s cubic-bezier(.22,.9,.18,1) both` }} />
-                      </div>
-                      <span style={{ fontSize: 12, color: "var(--faint)" }}>{p.nota}</span>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ ...CARTAO, padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
-                  <span style={OLHO}>Divisão do alvo</span>
-                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 26 }}>
-                    <div style={{ position: "relative", width: 180, height: 180 }}>
-                      <svg viewBox="0 0 180 180" width="180" height="180" style={{ display: "block", transform: "rotate(-90deg)" }} aria-hidden="true">
-                        <circle cx="90" cy="90" r="70" fill="none" stroke="var(--line-soft)" strokeWidth="22" />
-                        {donut.map((d, i) => <circle key={d.label} cx="90" cy="90" r="70" fill="none" stroke={d.cor} strokeWidth="22" strokeDasharray={d.dash} strokeDashoffset={d.off} style={{ animation: `mmFade .5s ${0.1 + i * 0.12}s ease both` }} />)}
-                      </svg>
-                      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2 }}>
-                        <span style={{ fontFamily: SORA, fontSize: 20 }}>{detalhe.alvo}</span>
-                        <span style={{ fontSize: 11, color: "var(--faint)" }}>alvo total</span>
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                      {donut.map((d) => (
-                        <span key={d.label} style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 13 }}><span style={{ width: 12, height: 12, borderRadius: 4, background: d.cor }} /><strong>{d.label}</strong><span style={{ color: "var(--muted)" }}>{d.pct}</span></span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
               </section>
               {graficosMeta}
             </div>
