@@ -1,8 +1,8 @@
 // Service worker do Mimo: rede primeiro, cache como reserva.
-// Os dados do app vivem no localStorage do aparelho, então com o "casco"
-// (HTML, JS, CSS e imagens) em cache o painel abre mesmo sem internet.
+// Só o "casco" (HTML, JS, CSS e imagens) entra no cache. A API (/api/*) nunca
+// passa por aqui: dado financeiro não pode ficar num cache que sobrevive ao logout.
 // Rede primeiro garante que um deploy novo aparece na hora quando há conexão.
-const CACHE = "mimo-shell-v1";
+const CACHE = "mimo-shell-v2";
 const SHELL = ["/", "/manifest.webmanifest", "/assets/mimo-logo.png", "/assets/mimo-simbolo.png", "/assets/nav.png", "/icons/icon-192.png"];
 
 // Os arquivos do build têm hash no nome; em vez de manter uma lista, lê o
@@ -33,7 +33,8 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const req = event.request;
-  if (req.method !== "GET" || new URL(req.url).origin !== self.location.origin) return;
+  const url = new URL(req.url);
+  if (req.method !== "GET" || url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
 
   event.respondWith(
     fetch(req)

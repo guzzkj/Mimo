@@ -5,28 +5,45 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:api": "wrangler pages dev dist --port 8788",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "preview": "vite preview",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node scripts/migrate.ts",
+    "db:studio": "drizzle-kit studio",
+    "deploy:preview": "pnpm build && wrangler pages deploy dist --branch preview",
+    "deploy": "pnpm build && wrangler pages deploy dist --branch main"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.2.0",
     "chart.js": "^4.5.1",
+    "drizzle-orm": "^0.45.3",
+    "hono": "^4.13.12",
     "lucide-react": "^1.47.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-router-dom": "^7.18.4"
+    "react-router-dom": "^7.18.4",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261001.1",
+    "@electric-sql/pglite": "^0.5.8",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
     "autoprefixer": "^10.6.1",
+    "drizzle-kit": "^0.31.11",
     "oxlint": "^1.81.0",
     "postcss": "^8.5.28",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.2",
-    "vite": "^8.3.0"
+    "vite": "^8.3.0",
+    "vitest": "^5.0.3",
+    "wrangler": "^4.146.0"
   }
 }

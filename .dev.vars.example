@@ -1,0 +1,7 @@
+# Copie para .dev.vars (ignorado pelo git) e preencha.
+# Connection string do Neon (use um branch de desenvolvimento, nunca o de produção).
+DATABASE_URL="postgresql://USER:PASSWORD@ep-xxxx-pooler.REGION.aws.neon.tech/neondb?sslmode=require"
+# Sem RESEND_API_KEY os e-mails são apenas registrados no console (nada é enviado).
+RESEND_API_KEY=""
+# Segredo do endpoint interno de lembretes (/api/internal/reminders).
+CRON_SECRET="troque-por-um-valor-aleatorio"

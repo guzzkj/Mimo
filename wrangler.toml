@@ -1,0 +1,24 @@
+# Cloudflare Pages: build estático em ./dist + Pages Functions em ./functions.
+# Segredos (DATABASE_URL, RESEND_API_KEY, CRON_SECRET) NUNCA ficam aqui:
+#   local  -> .dev.vars (ignorado pelo git; veja .dev.vars.example)
+#   remoto -> `wrangler pages secret put <NOME>` ou painel do Cloudflare.
+name = "mimo"
+pages_build_output_dir = "./dist"
+compatibility_date = "2026-09-15"
+compatibility_flags = ["nodejs_compat"]
+
+# Valores de desenvolvimento (wrangler pages dev).
+[vars]
+APP_ENV = "development"
+APP_URL = "http://localhost:5173"
+EMAIL_FROM = "Mimo <onboarding@resend.dev>"
+
+[env.preview.vars]
+APP_ENV = "preview"
+APP_URL = "https://preview.mimo.pages.dev"
+EMAIL_FROM = "Mimo <nao-responda@SEU-DOMINIO>"
+
+[env.production.vars]
+APP_ENV = "production"
+APP_URL = "https://mimo.pages.dev"
+EMAIL_FROM = "Mimo <nao-responda@SEU-DOMINIO>"
