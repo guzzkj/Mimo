@@ -3,6 +3,12 @@ import type { OpcoesMimoApp } from "../hooks/useMimoApp";
 import type { Autor, Item } from "../types";
 import { MESES, MESES_LONGOS } from "./constants";
 import { DIA_HOJE, MES_REF, dataSeed, pad } from "./helpers";
+import { api } from "./api";
+import { MODO_API } from "./modo";
+import { paraCentavos, paraReais } from "./remoto/mapear";
+import type { AcertoApi } from "./remoto/tipos";
+import { contaDoTipo, pessoasDaConta } from "./sessao";
+import { maiuscula, nomesDuo } from "./nomes";
 
 // Dados de exemplo da conta Duo e os cálculos da Visão do casal, compartilhados
 // entre as telas (Duo e Metas, Configurações) e a moldura comum (topo, painel
@@ -75,7 +81,11 @@ export const DUO_SEED: Item[] = SEMENTES.map(([atras, dia, descricao, categoria,
 
 // v2: o exemplo ganhou privados, despesas divididas e meses anteriores.
 export const MOTOR_DUO: OpcoesMimoApp = { storageKey: "mimo.duo.itens.v2", seed: DUO_SEED, autorPadrao: "gustavo", conta: "duo", privadosDe: "suelen" };
-export const AUTORES: { valor: Autor; label: string }[] = [{ valor: "gustavo", label: "Gustavo" }, { valor: "suelen", label: "Suelen" }, { valor: "conjunta", label: "Conta conjunta" }];
+/** Quem pode lançar no Duo (rótulos seguem os nomes da conta no backend real). */
+export function autoresDuo(): { valor: Autor; label: string }[] {
+  const n = nomesDuo();
+  return [{ valor: "gustavo", label: n.eu }, { valor: "suelen", label: maiuscula(n.par) }, { valor: "conjunta", label: "Conta conjunta" }];
+}
 
 // ---- acertos da divisão (Pix entre os dois) ---------------------------------------
 
@@ -86,8 +96,60 @@ const CHAVE_ACERTOS = "mimo.duo.acertos.v1";
 const ouvintes = new Set<() => void>();
 let acertos: Acerto[] | null = null;
 
+// Backend real: acertos vêm de /api/accounts/:duo/settlements. O id local
+// (número) aponta para o uuid do servidor; valor > 0 = quem está logado pagou o par.
+const uuidDoAcerto = new Map<number, string>();
+let filaAcertos: Promise<void> = Promise.resolve();
+let proximoIdAcerto = 1;
+
+export async function hidratarAcertos() {
+  if (!MODO_API) return;
+  const conta = contaDoTipo("duo");
+  if (!conta) { acertos = []; ouvintes.forEach((f) => f()); return; }
+  const { meId } = pessoasDaConta(conta);
+  try {
+    const { settlements } = await api.get<{ settlements: AcertoApi[] }>(`/accounts/${conta.id}/settlements`);
+    uuidDoAcerto.clear();
+    acertos = settlements.map((a) => {
+      const id = proximoIdAcerto++;
+      uuidDoAcerto.set(id, a.id);
+      return { id, mes: a.month, data: a.paidOn, valor: paraReais(a.amountCents) * (a.fromUserId === meId ? 1 : -1) };
+    });
+    ouvintes.forEach((f) => f());
+  } catch (e) {
+    console.warn("[acertos] não foi possível carregar", e);
+  }
+}
+
+async function gravarAcertosRemoto(antes: Acerto[], depois: Acerto[]) {
+  const conta = contaDoTipo("duo");
+  if (!conta) return;
+  const { meId, parId } = pessoasDaConta(conta);
+  const ids = new Set(depois.map((a) => a.id));
+  const anteriores = new Set(antes.map((a) => a.id));
+  try {
+    for (const a of depois.filter((x) => !anteriores.has(x.id))) {
+      if (!parId || !a.valor) continue;
+      const { settlement } = await api.post<{ settlement: AcertoApi }>(`/accounts/${conta.id}/settlements`, {
+        month: a.mes, paidOn: a.data, amountCents: paraCentavos(Math.abs(a.valor)),
+        fromUserId: a.valor > 0 ? meId : parId, toUserId: a.valor > 0 ? parId : meId,
+      });
+      uuidDoAcerto.set(a.id, settlement.id);
+    }
+    for (const a of antes.filter((x) => !ids.has(x.id))) {
+      const uuid = uuidDoAcerto.get(a.id);
+      if (uuid) await api.del(`/accounts/${conta.id}/settlements/${uuid}`);
+      uuidDoAcerto.delete(a.id);
+    }
+  } catch (e) {
+    console.warn("[acertos] não foi possível salvar", e);
+    await hidratarAcertos();
+  }
+}
+
 export const lerAcertos = (): Acerto[] => {
   if (acertos) return acertos;
+  if (MODO_API) { acertos = []; return acertos; }
   let lido: Acerto[] = [];
   try {
     const bruto = localStorage.getItem(CHAVE_ACERTOS);
@@ -101,7 +163,14 @@ export const lerAcertos = (): Acerto[] => {
 };
 
 export function salvarAcertos(lista: Acerto[]) {
+  const antes = acertos ?? [];
   acertos = lista;
+  if (MODO_API) {
+    ouvintes.forEach((f) => f());
+    // em fila: "Desfazer" logo depois do acerto só apaga depois que ele foi criado
+    filaAcertos = filaAcertos.then(() => gravarAcertosRemoto(antes, lista));
+    return;
+  }
   try {
     localStorage.setItem(CHAVE_ACERTOS, JSON.stringify(lista));
   } catch {

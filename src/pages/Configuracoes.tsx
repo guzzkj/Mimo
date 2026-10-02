@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Moldura, type DestinoDock } from "../components/Moldura";
 import { useMimoApp } from "../hooks/useMimoApp";
-import { AUTORES, MOTOR_DUO } from "../lib/contaDuo";
+import { autoresDuo, MOTOR_DUO } from "../lib/contaDuo";
 import { definirNotifs, EMAIL_SUELEN, notifsBase, type Notif } from "../lib/notificacoes";
 import { brl, btnPrim, btnSec, campoSt, CARTAO, ERRO_CAMPO, numBR, OLHO, opcao, ROTULO, segmento, SORA } from "../components/mimo/estilos";
 import { Gato, type Expressao } from "../components/mimo/Gato";
@@ -14,6 +14,10 @@ import { CORES_CAT, lerAjustes, salvarAjustes, type Ajustes } from "../lib/ajust
 import { CATS, MESES_LONGOS } from "../lib/constants";
 import { DIA_HOJE, dataBr, dataSeed } from "../lib/helpers";
 import { OrcamentosConfig } from "../components/OrcamentosConfig";
+import { api, mensagemDeErro } from "../lib/api";
+import { MODO_API } from "../lib/modo";
+import type { ConviteApi } from "../lib/remoto/tipos";
+import { contaDoTipo, recarregarSessao, sair, useSessao } from "../lib/sessao";
 
 // Porta de docs/ref/AppConfig.dc.html ("Mimo Configurações e Alertas"):
 //   Lista mobile (/ajustes) · 5a Perfil · 5b Finanças · 5c Categorias
@@ -155,6 +159,10 @@ function init(t0: Tela, notif: boolean, est: string, abrir: string, planoG: Plan
   const tentou: S["tentou"] = fEst === "erro" && fKey ? { [fKey]: true } : {};
   let duoStatus: DuoStatus = !duo ? "nenhum" : est === "pendencia" ? "pendente" : ["vazio", "preenchendo", "erro"].includes(est) && t0 === "duo" ? "nenhum" : "vinculado";
   if (t0 === "duo" && est === "sucesso") duoStatus = "pendente";
+  if (MODO_API) {
+    const conta = contaDoTipo("duo");
+    duoStatus = conta && conta.members.length > 1 ? "vinculado" : "nenhum";
+  }
   const s: S = {
     plano: planoG, modal, notifOpen: notif, forms, tentou, duoStatus,
     privado: false, temaLocal: escolhaTemaSalva(), abrirOculto: aj.abrirOculto,
@@ -260,6 +268,29 @@ export default function Configuracoes() {
     if (!autoCarregar.current) return;
     later(() => setS((p) => ({ ...p, pageLoading: false })), 800);
   }, [later]);
+
+  // ---- backend real: conta Duo e convite pendente ---------------------------------
+  const sessao = useSessao();
+  const contaDuo = MODO_API ? contaDoTipo("duo", sessao) : null;
+  const parNome = contaDuo?.members.find((m) => !m.isMe)?.name ?? null;
+  const [conviteRemoto, setConviteRemoto] = useState<ConviteApi | null>(null);
+  const membrosDuo = contaDuo?.members.length ?? 0;
+  const idDuo = contaDuo?.id ?? null;
+  useEffect(() => {
+    if (!MODO_API) return;
+    if (membrosDuo > 1) { setS((p) => ({ ...p, duoStatus: "vinculado" })); return; }
+    if (!idDuo) { setS((p) => ({ ...p, duoStatus: "nenhum" })); return; }
+    let vivo = true;
+    api.get<{ invites: ConviteApi[] }>(`/accounts/${idDuo}/invites`)
+      .then(({ invites }) => {
+        if (!vivo) return;
+        const pend = invites.find((i) => i.status === "pending" && !i.expired) ?? null;
+        setConviteRemoto(pend);
+        setS((p) => ({ ...p, duoStatus: pend ? "pendente" : "nenhum" }));
+      })
+      .catch(() => undefined);
+    return () => { vivo = false; };
+  }, [idDuo, membrosDuo]);
   useEffect(() => { window.scrollTo({ top: 0 }); }, [loc.pathname]);
   // a lista de ajustes só existe no layout compacto
   useEffect(() => { if (!cp && t === "config") navigate("/ajustes/perfil", { replace: true }); }, [cp, t, navigate]);
@@ -395,11 +426,13 @@ export default function Configuracoes() {
 
   // ---- conta duo ---------------------------------------------------------------------
   const st = s.duoStatus;
+  const nomePar = MODO_API ? parNome ?? "seu par" : "Suelen";
+  const emailPar = MODO_API ? conviteRemoto?.email ?? "" : EMAIL_S;
   const conviteErro = s.tentou.convite ? errosDe(s, "convite").email : "";
   const dz = st === "vinculado"
-    ? { vinc: true, slot: false, slotTxt: "", slotBorda: "", form: false, pend: false, tag: "Vinculada", tagBg: "var(--in-soft)", tagCor: "var(--in-ink)", borda: "var(--duo-line)", expG: "feliz" as Expressao, titulo: "Você e Suelen dividem uma conta Duo", texto: "Vinculados desde 02/03/2026. Os dois têm acesso igual à conta conjunta e às metas do casal." }
+    ? { vinc: true, slot: false, slotTxt: "", slotBorda: "", form: false, pend: false, tag: "Vinculada", tagBg: "var(--in-soft)", tagCor: "var(--in-ink)", borda: "var(--duo-line)", expG: "feliz" as Expressao, titulo: "Você e " + nomePar + " dividem uma conta Duo", texto: (MODO_API ? "" : "Vinculados desde 02/03/2026. ") + "Os dois têm acesso igual à conta conjunta e às metas do casal." }
     : st === "pendente"
-      ? { vinc: false, slot: true, slotTxt: "?", slotBorda: "var(--duo-line)", form: false, pend: true, tag: "Aguardando resposta", tagBg: "var(--duo-soft)", tagCor: "var(--duo-ink)", borda: "var(--duo-line)", expG: "curioso" as Expressao, titulo: "Convite enviado para " + EMAIL_S, texto: "Enviado em " + dataBr(dataSeed(0, Math.max(1, DIA_HOJE - 5))) + " e válido por 7 dias. Quando Suelen aceitar, a conta vira Duo para os dois." }
+      ? { vinc: false, slot: true, slotTxt: "?", slotBorda: "var(--duo-line)", form: false, pend: true, tag: "Aguardando resposta", tagBg: "var(--duo-soft)", tagCor: "var(--duo-ink)", borda: "var(--duo-line)", expG: "curioso" as Expressao, titulo: "Convite enviado para " + emailPar, texto: (MODO_API && conviteRemoto ? "Enviado em " + dataBr(conviteRemoto.lastSentAt.slice(0, 10)) : "Enviado em " + dataBr(dataSeed(0, Math.max(1, DIA_HOJE - 5)))) + " e válido por 7 dias. Quando " + (MODO_API ? "a pessoa" : "Suelen") + " aceitar, a conta vira Duo para os dois." }
       : { vinc: false, slot: true, slotTxt: "+", slotBorda: "var(--line2)", form: true, pend: false, tag: planoDuo ? "Sem par vinculado" : "Conta Solo", tagBg: "var(--solo-soft)", tagCor: "var(--solo-ink)", borda: "var(--line)", expG: (conviteErro ? "preocupado" : "curioso") as Expressao, titulo: "Use o Mimo a dois", texto: "Convide quem divide as contas com você. Vocês ganham uma conta conjunta, divisão de despesas e metas do casal. O que você já registrou continua privado." };
   const COMPL: [keyof Comp, string, string][] = [["movs", "Novas movimentações", "Começam como compartilhadas. Você pode mudar em cada lançamento."], ["metas", "Novas metas", "Metas que você criar aparecem para Suelen e aceitam aportes dela."], ["invest", "Investimentos", "Suelen vê sua carteira além do consolidado do casal."], ["renda", "Renda mensal", "Suelen vê o valor da sua renda. Desligado, ela vê só a proporção usada na divisão."]];
 
@@ -555,7 +588,18 @@ export default function Configuracoes() {
             </div>
             <div style={{ display: "flex", gap: 10, width: "100%" }}>
               <button type="button" onClick={fecharModal} style={btnSec({ flex: 1, padding: 0 })}>Manter vínculo</button>
-              <button type="button" onClick={() => { if (sRef.current.enviando) return; up({ enviando: "desv" }); later(() => { up({ enviando: null, modal: null, duoStatus: "nenhum", plano: "solo" }); salvarPlano("solo"); toast("Conta desvinculada. Suelen recebeu um aviso."); }, 1300); }} aria-busy={env("desv")} style={btnPrim({ flex: 1, padding: 0, background: "var(--out)", color: "#ffffff", opacity: env("desv") ? 0.7 : 1 })}>
+              <button type="button" onClick={() => {
+                if (sRef.current.enviando) return;
+                up({ enviando: "desv" });
+                if (MODO_API && idDuo) {
+                  api.post(`/accounts/${idDuo}/unlink`)
+                    .then(() => recarregarSessao())
+                    .then(() => { up({ enviando: null, modal: null, duoStatus: "nenhum", plano: "solo" }); toast("Conta desvinculada. " + nomePar.charAt(0).toUpperCase() + nomePar.slice(1) + " recebeu um aviso."); })
+                    .catch((e) => { up({ enviando: null }); toast(mensagemDeErro(e)); });
+                  return;
+                }
+                later(() => { up({ enviando: null, modal: null, duoStatus: "nenhum", plano: "solo" }); salvarPlano("solo"); toast("Conta desvinculada. Suelen recebeu um aviso."); }, 1300);
+              }} aria-busy={env("desv")} style={btnPrim({ flex: 1, padding: 0, background: "var(--out)", color: "#ffffff", opacity: env("desv") ? 0.7 : 1 })}>
                 {env("desv") && <Spinner />}
                 {env("desv") ? "Desvinculando…" : "Desvincular"}
               </button>
@@ -582,7 +626,7 @@ export default function Configuracoes() {
       ativo={destino}
       onNavegar={navegar}
       onPrivacidade={() => up((p) => ({ privado: !p.privado }))}
-      autores={duo ? AUTORES : undefined}
+      autores={duo ? autoresDuo() : undefined}
       notif={{
         aberto: s.notifOpen,
         onAberto: (aberto) => (aberto ? up({ notifOpen: true }) : fecharNotif()),
@@ -667,7 +711,7 @@ export default function Configuracoes() {
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))", gap: 16 }}>
                         <Campo rotulo="Nome" f={fp.nome}><input value={fp.nome.v} onChange={fp.nome.on} placeholder="Seu nome" style={campoSt(fp.nome.borda)} /></Campo>
-                        <Campo rotulo="E-mail" f={fp.email}><input type="email" value={fp.email.v} onChange={fp.email.on} placeholder="nome@email.com" style={campoSt(fp.email.borda)} /></Campo>
+                        <Campo rotulo="E-mail" f={fp.email}><input type="email" value={fp.email.v} onChange={fp.email.on} readOnly={MODO_API} title={MODO_API ? "A troca de e-mail ainda não está disponível." : undefined} placeholder="nome@email.com" style={campoSt(fp.email.borda, MODO_API ? { opacity: 0.7 } : undefined)} /></Campo>
                       </div>
                       {emailMudou && (
                         <div style={{ display: "flex", gap: 10, padding: "12px 14px", borderRadius: 14, background: "var(--accent-soft)", fontSize: 12.5, lineHeight: 1.5, color: "var(--ink2)", animation: "mmDrop .25s ease both" }}>
@@ -676,6 +720,7 @@ export default function Configuracoes() {
                         </div>
                       )}
                       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "flex-end", gap: 12 }}>
+                        {MODO_API && <button type="button" onClick={() => void sair()} className="mm-h-sec" style={btnSec({ marginRight: "auto" })}>Sair da conta</button>}
                         {s.salvo === "perfil" && <Salvo texto="Alterações salvas" />}
                         <BotaoEnvio env={env("perfil")} label={env("perfil") ? "Salvando…" : "Salvar alterações"} style={{ minWidth: 160 }} onClick={() => enviar("perfil", (stt) => {
                           up({ salvo: "perfil" });
@@ -690,8 +735,8 @@ export default function Configuracoes() {
                       </div>
                       <div style={{ flex: 1, minWidth: 180, display: "flex", flexDirection: "column", gap: 4 }}>
                         <span style={{ ...OLHO, color: duo ? "var(--duo-ink)" : "var(--solo-ink)" }}>Plano atual</span>
-                        <span style={{ fontFamily: SORA, fontSize: 19, letterSpacing: "-.02em" }}>{duo ? "Duo com Suelen" : "Solo"}</span>
-                        <span style={{ fontSize: 13, color: "var(--muted2)" }}>{duo ? "Conta conjunta, divisão de despesas e metas do casal." : planoDuo && st === "pendente" ? "Duo aguardando Suelen aceitar o convite." : "Suas finanças, só você vê."}</span>
+                        <span style={{ fontFamily: SORA, fontSize: 19, letterSpacing: "-.02em" }}>{duo ? "Duo com " + (MODO_API ? parNome ?? "seu par" : "Suelen") : "Solo"}</span>
+                        <span style={{ fontSize: 13, color: "var(--muted2)" }}>{duo ? "Conta conjunta, divisão de despesas e metas do casal." : planoDuo && st === "pendente" ? "Duo aguardando " + (MODO_API ? "o convite ser aceito" : "Suelen aceitar o convite") + "." : "Suas finanças, só você vê."}</span>
                       </div>
                       <button type="button" onClick={() => ir("duo")} className="mm-h-sec" style={btnSec({ height: 44, padding: "0 16px", borderRadius: 14, fontSize: 13.5 })}>{duo ? "Gerenciar conta Duo" : st === "pendente" ? "Ver convite" : "Convidar alguém"}</button>
                     </div>
@@ -876,7 +921,19 @@ export default function Configuracoes() {
                             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                                 <input type="email" aria-label="E-mail da outra pessoa" value={fcv.v} onChange={fcv.on} placeholder="E-mail da outra pessoa" style={campoSt(fcv.borda, { flex: 1, minWidth: 200, width: "auto" })} />
-                                <BotaoEnvio env={env("convite")} label={env("convite") ? "Enviando…" : "Enviar convite"} style={{ minWidth: 140, padding: "0 18px", borderRadius: 14, gap: 8 }} onClick={() => enviar("convite", (stt) => { up({ duoStatus: "pendente", plano: "duo" }); toast("Convite enviado para " + stt.forms.convite.email.trim() + "."); })} />
+                                <BotaoEnvio env={env("convite")} label={env("convite") ? "Enviando…" : "Enviar convite"} style={{ minWidth: 140, padding: "0 18px", borderRadius: 14, gap: 8 }} onClick={() => enviar("convite", (stt) => {
+                                  const email = stt.forms.convite.email.trim();
+                                  if (!MODO_API) { up({ duoStatus: "pendente", plano: "duo" }); toast("Convite enviado para " + email + "."); return; }
+                                  // sem conta Duo ainda: trocar o plano cria a conta, depois sai o convite
+                                  const garantirDuo = idDuo ? Promise.resolve(idDuo) : api.post("/me/plan", { plan: "duo" }).then(() => recarregarSessao()).then(() => contaDoTipo("duo")?.id ?? null);
+                                  garantirDuo
+                                    .then((id) => {
+                                      if (!id) throw new Error("Não foi possível abrir a conta Duo.");
+                                      return api.post<{ invite: ConviteApi }>(`/accounts/${id}/invites`, { email });
+                                    })
+                                    .then(({ invite }) => { setConviteRemoto(invite); up({ duoStatus: "pendente", plano: "duo" }); toast("Convite enviado para " + email + "."); })
+                                    .catch((e) => toast(mensagemDeErro(e)));
+                                })} />
                               </div>
                               {fcv.erro && <span style={ERRO_CAMPO}>{fcv.erro}</span>}
                             </div>
@@ -884,15 +941,26 @@ export default function Configuracoes() {
                         })()}
                         {dz.pend && (
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                            <button type="button" onClick={() => toast("Convite reenviado para " + EMAIL_S + ".")} style={btnPrim({ height: 42, padding: "0 14px", borderRadius: 13, fontSize: 13 })}>Reenviar convite</button>
-                            <button type="button" onClick={() => toast("Link do convite copiado.")} className="mm-h-sec" style={btnSec({ height: 42, padding: "0 14px", borderRadius: 13, fontSize: 13 })}>Copiar link</button>
-                            <button type="button" onClick={() => { setS((x) => ({ ...x, duoStatus: "nenhum", forms: { ...x.forms, convite: { email: "" } } })); toast("Convite cancelado."); }} style={{ height: 42, padding: "0 14px", borderRadius: 13, border: "none", background: "transparent", color: "var(--out-ink)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Cancelar convite</button>
+                            <button type="button" onClick={() => {
+                              if (!MODO_API) { toast("Convite reenviado para " + EMAIL_S + "."); return; }
+                              if (!idDuo || !conviteRemoto) return;
+                              api.post<{ invite: ConviteApi }>(`/accounts/${idDuo}/invites/${conviteRemoto.id}/resend`)
+                                .then(({ invite }) => { setConviteRemoto(invite); toast("Convite reenviado para " + invite.email + "."); })
+                                .catch((e) => toast(mensagemDeErro(e)));
+                            }} style={btnPrim({ height: 42, padding: "0 14px", borderRadius: 13, fontSize: 13 })}>Reenviar convite</button>
+                            {!MODO_API && <button type="button" onClick={() => toast("Link do convite copiado.")} className="mm-h-sec" style={btnSec({ height: 42, padding: "0 14px", borderRadius: 13, fontSize: 13 })}>Copiar link</button>}
+                            <button type="button" onClick={() => {
+                              const limpar = () => { setConviteRemoto(null); setS((x) => ({ ...x, duoStatus: "nenhum", forms: { ...x.forms, convite: { email: "" } } })); toast("Convite cancelado."); };
+                              if (!MODO_API || !idDuo || !conviteRemoto) { limpar(); return; }
+                              api.del(`/accounts/${idDuo}/invites/${conviteRemoto.id}`).then(limpar).catch((e) => toast(mensagemDeErro(e)));
+                            }} style={{ height: 42, padding: "0 14px", borderRadius: 13, border: "none", background: "transparent", color: "var(--out-ink)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Cancelar convite</button>
                           </div>
                         )}
                         {dz.vinc && (
                           <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5, color: "var(--muted)" }}>
+                            {MODO_API ? <span>Par · <strong style={{ color: "var(--ink)" }}>{nomePar}</strong></span> : <>
                             <span>E-mail · <strong style={{ color: "var(--ink)" }}>{EMAIL_S}</strong></span>
-                            <span>Conta conjunta · <strong style={{ color: "var(--ink)" }}>{fmt(4812.4)}</strong></span>
+                            <span>Conta conjunta · <strong style={{ color: "var(--ink)" }}>{fmt(4812.4)}</strong></span></>}
                           </div>
                         )}
                       </div>

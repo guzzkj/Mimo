@@ -1,6 +1,7 @@
 import type { Item, Tema } from "../types";
 import { STORAGE_KEY, TEMA_KEY } from "./constants";
 import { HOJE, dataSeed } from "./helpers";
+import { MODO_API } from "./modo";
 
 // Exemplos da primeira visita. As datas são relativas ao mês atual: se fossem
 // fixas, o painel abriria vazio assim que o mês virasse.
@@ -36,8 +37,10 @@ export const carregarItens = (chave: string = STORAGE_KEY, seed: Item[] = SEED):
   }
 };
 
-// Grava as movimentações no navegador.
+// Grava as movimentações no navegador. No backend real quem grava é a
+// sincronização do motor (lib/remoto/movimentacoes), então aqui não faz nada.
 export const persistir = (itens: Item[], chave: string = STORAGE_KEY) => {
+  if (MODO_API) return;
   try {
     localStorage.setItem(chave, JSON.stringify(itens));
   } catch {

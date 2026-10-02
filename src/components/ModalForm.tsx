@@ -2,6 +2,7 @@ import { Calendar, Lock, Users, X } from "lucide-react";
 import { useRef } from "react";
 import { useDialogo } from "../hooks/useDialogo";
 import { CATS, MAX_PARCELAS } from "../lib/constants";
+import { maiuscula, nomesDuo } from "../lib/nomes";
 import { HOJE_ISO, dataBr, dividirEmParcelas, isoDeBr, mascaraData, mascaraMoeda, parseNum } from "../lib/helpers";
 import type { Autor, FormState } from "../types";
 
@@ -175,8 +176,8 @@ export function ModalForm({ aberto, editando, grupo, form, erro, fmt, onFechar, 
             <div className="field field--wide">Quem vê
               <div className="visib" role="radiogroup" aria-label="Quem vê este lançamento">
                 {([
-                  [false, "Compartilhado", "Suelen vê valor, descrição e categoria.", <Users key="i" aria-hidden="true" />],
-                  [true, "Privado", "Só você vê. Para Suelen, entra só no seu total, sem detalhes.", <Lock key="i" aria-hidden="true" />],
+                  [false, "Compartilhado", maiuscula(nomesDuo().par) + " vê valor, descrição e categoria.", <Users key="i" aria-hidden="true" />],
+                  [true, "Privado", "Só você vê. Para " + nomesDuo().par + ", entra só no seu total, sem detalhes.", <Lock key="i" aria-hidden="true" />],
                 ] as const).map(([valor, label, desc, icone]) => (
                   <button
                     key={label}
@@ -198,7 +199,7 @@ export function ModalForm({ aberto, editando, grupo, form, erro, fmt, onFechar, 
             <label className="check field--wide visib__dividir">
               <input type="checkbox" checked={form.dividir} onChange={(e) => onSetForm({ dividir: e.target.checked })} />
               <span>
-                <strong>Dividir com {form.quem === "suelen" ? "Gustavo" : "Suelen"}</strong>
+                <strong>Dividir com {form.quem === "suelen" ? nomesDuo().eu : maiuscula(nomesDuo().par)}</strong>
                 <small>Entra na divisão de despesas do mês.</small>
               </span>
             </label>

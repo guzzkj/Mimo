@@ -6,10 +6,16 @@ import { derivar } from "./derive";
 import { MESES_LONGOS } from "./constants";
 import { MES_REF, dataBr } from "./helpers";
 import type { Item } from "../types";
+import { api } from "./api";
+import { MODO_API } from "./modo";
+import type { AvisoApi } from "./remoto/tipos";
+import { contaDoTipo } from "./sessao";
 
 // Central de notificações compartilhada: o sino da Topbar existe em todas as
 // telas logadas, então a lista (e o que já foi lido) vive fora dos componentes,
-// uma por conta. Sem backend: fica só em memória durante a sessão.
+// uma por conta. Backend real: avisos do servidor (convite, aceite, marcos de
+// meta) entram na lista e o lido/dispensado de todos fica salvo na API.
+// Protótipo: só em memória durante a sessão.
 
 export type ContaAtiva = ContaAjustes;
 export type AcaoNotif = "pagar" | "gastos" | "meta" | "reenviar" | "aceitar" | "recusar";
@@ -19,6 +25,8 @@ export interface Notif {
   id: string; tipo: TipoNotif; titulo: string; texto: string; quando: string; acoes: AcaoNotif[]; lido?: boolean;
   /** Movimentação ligada ao aviso (ex.: conta a pagar), para agir direto dele. */
   itemId?: number;
+  /** Convite Duo ligado ao aviso (backend real). */
+  conviteId?: string;
 }
 
 export const EMAIL_SUELEN = "suelen.costa@gmail.com";
@@ -26,6 +34,8 @@ export const EMAIL_SUELEN = "suelen.costa@gmail.com";
 // Avisos que não saem das movimentações: convite e metas. Contas, limite,
 // orçamento e fatura são gerados dos dados (avisosDosDados).
 export function notifsBase(duo: boolean, pend: boolean): Notif[] {
+  // backend real: nada de exemplo; os avisos vêm do servidor e dos dados
+  if (MODO_API) return [];
   const f = (v: number) => brl(v);
   const l: Notif[] = duo ? [
     { id: "n3", tipo: "meta", titulo: "Viagem ao Japão está fora do ritmo", texto: "No ritmo atual, vocês chegam 2 meses depois do prazo. Com " + f(2650) + " por mês, chegam a tempo.", quando: "há 3 dias", acoes: ["meta"] },
@@ -52,7 +62,80 @@ const lista = (conta: ContaAtiva): Notif[] => {
 };
 
 export const definirNotifs = (conta: ContaAtiva, nova: Notif[]) => { estado[conta] = nova; avisarTodos(); };
-export const atualizarNotifs = (conta: ContaAtiva, f: (l: Notif[]) => Notif[]) => { estado[conta] = f(lista(conta)); avisarTodos(); };
+export const atualizarNotifs = (conta: ContaAtiva, f: (l: Notif[]) => Notif[]) => {
+  const antes = lista(conta);
+  estado[conta] = f(antes);
+  avisarTodos();
+  if (MODO_API) void persistirMudancas(conta, antes, estado[conta]!);
+};
+
+// ---- backend real ---------------------------------------------------------------------
+
+const SRV = "srv-";
+const lidosSalvos: Record<ContaAtiva, Set<string>> = { solo: new Set(), duo: new Set() };
+
+const quandoDe = (iso: string) => {
+  const dias = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  if (dias <= 0) return "hoje";
+  if (dias === 1) return "ontem";
+  if (dias < 7) return `há ${dias} dias`;
+  const semanas = Math.floor(dias / 7);
+  return semanas === 1 ? "há 1 semana" : semanas < 5 ? `há ${semanas} semanas` : dataBr(iso.slice(0, 10)).slice(0, 5);
+};
+
+const doServidor = (a: AvisoApi): Notif => ({
+  id: SRV + a.id,
+  tipo: a.kind === "goal" ? "meta" : a.kind === "bills" ? "conta" : "convite",
+  titulo: a.title,
+  texto: a.body,
+  quando: quandoDe(a.createdAt),
+  acoes: a.kind === "invite" ? ["aceitar", "recusar"] : [],
+  lido: a.read,
+  ...(typeof a.data.inviteId === "string" ? { conviteId: a.data.inviteId } : {}),
+});
+
+/** Carrega os avisos do servidor e o que já foi lido/dispensado (chamado quando a sessão carrega). */
+export async function hidratarNotificacoes() {
+  if (!MODO_API) return;
+  await Promise.all((["solo", "duo"] as ContaAtiva[]).map(async (conta) => {
+    const alvo = contaDoTipo(conta);
+    if (!alvo) return;
+    try {
+      const r = await api.get<{ notifications: AvisoApi[]; receipts: { key: string; read: boolean; dismissed: boolean }[] }>(`/notifications?accountId=${alvo.id}`);
+      for (const x of r.receipts) {
+        if (x.dismissed) dispensados[conta].add(x.key);
+        if (x.read) lidosSalvos[conta].add(x.key);
+      }
+      const autos = lista(conta).filter((n) => n.id.startsWith(AUTO) && !dispensados[conta].has(n.id))
+        .map((n) => ({ ...n, lido: n.lido || lidosSalvos[conta].has(n.id) }));
+      estado[conta] = [...autos, ...r.notifications.map(doServidor)];
+    } catch (e) {
+      console.warn("[avisos] não foi possível carregar", e);
+    }
+  }));
+  avisarTodos();
+}
+
+async function persistirMudancas(conta: ContaAtiva, antes: Notif[], depois: Notif[]) {
+  const alvo = contaDoTipo(conta);
+  const agora = new Map(depois.map((n) => [n.id, n]));
+  const chamadas: Promise<unknown>[] = [];
+  for (const n of antes) {
+    const novo = agora.get(n.id);
+    const sumiu = !novo;
+    const leu = Boolean(novo?.lido && !n.lido);
+    if (!sumiu && !leu) continue;
+    if (n.id.startsWith(SRV)) {
+      const id = n.id.slice(SRV.length);
+      chamadas.push(sumiu ? api.del(`/notifications/${id}`) : api.post(`/notifications/${id}/read`));
+    } else if (n.id.startsWith(AUTO) && alvo) {
+      if (leu) lidosSalvos[conta].add(n.id);
+      chamadas.push(api.put("/notifications/receipts", { accountId: alvo.id, key: n.id, ...(sumiu ? { dismissed: true } : { read: true }) }));
+    }
+  }
+  const falhas = (await Promise.allSettled(chamadas)).filter((r) => r.status === "rejected");
+  if (falhas.length) console.warn("[avisos] não foi possível salvar", falhas);
+}
 
 export const useNotificacoes = (conta: ContaAtiva) => useSyncExternalStore(assinar, () => lista(conta), () => lista(conta));
 
@@ -135,7 +218,7 @@ export function sincronizarAvisos(conta: ContaAtiva, itens: Item[], a: Ajustes) 
   const idsAtuais = new Set(atual.map((n) => n.id));
   gerados.forEach((n) => { if (vistos[conta].has(n.id) && !idsAtuais.has(n.id)) dispensados[conta].add(n.id); });
   gerados.forEach((n) => vistos[conta].add(n.id));
-  const auto = gerados.filter((n) => !dispensados[conta].has(n.id)).map((n) => ({ ...n, lido: lidos.has(n.id) }));
+  const auto = gerados.filter((n) => !dispensados[conta].has(n.id)).map((n) => ({ ...n, lido: lidos.has(n.id) || lidosSalvos[conta].has(n.id) }));
   // mantém os avisos que não vêm dos dados (convite, metas), respeitando as preferências
   // (os de meta desligados ficam guardados e voltam se a preferência religar)
   const naoAuto = [...atual.filter((n) => !n.id.startsWith(AUTO)), ...ocultosPorPref[conta]];

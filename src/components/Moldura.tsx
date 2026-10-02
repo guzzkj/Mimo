@@ -7,6 +7,7 @@ import type { MimoApp } from "../hooks/useMimoApp";
 import { MESES_LONGOS } from "../lib/helpers";
 import { useNaoLidas, type ContaAtiva } from "../lib/notificacoes";
 import { usePlano } from "../lib/plano";
+import { maiuscula, nomesDuo } from "../lib/nomes";
 import { aplicarEscolhaTema, useTemaTela } from "../lib/tema";
 import { categoriasDe } from "../lib/ajustes";
 import { grupoDe } from "../lib/derive";
@@ -102,7 +103,8 @@ export function Moldura({ conta, app, ativo, onNavegar, onPrivacidade, autores, 
 
   const [ano, mes] = app.state.mesRef.split("-");
   const periodo = `${MESES_LONGOS[Number(mes) - 1]} de ${ano}`;
-  const identidade = duo ? { nome: "Gustavo e Suelen", conta: "Conta Duo", avatar: AVATAR_DUO } : { nome: app.ajustes.nome };
+  const nd = nomesDuo();
+  const identidade = duo ? { nome: nd.par === "seu par" ? nd.eu : `${nd.eu} e ${maiuscula(nd.par)}`, conta: "Conta Duo", avatar: AVATAR_DUO } : { nome: app.ajustes.nome };
   const alternarTema = (botao: HTMLElement) => aplicarEscolhaTema(tema === "escuro" ? "claro" : "escuro", botao);
   const alternarPrivacidade = () => { app.actions.alternarPrivacidade(); onPrivacidade?.(); };
 

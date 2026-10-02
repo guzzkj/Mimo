@@ -1,10 +1,16 @@
 import { useSyncExternalStore } from "react";
+import { api } from "./api";
 import { CATS } from "./constants";
+import { MODO_API } from "./modo";
+import { paraAjustes, separarPatchAjustes } from "./remoto/mapear";
+import type { AjustesApi, UsuarioApi } from "./remoto/tipos";
+import { contaDoTipo, definirSessao, lerSessao } from "./sessao";
 
 // Ajustes de cada conta (perfil, renda, limite, categorias próprias, orçamentos,
-// cartão, avisos e privacidade). Sem backend: ficam no navegador. É a fonte
-// única que o painel, o topo, as Configurações e as notificações leem, para os
-// números baterem.
+// cartão, avisos e privacidade). É a fonte única que o painel, o topo, as
+// Configurações e as notificações leem, para os números baterem.
+// Backend real: vêm de /api/accounts/:id/settings (perfil em /api/me) e cada
+// alteração é gravada lá. Protótipo (VITE_DATA_MODE=local): ficam no navegador.
 
 export type ContaAjustes = "solo" | "duo";
 
@@ -83,9 +89,30 @@ const chave = (conta: ContaAjustes) => `mimo.ajustes.${conta}.v1`;
 const cache: Partial<Record<ContaAjustes, Ajustes>> = {};
 const ouvintes = new Set<() => void>();
 
+// Antes da primeira resposta da API: padrões neutros, sem os dados de exemplo.
+const padraoApi = (conta: ContaAjustes): Ajustes => {
+  const s = lerSessao();
+  const user = s.status === "ok" ? s.user : null;
+  return {
+    ...PADRAO[conta],
+    nome: user?.name ?? "",
+    email: user?.email ?? "",
+    avatar: user?.avatar ?? 0,
+    renda: (user?.monthlyIncomeCents ?? 0) / 100,
+    categorias: [],
+    orcamentos: {},
+    rendaParceira: 0,
+  };
+};
+
 export const lerAjustes = (conta: ContaAjustes): Ajustes => {
   const salvo = cache[conta];
   if (salvo) return salvo;
+  if (MODO_API) {
+    const p = padraoApi(conta);
+    cache[conta] = p;
+    return p;
+  }
   let lido: Ajustes = PADRAO[conta];
   try {
     const bruto = localStorage.getItem(chave(conta));
@@ -103,11 +130,62 @@ export const lerAjustes = (conta: ContaAjustes): Ajustes => {
 export function salvarAjustes(conta: ContaAjustes, patch: Partial<Ajustes>) {
   const novo = { ...lerAjustes(conta), ...patch };
   cache[conta] = novo;
+  if (MODO_API) {
+    // nome, avatar e renda são da pessoa: valem nas duas contas
+    const { perfil } = separarPatchAjustes(patch);
+    if (Object.keys(perfil).length) {
+      for (const outra of ["solo", "duo"] as ContaAjustes[]) {
+        if (outra !== conta && cache[outra]) cache[outra] = { ...cache[outra]!, ...pick(patch, ["nome", "avatar", "renda"]) };
+      }
+    }
+    ouvintes.forEach((avisar) => avisar());
+    void gravarRemoto(conta, patch);
+    return;
+  }
   try {
     localStorage.setItem(chave(conta), JSON.stringify(novo));
   } catch {
     // segue só em memória
   }
+  ouvintes.forEach((avisar) => avisar());
+}
+
+const pick = (p: Partial<Ajustes>, chaves: (keyof Ajustes)[]) =>
+  Object.fromEntries(chaves.filter((k) => p[k] !== undefined).map((k) => [k, p[k]])) as Partial<Ajustes>;
+
+async function gravarRemoto(conta: ContaAjustes, patch: Partial<Ajustes>) {
+  const { perfil, conta: daConta } = separarPatchAjustes(patch);
+  const alvo = contaDoTipo(conta);
+  try {
+    if (Object.keys(perfil).length) {
+      const { user } = await api.patch<{ user: UsuarioApi }>("/me", perfil);
+      const s = lerSessao();
+      if (s.status === "ok") definirSessao({ ...s, user });
+    }
+    if (alvo && Object.keys(daConta).length) {
+      const resposta = await api.patch<AjustesApi>(`/accounts/${alvo.id}/settings`, daConta);
+      cache[conta] = paraAjustes(resposta);
+      ouvintes.forEach((avisar) => avisar());
+    }
+  } catch (e) {
+    // volta para o que está no servidor em vez de mostrar um valor que não foi salvo
+    console.warn("[ajustes] não foi possível salvar", e);
+    await hidratarAjustes();
+  }
+}
+
+/** Busca os ajustes das contas da pessoa (chamado quando a sessão carrega). */
+export async function hidratarAjustes() {
+  if (!MODO_API) return;
+  await Promise.all((["solo", "duo"] as ContaAjustes[]).map(async (conta) => {
+    const alvo = contaDoTipo(conta);
+    if (!alvo) return;
+    try {
+      cache[conta] = paraAjustes(await api.get<AjustesApi>(`/accounts/${alvo.id}/settings`));
+    } catch (e) {
+      console.warn("[ajustes] não foi possível carregar", e);
+    }
+  }));
   ouvintes.forEach((avisar) => avisar());
 }
 

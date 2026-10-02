@@ -6,8 +6,11 @@ import App from './App.tsx'
 import { ConviteInstalar } from './components/ConviteInstalar.tsx'
 import { MascotDefs } from './components/MascotDefs.tsx'
 import { registrarServiceWorker } from './lib/instalacao.ts'
+import { GuardaSessao } from './components/GuardaSessao.tsx'
+import { iniciarBackend } from './lib/remoto/iniciar.ts'
 
 registrarServiceWorker()
+iniciarBackend()
 
 // Telas portadas de docs/ref, carregadas sob demanda.
 const FluxoAcesso = lazy(() => import('./pages/FluxoAcesso.tsx'))
@@ -21,7 +24,7 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <Suspense fallback={null}>
         <Routes>
-          <Route path="/" element={<App />} />
+          <Route path="/" element={<GuardaSessao><App /></GuardaSessao>} />
           {/* a escolha de conta vive no onboarding (/acesso/plano) */}
           <Route path="/selecao-conta" element={<Navigate to="/acesso/plano" replace />} />
 
@@ -30,13 +33,13 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/acesso/:tela" element={<FluxoAcesso />} />
 
           {/* Duo e Metas: rota-layout sem path para o estado sobreviver à navegação interna */}
-          <Route element={<DuoMetas />}>
+          <Route element={<GuardaSessao><DuoMetas /></GuardaSessao>}>
             <Route path="/duo/*" />
             <Route path="/metas/*" />
           </Route>
 
           {/* Configurações, alertas e investimentos */}
-          <Route element={<Configuracoes />}>
+          <Route element={<GuardaSessao><Configuracoes /></GuardaSessao>}>
             <Route path="/ajustes/*" />
             <Route path="/investimentos" />
             <Route path="/notificacoes" />

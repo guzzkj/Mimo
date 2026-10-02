@@ -3,6 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { useDialogo } from "../hooks/useDialogo";
 import { atualizarNotifs, EMAIL_SUELEN, useNotificacoes, type AcaoNotif, type ContaAtiva, type Notif, type TipoNotif } from "../lib/notificacoes";
 import { salvarPlano } from "../lib/plano";
+import { api, mensagemDeErro } from "../lib/api";
+import { MODO_API } from "../lib/modo";
+import { recarregarSessao } from "../lib/sessao";
 import { useCompacto, useTemaTela } from "../lib/tema";
 import { SORA } from "./mimo/estilos";
 import { Gato } from "./mimo/Gato";
@@ -67,9 +70,27 @@ export function PainelNotificacoes({ conta, aberto, onFechar, avisar, carregando
     reenviar: () => ({ label: "Reenviar convite", ...sec, onClick: () => avisar("Convite reenviado para " + EMAIL_SUELEN + ".") }),
     aceitar: (n) => ({
       label: "Aceitar", ...prim,
-      onClick: () => { tira(n.id); salvarPlano("duo"); onAceitarConvite?.(); avisar("Pronto! Você e Suelen agora têm uma conta Duo."); },
+      onClick: () => {
+        if (MODO_API && n.conviteId) {
+          api.post("/invites/accept", { inviteId: n.conviteId })
+            .then(() => { tira(n.id); return recarregarSessao(); })
+            .then(() => { onAceitarConvite?.(); avisar("Pronto! Agora vocês têm uma conta Duo."); })
+            .catch((e) => avisar(mensagemDeErro(e)));
+          return;
+        }
+        tira(n.id); salvarPlano("duo"); onAceitarConvite?.(); avisar("Pronto! Agora vocês têm uma conta Duo.");
+      },
     }),
-    recusar: (n) => ({ label: "Recusar", ...sec, onClick: () => tira(n.id, "Convite recusado.") }),
+    recusar: (n) => ({
+      label: "Recusar", ...sec,
+      onClick: () => {
+        if (MODO_API && n.conviteId) {
+          api.post("/invites/decline", { inviteId: n.conviteId }).then(() => tira(n.id, "Convite recusado.")).catch((e) => avisar(mensagemDeErro(e)));
+          return;
+        }
+        tira(n.id, "Convite recusado.");
+      },
+    }),
   };
 
   const painel = (

@@ -7,6 +7,13 @@ import { carregarItens, persistir, salvarTema, temaSalvo } from "../lib/storage"
 import { corDaCategoria, lerAjustes, useAjustes, type ContaAjustes } from "../lib/ajustes";
 import { sincronizarAvisos } from "../lib/notificacoes";
 import { exportarCsv as exportarCsvArquivo } from "../lib/csv";
+import { mensagemDeErro } from "../lib/api";
+import { MODO_API } from "../lib/modo";
+import { nomesDuo } from "../lib/nomes";
+import { useSessao } from "../lib/sessao";
+import {
+  aplicarRemapeamento, carregarMovimentacoes, contaRemota, criarSincronizador, guardarEmCache, idTemporario, itensEmCache,
+} from "../lib/remoto/movimentacoes";
 import type { Autor, FormState, Item, StatusMovimentacao, Tema, TipoMovimentacao, View } from "../types";
 import { useToasts } from "./useToasts";
 
@@ -56,11 +63,21 @@ const comAutor = (itens: Item[], seed: Item[] = []): Item[] => itens.map((i) => 
 // Conta Duo: nova saída começa compartilhada e dividida (dá para mudar no formulário).
 const formNovo = (autorPadrao?: Autor): FormState => (autorPadrao ? { ...formVazio(), quem: autorPadrao, dividir: true } : formVazio());
 
+// Backend real: começa do que já foi carregado nesta sessão (ou vazio) e a
+// lista chega da API logo em seguida. Protótipo: localStorage + exemplos.
+const itensIniciais = (opcoes: OpcoesMimoApp): Item[] => {
+  if (MODO_API) {
+    const remota = contaRemota(opcoes.conta ?? "solo");
+    return (remota && itensEmCache(remota.contaId)) || [];
+  }
+  return opcoes.autorPadrao
+    ? comAutor(carregarItens(opcoes.storageKey, opcoes.seed), opcoes.seed)
+    : carregarItens(opcoes.storageKey, opcoes.seed);
+};
+
 const estadoInicial = (opcoes: OpcoesMimoApp): State => ({
   view: "geral",
-  itens: opcoes.autorPadrao
-    ? comAutor(carregarItens(opcoes.storageKey, opcoes.seed), opcoes.seed)
-    : carregarItens(opcoes.storageKey, opcoes.seed),
+  itens: itensIniciais(opcoes),
   mesRef: MES_REF,
   pagina: 1,
   query: "",
@@ -96,7 +113,7 @@ export function useMimoApp(opcoes: OpcoesMimoApp = {}) {
   const chaveCarregada = useRef(storageKey);
   useEffect(() => { opcoesRef.current = opcoes; });
   useEffect(() => {
-    if (chaveCarregada.current === storageKey) return;
+    if (MODO_API || chaveCarregada.current === storageKey) return;
     chaveCarregada.current = storageKey;
     const o = opcoesRef.current;
     const carregados = carregarItens(o.storageKey, o.seed);
@@ -114,6 +131,56 @@ export function useMimoApp(opcoes: OpcoesMimoApp = {}) {
     }));
   }, [storageKey]);
   const { toasts, avisar } = useToasts();
+
+  // ---- backend real: carrega da API e envia cada mudança da lista ----------------
+  const sessao = useSessao();
+  const remota = useMemo(() => (MODO_API ? contaRemota(conta, sessao) : null), [conta, sessao]);
+  const remotaRef = useRef(remota);
+  useEffect(() => { remotaRef.current = remota; });
+  const chaveRemota = remota ? `${remota.contaId}:${remota.ctx.parId ?? ""}` : "";
+  /** Última lista já enviada (ou recebida): base do diff da próxima mudança. */
+  const enviadoRef = useRef<Item[] | null>(remota ? itensEmCache(remota.contaId) : null);
+  const sincRef = useRef<ReturnType<typeof criarSincronizador> | null>(null);
+  const avisarRef = useRef(avisar);
+  useEffect(() => { avisarRef.current = avisar; });
+
+  useEffect(() => {
+    const r = remotaRef.current;
+    if (!chaveRemota || !r) return;
+    let vivo = true;
+    const recarregar = () => carregarMovimentacoes(r)
+      .then((itens) => {
+        if (!vivo) return;
+        enviadoRef.current = itens;
+        setState((s) => ({ ...s, itens }));
+      })
+      .catch((e) => { if (vivo) avisarRef.current(mensagemDeErro(e), "#mimo-gato-preocupado"); });
+    sincRef.current = criarSincronizador(r, (mapa) => {
+      if (!vivo) return;
+      enviadoRef.current = aplicarRemapeamento(enviadoRef.current ?? [], mapa);
+      setState((s) => ({
+        ...s,
+        itens: aplicarRemapeamento(s.itens, mapa),
+        editando: s.editando != null ? (mapa.ids.get(s.editando) ?? s.editando) : null,
+      }));
+    }, (e) => {
+      if (!vivo) return;
+      avisarRef.current(`${mensagemDeErro(e)} Recarregando seus dados…`, "#mimo-gato-preocupado");
+      recarregar();
+    });
+    recarregar();
+    return () => { vivo = false; sincRef.current = null; };
+  }, [chaveRemota]);
+
+  useEffect(() => {
+    const r = remotaRef.current;
+    if (!r) return;
+    guardarEmCache(r.contaId, state.itens);
+    const antes = enviadoRef.current;
+    if (!antes || antes === state.itens || !sincRef.current) return;
+    sincRef.current.enviar(antes, state.itens);
+    enviadoRef.current = state.itens;
+  }, [state.itens]);
 
   // Carinho no mascote: enquanto dura, a expressão do topo não muda sozinha.
   const [ronronando, setRonronando] = useState(false);
@@ -200,7 +267,7 @@ export function useMimoApp(opcoes: OpcoesMimoApp = {}) {
   const abrirEdicao = useCallback((id: number) => {
     const item = stateRef.current.itens.find((i) => i.id === id);
     if (!item) return;
-    if (ehDoPar(item)) { avisar("Lançamento privado de Suelen: só ela vê os detalhes.", "#mimo-gato-curioso"); return; }
+    if (ehDoPar(item)) { avisar(`Lançamento privado de ${nomesDuo().par}: só quem lançou vê os detalhes.`, "#mimo-gato-curioso"); return; }
     setState((s) => ({
       ...s,
       modal: true,
@@ -248,19 +315,22 @@ export function useMimoApp(opcoes: OpcoesMimoApp = {}) {
       const comum = { tipo, descricao: descricao.trim(), categoria, valor: numero, meio, ...duo };
       const registro = { ...comum, data: dataIso, status };
       const ultimoId = s.itens.reduce((max, i) => Math.max(max, i.id), 0);
+      // backend real: ids negativos até o servidor devolver os definitivos
+      const temporario = MODO_API ? idTemporario(Math.max(12, Number(parcelas) || 1)) : 0;
+      const novoId = (k: number) => (MODO_API ? temporario - k : ultimoId + 1 + k);
 
       // Parcelar e repetir só fazem sentido ao criar; editando, mexe-se numa
       // ocorrência (ou nela e nas próximas do mesmo grupo).
       const quantas = !s.editando && parcelado ? Number(parcelas) : 1;
       const repete = !s.editando && !parcelado && recorrente;
-      const grupo = quantas > 1 || repete ? ultimoId + 1 : undefined;
+      const grupo = quantas > 1 || repete ? novoId(0) : undefined;
 
       // Conta recorrente: registra 12 meses; os futuros ficam pendentes e
       // aparecem como contas a vencer em cada mês.
       const novos: Item[] = repete
         ? Array.from({ length: 12 }, (_, i) => ({
           ...registro,
-          id: ultimoId + 1 + i,
+          id: novoId(i),
           data: dataAdiante(dataIso, i),
           status: i === 0 ? status : "pendente",
           recorrente: true,
@@ -268,7 +338,7 @@ export function useMimoApp(opcoes: OpcoesMimoApp = {}) {
         }))
         : dividirEmParcelas(numero, quantas).map((fatia, i) => ({
           ...registro,
-          id: ultimoId + 1 + i,
+          id: novoId(i),
           valor: fatia,
           data: dataAdiante(dataIso, i),
           // No cartão, cada parcela entra na fatura do mês dela.
@@ -310,7 +380,7 @@ export function useMimoApp(opcoes: OpcoesMimoApp = {}) {
 
   const pedirExclusao = useCallback((id: number) => {
     const item = stateRef.current.itens.find((i) => i.id === id);
-    if (ehDoPar(item)) { avisar("Lançamento privado de Suelen: só ela pode excluir.", "#mimo-gato-curioso"); return; }
+    if (ehDoPar(item)) { avisar(`Lançamento privado de ${nomesDuo().par}: só quem lançou pode excluir.`, "#mimo-gato-curioso"); return; }
     setState((s) => ({ ...s, excluir: item || null }));
   }, [ehDoPar, avisar]);
 

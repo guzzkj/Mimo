@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Moldura, type DestinoDock } from "../components/Moldura";
 import { ViewLista } from "../components/ViewLista";
@@ -10,10 +10,17 @@ import { useMimoApp } from "../hooks/useMimoApp";
 import { useTimers } from "../hooks/useTimers";
 import { categoriasDe, salvarAjustes } from "../lib/ajustes";
 import type { FiltroAutor } from "../lib/filtrosMovimentacoes";
-import { AUTORES, MOTOR_DUO, lerAcertos, nomeMes, resumoDuo, rotuloMes, salvarAcertos, useAcertos, type Acerto, type Regra, type ResumoDuo } from "../lib/contaDuo";
+import { autoresDuo, MOTOR_DUO, lerAcertos, nomeMes, resumoDuo, rotuloMes, salvarAcertos, useAcertos, type Acerto, type Regra, type ResumoDuo } from "../lib/contaDuo";
 import { MESES } from "../lib/constants";
 import { DIA_HOJE, HOJE_ISO, MES_REF, PROXIMO_MES, dataBr, dataSeed } from "../lib/helpers";
 import { usePlano } from "../lib/plano";
+import { mensagemDeErro } from "../lib/api";
+import { MODO_API } from "../lib/modo";
+import { useSessao } from "../lib/sessao";
+import { maiuscula, nomesDuo } from "../lib/nomes";
+import {
+  aplicarMetaDoServidor, aportesDeApi, carregarMetas, contextoMetas, criarSincronizadorMetas, metaDeApi, type MetasSalvas,
+} from "../lib/remoto/metas";
 import { useCompacto, useTemaTela } from "../lib/tema";
 import type { Autor, Item } from "../types";
 
@@ -43,7 +50,7 @@ interface ItemMeta { id: string; nome: string; p: Prio; v: number; art?: string 
 /** Meta com `itens`: o alvo é sempre a soma dos itens. */
 interface Meta { id: string; nome: string; ic: string; alvo: number; g: number; s: number; prazo: number | null; ritmo: number; itens?: ItemMeta[] }
 interface MetaCalc extends Meta { tot: number }
-interface AporteH { d: string; quem: "gustavo" | "suelen"; v: number; nota: string }
+interface AporteH { d: string; quem: "gustavo" | "suelen"; v: number; nota: string; /** id no servidor (backend real) */ id?: string }
 
 interface Forms {
   editar: { nome: string; alvo: string; prazo: string };
@@ -63,8 +70,9 @@ interface S {
 }
 
 const P: Record<Quem, Pessoa> = {
-  gustavo: { nome: "Gustavo", rot: "Você", av: "#4e9e79", ini: "G", cor: "#4e9e79", tabby: false },
-  suelen: { nome: "Suelen", rot: "Suelen", av: "#e2a24f", ini: "S", cor: "#e2a24f", tabby: true },
+  // nomes vivos: quem está logado e o par (backend real) ou a dupla de exemplo
+  gustavo: { get nome() { return nomesDuo().eu; }, rot: "Você", av: "#4e9e79", get ini() { return nomesDuo().iniEu; }, cor: "#4e9e79", tabby: false },
+  suelen: { get nome() { return maiuscula(nomesDuo().par); }, get rot() { return maiuscula(nomesDuo().par); }, av: "#e2a24f", get ini() { return nomesDuo().iniPar; }, cor: "#e2a24f", tabby: true },
   conjunta: { nome: "Conta conjunta", rot: "Conta conjunta", av: "linear-gradient(135deg, #4e9e79 50%, #e2a24f 50%)", ini: "", cor: "var(--accent)", tabby: false },
 };
 
@@ -202,6 +210,7 @@ function init(tela: Tela, metaId: string | undefined, est: string, duo: boolean,
 const chaveMetas = (duo: boolean) => `mimo.metas.${duo ? "duo" : "solo"}.v1`;
 function metasSalvas(duo: boolean): Salvas {
   const vazio: Salvas = { criadas: [], aportes: {}, arquivadas: [], edicoes: {} };
+  if (MODO_API) return vazio;
   try {
     const bruto = localStorage.getItem(chaveMetas(duo));
     const lido = bruto ? JSON.parse(bruto) : null;
@@ -222,7 +231,8 @@ function guardarMetas(duo: boolean, salvas: Salvas) {
 // ---- cálculos (funções puras sobre o estado) -----------------------------------
 function metasDe(st: S, duo: boolean, tela: Tela): MetaCalc[] {
   if (st.dados === "vazio" && tela === "metas") return st.criadas.map((m) => ({ ...m, tot: m.g + m.s }));
-  return [...(duo ? METAS_DUO : METAS_SOLO), ...st.criadas]
+  // backend real: só as metas da pessoa (sem as de exemplo)
+  return [...(MODO_API ? [] : duo ? METAS_DUO : METAS_SOLO), ...st.criadas]
     .filter((m) => !st.arquivadas.includes(m.id))
     .map((m0) => {
       const m = { ...m0, ...st.edicoes[m0.id] };
@@ -407,6 +417,10 @@ function GatosDuplos({ w, ml, exp, corpo = false }: { w: number; ml: number; exp
 
 export default function DuoMetas() {
   const tema = useTemaTela();
+  // nomes de quem está logado e do par (backend real) ou da dupla de exemplo
+  const N = nomesDuo();
+  const par = N.par;
+  const Par = maiuscula(N.par);
   const cp = useCompacto();
   const plano = usePlano();
   const duo = plano === "duo";
@@ -450,8 +464,58 @@ export default function DuoMetas() {
   // metas criadas, aportes e edições ficam salvos (menos nos estados de protótipo ?estado=)
   const salvaMetas = useRef(!new URLSearchParams(loc.search).get("estado"));
   useEffect(() => {
-    if (salvaMetas.current) guardarMetas(duo, { criadas: s.criadas, aportes: s.aportes, arquivadas: s.arquivadas, edicoes: s.edicoes });
+    if (!MODO_API && salvaMetas.current) guardarMetas(duo, { criadas: s.criadas, aportes: s.aportes, arquivadas: s.arquivadas, edicoes: s.edicoes });
   }, [duo, s.criadas, s.aportes, s.arquivadas, s.edicoes]);
+
+  // Backend real: as metas vêm da API e cada mudança nas quatro listas é
+  // enviada em fila; a resposta substitui a versão local (e o id provisório).
+  const sessao = useSessao();
+  const ctxMetas = useMemo(() => (MODO_API ? contextoMetas(duo, sessao) : null), [duo, sessao]);
+  const ctxMetasRef = useRef(ctxMetas);
+  useEffect(() => { ctxMetasRef.current = ctxMetas; });
+  const chaveMetasRemotas = ctxMetas ? `${ctxMetas.contaId}:${ctxMetas.parId ?? ""}` : "";
+  const metasEnviadas = useRef<MetasSalvas | null>(null);
+  const sincMetas = useRef<ReturnType<typeof criarSincronizadorMetas> | null>(null);
+  const avisarRef = useRef(app.avisar);
+  const navigateRef = useRef(navigate);
+  useEffect(() => { avisarRef.current = app.avisar; navigateRef.current = navigate; });
+  useEffect(() => {
+    const ctx = ctxMetasRef.current;
+    if (!chaveMetasRemotas || !ctx || !salvaMetas.current) return;
+    let vivo = true;
+    const recarregar = () => carregarMetas(ctx)
+      .then((salvas) => {
+        if (!vivo) return;
+        metasEnviadas.current = salvas;
+        setS((p) => ({ ...p, ...salvas }));
+      })
+      .catch((e) => { if (vivo) avisarRef.current(mensagemDeErro(e), "#mimo-gato-preocupado"); });
+    sincMetas.current = criarSincronizadorMetas(ctx, (idLocal, goal) => {
+      if (!vivo) return;
+      const meta = metaDeApi(goal);
+      const aportes = aportesDeApi(goal, ctx);
+      const aplicar = (st: MetasSalvas) => aplicarMetaDoServidor(st, idLocal, meta, aportes, goal.archived);
+      if (metasEnviadas.current) metasEnviadas.current = aplicar(metasEnviadas.current);
+      setS((p) => ({ ...p, ...aplicar(p), metaSel: p.metaSel === idLocal ? goal.id : p.metaSel }));
+      if (idLocal !== goal.id && lerRota(window.location.pathname)?.metaId === idLocal) {
+        navigateRef.current(rotaDe("meta-detalhe", goal.id), { replace: true });
+      }
+    }, (e) => {
+      if (!vivo) return;
+      avisarRef.current(`${mensagemDeErro(e)} Recarregando suas metas…`, "#mimo-gato-preocupado");
+      recarregar();
+    });
+    recarregar();
+    return () => { vivo = false; sincMetas.current = null; };
+  }, [chaveMetasRemotas]);
+  useEffect(() => {
+    const antes = metasEnviadas.current;
+    if (!MODO_API || !antes || !sincMetas.current) return;
+    const depois: MetasSalvas = { criadas: s.criadas, aportes: s.aportes, arquivadas: s.arquivadas, edicoes: s.edicoes };
+    if (antes.criadas === depois.criadas && antes.aportes === depois.aportes && antes.arquivadas === depois.arquivadas && antes.edicoes === depois.edicoes) return;
+    sincMetas.current.enviar(antes, depois);
+    metasEnviadas.current = depois;
+  }, [s.criadas, s.aportes, s.arquivadas, s.edicoes]);
 
   if (!rota) return <Navigate to={duo ? "/duo" : "/metas"} replace />;
   if (!duo && t.startsWith("duo")) return <Navigate to="/metas" replace />;
@@ -565,7 +629,7 @@ export default function DuoMetas() {
   };
   const abs = Math.abs(dv.dev);
   const quites = abs < 0.01;
-  const divStatus = dv.vazio ? "Nada para dividir ainda" : quites ? "Tudo certo entre vocês" : dv.dev > 0 ? "Você deve " + fmt(abs) + " para Suelen" : "Suelen deve " + fmt(abs) + " para você";
+  const divStatus = dv.vazio ? "Nada para dividir ainda" : quites ? "Tudo certo entre vocês" : dv.dev > 0 ? "Você deve " + fmt(abs) + " para " + par : "" + Par + " deve " + fmt(abs) + " para você";
   const pctG = Math.round(dv.pctG * 100);
   const regraTxt = s.regra === "meio" ? "meio a meio" : "proporcional à renda (" + pctG + "% e " + (100 - pctG) + "%)";
   const gExp: Expressao = vazio ? "curioso" : !quites && dv.dev > 0 ? "preocupado" : "padrao";
@@ -645,7 +709,7 @@ export default function DuoMetas() {
     const falta = Math.max(0, m.alvo - m.tot);
     const novosAportes = s.aportes[m.id] ?? [];
     // aportes feitos aqui aparecem em qualquer meta; o exemplo só nas de fábrica
-    const exemplo = m.id.startsWith("n") || vazio ? [] : exemploAportes(m, duo);
+    const exemplo = MODO_API || m.id.startsWith("n") || vazio ? [] : exemploAportes(m, duo);
     const hist = [...novosAportes, ...exemplo]
       .map((h) => ({ ...h, quem: duo ? h.quem : ("gustavo" as const) }))
       .sort((a, b) => (isoDoAporte(b.d) > isoDoAporte(a.d) ? 1 : -1));
@@ -807,7 +871,7 @@ export default function DuoMetas() {
     const f = st.forms.lazer;
     salvarAjustes("duo", { orcamentos: { ...app.ajustes.orcamentos, Lazer: numBR(f.valor) }, lazerModo: f.modo, lazerPendente: true });
     up({ modal: null });
-    toast("Limite proposto. Suelen recebeu um aviso para confirmar.");
+    toast("Limite proposto. " + Par + " recebeu um aviso para confirmar.");
   });
   const acertar = () => {
     if (sRef.current.enviando) return;
@@ -817,7 +881,7 @@ export default function DuoMetas() {
       const novo: Acerto = { id: Date.now(), mes: mesRef, data: HOJE, valor };
       salvarAcertos([...lerAcertos(), novo]);
       up({ enviando: null });
-      toast("Acerto de " + fmt(Math.abs(valor)) + " registrado. Suelen recebeu um aviso.", {
+      toast("Acerto de " + fmt(Math.abs(valor)) + " registrado. " + Par + " recebeu um aviso.", {
         label: "Desfazer",
         onClick: () => salvarAcertos(lerAcertos().filter((x) => x.id !== novo.id)),
       });
@@ -924,7 +988,7 @@ export default function DuoMetas() {
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <span style={ROTULO}>Quem está aportando</span>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                  {([["gustavo", "Você"], ["suelen", "Suelen"]] as const).map(([k, label]) => (
+                  {([["gustavo", "Você"], ["suelen", Par]] as const).map(([k, label]) => (
                     <Opcao key={k} on={a.quem === k} onClick={() => setForm("aporte", "quem", k)} style={{ height: 52, padding: "0 12px", borderRadius: 15, fontSize: 13.5, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}>
                       <Avatar av={P[k].av} ini={P[k].ini} size={28} fs={11.5} />{label}
                     </Opcao>
@@ -991,7 +1055,7 @@ export default function DuoMetas() {
                   <span style={{ width: 26, height: 26, borderRadius: "50%", background: "#4e9e79", boxShadow: "0 0 0 2px var(--surface)" }} />
                   <span style={{ width: 26, height: 26, marginLeft: -8, borderRadius: "50%", background: "#e2a24f", boxShadow: "0 0 0 2px var(--surface)" }} />
                 </div>
-                <span style={{ fontSize: 12.5, lineHeight: 1.5, color: "var(--ink2)" }}>Suelen recebe um aviso para confirmar. Até lá, o limite aparece como proposto.</span>
+                <span style={{ fontSize: 12.5, lineHeight: 1.5, color: "var(--ink2)" }}>{Par} recebe um aviso para confirmar. Até lá, o limite aparece como proposto.</span>
               </div>
               <div style={{ display: "flex", gap: 10 }}>
                 <button type="button" onClick={fechar} style={btnSec({ flex: 1, padding: 0 })}>Cancelar</button>
@@ -1029,7 +1093,7 @@ export default function DuoMetas() {
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 10, marginTop: 4 }}>
               <button type="button" onClick={fechar} style={btnPrim({ height: 46, padding: "0 22px" })}>Ver meta</button>
-              {duo && <button type="button" onClick={() => { up({ modal: null }); toast("Suelen recebeu a notícia."); }} style={btnSec({ height: 46 })}>Comemorar com Suelen</button>}
+              {duo && <button type="button" onClick={() => { up({ modal: null }); toast("" + Par + " recebeu a notícia."); }} style={btnSec({ height: 46 })}>Comemorar com {par}</button>}
             </div>
           </div>
         )}
@@ -1077,7 +1141,7 @@ export default function DuoMetas() {
             {duo && (
               <div style={{ display: "flex", gap: 16, fontSize: 12, color: "var(--muted)" }}>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><span style={{ width: 9, height: 9, borderRadius: "50%", background: "#4e9e79" }} />Você</span>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><span style={{ width: 9, height: 9, borderRadius: "50%", background: "#e2a24f" }} />Suelen</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><span style={{ width: 9, height: 9, borderRadius: "50%", background: "#e2a24f" }} />{Par}</span>
               </div>
             )}
           </div>
@@ -1206,7 +1270,7 @@ export default function DuoMetas() {
                       </div>
                       <Barra partes={barrasM(metaFoco)} />
                       <div style={LEGENDA}>
-                        {[{ nome: "Você", cor: "#4e9e79", v: fmt(metaFoco.g) }, { nome: "Suelen", cor: "#e2a24f", v: fmt(metaFoco.s) }].map((lp) => (
+                        {[{ nome: "Você", cor: "#4e9e79", v: fmt(metaFoco.g) }, { nome: Par, cor: "#e2a24f", v: fmt(metaFoco.s) }].map((lp) => (
                           <span key={lp.nome} style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: lp.cor }} />{lp.nome} <strong style={{ color: "var(--ink)" }}>{lp.v}</strong></span>
                         ))}
                         <strong style={{ marginLeft: "auto", color: "var(--ink)" }}>{Math.floor(pctM(metaFoco))}%</strong>
@@ -1234,7 +1298,7 @@ export default function DuoMetas() {
                         <span style={IDENT_TXT}>
                           <span style={IDENT_NOME}>Limite de {mesNome}</span>
                           {lazerPend
-                            ? <span style={{ ...IDENT_LADO, color: "var(--duo-ink)", fontWeight: 700, animation: "mmFade .3s ease both" }}>Aguardando Suelen</span>
+                            ? <span style={{ ...IDENT_LADO, color: "var(--duo-ink)", fontWeight: 700, animation: "mmFade .3s ease both" }}>Aguardando {par}</span>
                             : <span style={IDENT_LADO}>{lazerModo === "metade" ? "metade para cada" : "juntos"}</span>}
                         </span>
                       </button>
@@ -1247,14 +1311,14 @@ export default function DuoMetas() {
                         ? [{ w: Math.min(50, (lg / lim) * 100) + "%", cor: "#4e9e79" }, { w: Math.max(0, 50 - Math.min(50, (lg / lim) * 100)) + "%", cor: "transparent" }, { w: Math.min(50, (ls / lim) * 100) + "%", cor: "#e2a24f" }]
                         : [{ w: Math.min(100, (lg / lim) * 100) + "%", cor: "#4e9e79" }, { w: Math.min(100 - Math.min(100, (lg / lim) * 100), (ls / lim) * 100) + "%", cor: "#e2a24f" }]} marcos={lazerModo === "metade" ? ["50%"] : undefined} />
                       <div style={LEGENDA}>
-                        {[{ nome: "Você", cor: "#4e9e79", v: fmt(lg) }, { nome: "Suelen", cor: "#e2a24f", v: fmt(ls) }].map((lp) => (
+                        {[{ nome: "Você", cor: "#4e9e79", v: fmt(lg) }, { nome: Par, cor: "#e2a24f", v: fmt(ls) }].map((lp) => (
                           <span key={lp.nome} style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: lp.cor }} />{lp.nome} <strong style={{ color: "var(--ink)" }}>{lp.v}</strong></span>
                         ))}
                         <strong style={{ marginLeft: "auto", color: lg + ls > lim ? "var(--out)" : "var(--ink)" }}>{Math.floor(((lg + ls) / lim) * 100)}%</strong>
                       </div>
                       <span style={RODAPE_CARTAO}>
                         {lazerModo === "metade"
-                          ? "Cada um tem " + fmt(lim / 2, false) + " no mês. " + (lg > lim / 2 ? "Você passou da sua metade." : ls > lim / 2 ? "Suelen passou da metade dela." : "Os dois estão dentro da parte de cada um.")
+                          ? "Cada um tem " + fmt(lim / 2, false) + " no mês. " + (lg > lim / 2 ? "Você passou da sua metade." : ls > lim / 2 ? "" + Par + " passou da metade dela." : "Os dois estão dentro da parte de cada um.")
                           : lg + ls >= lim ? "O limite do mês foi atingido."
                             : "Restam " + fmt(lim - lg - ls) + (r.lazer.diasRestantes ? " para " + (r.lazer.diasRestantes === 1 ? "o último dia" : "os próximos " + r.lazer.diasRestantes + " dias") + "." : " no mês.")}
                       </span>
@@ -1276,7 +1340,7 @@ export default function DuoMetas() {
                     const oculto = it.privado && it.quem === "suelen";
                     const pend = it.status === "pendente";
                     return (
-                      <button key={it.id} type="button" onClick={() => app.actions.abrirEdicao(it.id)} className="mm-h-linha" title={oculto ? "Lançamento privado de Suelen" : "Editar movimentação"} style={{ ...LINHA, gap: 10, padding: "5px 0", border: "none", borderBottom: "1px solid var(--line-soft)", background: "transparent", color: "inherit", font: "inherit", textAlign: "left", cursor: "pointer", animation: `mmFade .4s ${0.05 * i}s ease both` }}>
+                      <button key={it.id} type="button" onClick={() => app.actions.abrirEdicao(it.id)} className="mm-h-linha" title={oculto ? "Lançamento privado de " + par : "Editar movimentação"} style={{ ...LINHA, gap: 10, padding: "5px 0", border: "none", borderBottom: "1px solid var(--line-soft)", background: "transparent", color: "inherit", font: "inherit", textAlign: "left", cursor: "pointer", animation: `mmFade .4s ${0.05 * i}s ease both` }}>
                         <span title={rw.quemNome}><Avatar av={rw.av} ini={rw.ini} size={28} /></span>
                         <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontStyle: oculto ? "italic" : undefined, color: oculto ? "var(--muted)" : undefined }}>{rw.desc}</span>
                         {pend && <span style={{ flex: "none", padding: "2px 8px", borderRadius: 999, background: "var(--duo-soft)", color: "var(--duo-ink)", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>vence {rw.data}</span>}
@@ -1299,7 +1363,7 @@ export default function DuoMetas() {
                       <div style={{ ...CAB_CARTAO, flexWrap: "wrap" }}>
                         <span style={OLHO}>Quem gastou o quê · 6 meses</span>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, fontSize: 12, color: "var(--muted)" }}>
-                          {[["Você", "#4e9e79"], ["Suelen", "#e2a24f"], ["Conjunta", "var(--accent)"]].map(([k, cor]) => (
+                          {[["Você", "#4e9e79"], [Par, "#e2a24f"], ["Conjunta", "var(--accent)"]].map(([k, cor]) => (
                             <span key={k} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 9, height: 9, borderRadius: 3, background: cor }} />{k}</span>
                           ))}
                         </div>
@@ -1310,7 +1374,7 @@ export default function DuoMetas() {
                           const tot = x.gustavo + x.suelen + x.conjunta;
                           const atual = x.chave === mesRef;
                           return (
-                            <div key={x.chave} title={`${x.label}: você ${fmt(x.gustavo, false)} · Suelen ${fmt(x.suelen, false)} · conjunta ${fmt(x.conjunta, false)}`} style={{ flex: 1, minWidth: 0, height: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", gap: 6 }}>
+                            <div key={x.chave} title={`${x.label}: você ${fmt(x.gustavo, false)} · ${Par} ${fmt(x.suelen, false)} · conjunta ${fmt(x.conjunta, false)}`} style={{ flex: 1, minWidth: 0, height: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", gap: 6 }}>
                               <span style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>{tot ? fmt(tot, false).replace("R$", "").trim() : "—"}</span>
                               <div style={{ width: "100%", maxWidth: 46, height: Math.max(tot ? 4 : 0, (tot / mx) * 100) + "%", display: "flex", flexDirection: "column", borderRadius: 8, overflow: "hidden", transformOrigin: "bottom", animation: `mmCresce .7s ${i * 0.06}s cubic-bezier(.22,.9,.18,1) both`, outline: atual ? "2px solid var(--accent-line)" : undefined, outlineOffset: 2 }}>
                                 <div style={{ flex: x.conjunta, background: "var(--accent)" }} />
@@ -1331,10 +1395,10 @@ export default function DuoMetas() {
           )}
 
           {t === "duo-divisao" && (() => {
-            const pagou = dv.dev > 0 ? "Você" : "Suelen";
+            const pagou = dv.dev > 0 ? "Você" : Par;
             const divSub = dv.vazio ? "Quando um de vocês marcar uma despesa como dividida no formulário, ela aparece aqui e o Mimo calcula quem deve quanto."
               : quites ? "As despesas compartilhadas de " + mesNome + " estão divididas " + regraTxt + "."
-                : "Você pagou " + fmt(dv.pG) + " e Suelen pagou " + fmt(dv.pS) + ". Pela regra " + regraTxt + ", sua parte é " + fmt(dv.justoG) + (dv.acertado ? ", já descontado o acerto de " + fmt(Math.abs(dv.acertado)) + "." : ".");
+                : "Você pagou " + fmt(dv.pG) + " e " + par + " pagou " + fmt(dv.pS) + ". Pela regra " + regraTxt + ", sua parte é " + fmt(dv.justoG) + (dv.acertado ? ", já descontado o acerto de " + fmt(Math.abs(dv.acertado)) + "." : ".");
             const acertando = s.enviando === "acerto";
             const historico = [...acertos].sort((a, b) => (a.data < b.data ? 1 : -1));
             return (
@@ -1348,7 +1412,7 @@ export default function DuoMetas() {
                     <div style={{ width: 124 }}><Gato cor="#4e9e79" expressao={gExp} /></div>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, paddingBottom: 40, color: quites || dv.vazio ? "var(--faint)" : "var(--duo)", transition: "color .3s ease" }}>
                       <svg width="38" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: dv.dev < 0 && !quites ? "rotate(180deg)" : "none", transition: "transform .4s ease" }} aria-hidden="true"><path d={quites || dv.vazio ? "M5 9h14M5 15h14" : "M4 12h16M14 6l6 6-6 6"} /></svg>
-                      <span style={{ fontSize: 10.5, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--faint)" }}>{dv.vazio ? "sem despesas" : quites ? "quites" : pagou === "Você" ? "você → Suelen" : "Suelen → você"}</span>
+                      <span style={{ fontSize: 10.5, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--faint)" }}>{dv.vazio ? "sem despesas" : quites ? "quites" : pagou === "Você" ? "você → " + par : "" + Par + " → você"}</span>
                     </div>
                     <div style={{ width: 124 }}><Gato cor="#e2a24f" tabby expressao={sExp} /></div>
                   </div>
@@ -1363,14 +1427,14 @@ export default function DuoMetas() {
                             <button key={k} type="button" aria-pressed={s.regra === k} onClick={() => up({ regra: k })} style={{ height: 36, padding: "0 14px", borderRadius: 11, border: "none", ...segmento(s.regra === k), fontSize: 13, fontWeight: 700, cursor: "pointer" }}>{label}</button>
                           ))}
                         </div>
-                        {s.regra === "prop" && <span style={{ fontSize: 12, color: "var(--faint)" }}>{"Pela renda salva em Configurações: você " + fmt(app.ajustes.renda, false) + ", Suelen " + fmt(app.ajustes.rendaParceira, false) + "."}</span>}
+                        {s.regra === "prop" && <span style={{ fontSize: 12, color: "var(--faint)" }}>{"Pela renda salva em Configurações: você " + fmt(app.ajustes.renda, false) + ", " + par + " " + fmt(app.ajustes.rendaParceira, false) + "."}</span>}
                       </div>
                     )}
                     {!dv.vazio && !quites && (
                       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
                         <button type="button" onClick={acertar} style={btnPrim({ height: 46, padding: "0 18px", opacity: acertando ? 0.7 : 1 })}>
                           {acertando && <Spinner />}
-                          {acertando ? "Registrando…" : dv.dev > 0 ? "Acertar " + fmt(abs) + " com Suelen" : "Registrar que Suelen pagou"}
+                          {acertando ? "Registrando…" : dv.dev > 0 ? "Acertar " + fmt(abs) + " com " + par : "Registrar que " + par + " pagou"}
                         </button>
                         <span style={{ fontSize: 12.5, color: "var(--faint)" }}>Registra um Pix entre vocês e zera o saldo. Dá para desfazer logo depois.</span>
                       </div>
@@ -1408,7 +1472,7 @@ export default function DuoMetas() {
                             <Avatar av={rw.av} ini={rw.ini} size={28} />
                             <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
                               <span style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{rw.desc}</span>
-                              <span style={{ fontSize: 11.5, color: "var(--faint)" }}>{rw.data + " · pago por " + (x.quem === "suelen" ? "Suelen" : "você")}</span>
+                              <span style={{ fontSize: 11.5, color: "var(--faint)" }}>{rw.data + " · pago por " + (x.quem === "suelen" ? par : "você")}</span>
                             </div>
                             <span style={{ fontFamily: SORA, fontSize: 13.5, whiteSpace: "nowrap" }}>{rw.vFmt}</span>
                           </button>
@@ -1425,7 +1489,7 @@ export default function DuoMetas() {
                         <Avatar av={h.valor > 0 ? P.gustavo.av : P.suelen.av} ini={h.valor > 0 ? "G" : "S"} size={26} fs={10.5} />
                       </span>
                       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-                        <span style={{ fontSize: 13, fontWeight: 600 }}>{h.valor > 0 ? "Você pagou Suelen" : "Suelen pagou você"}</span>
+                        <span style={{ fontSize: 13, fontWeight: 600 }}>{h.valor > 0 ? "Você pagou " + par : "" + Par + " pagou você"}</span>
                         <span style={{ fontSize: 11.5, color: "var(--faint)" }}>{"Pix em " + dataBr(h.data) + " · despesas de " + rotuloMes(h.mes)}</span>
                       </div>
                       <span style={{ fontFamily: SORA, fontSize: 13.5, color: "var(--in-ink)", whiteSpace: "nowrap" }}>{fmt(Math.abs(h.valor))}</span>
@@ -1441,7 +1505,7 @@ export default function DuoMetas() {
             <div style={{ display: "flex", flexDirection: "column", gap: 24, ...TRANSICAO_PAGINA }}>
               <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between", gap: 16 }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <span style={{ fontSize: 12, letterSpacing: ".1em", textTransform: "uppercase", color: duo ? "var(--duo-ink)" : "var(--solo-ink)" }}>{duo ? "Metas do casal · Gustavo e Suelen" : "Suas metas"}</span>
+                  <span style={{ fontSize: 12, letterSpacing: ".1em", textTransform: "uppercase", color: duo ? "var(--duo-ink)" : "var(--solo-ink)" }}>{duo ? "Metas do casal · " + N.eu + " e " + par : "Suas metas"}</span>
                   <h1 style={H1}>Metas</h1>
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
@@ -1556,7 +1620,7 @@ export default function DuoMetas() {
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     <span style={ROTULO}>Já guardado <span style={OPCIONAL}>· opcional</span></span>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))", gap: 12 }}>
-                      {(duo ? [{ ...P.gustavo, f: fm.inicial, ph: "Você" }, { ...P.suelen, f: { ...fm.inicialS, borda: fm.inicial.borda }, ph: "Suelen" }] : [{ ...P.gustavo, f: fm.inicial, ph: "0,00" }]).map((ic) => (
+                      {(duo ? [{ ...P.gustavo, f: fm.inicial, ph: "Você" }, { ...P.suelen, f: { ...fm.inicialS, borda: fm.inicial.borda }, ph: Par }] : [{ ...P.gustavo, f: fm.inicial, ph: "0,00" }]).map((ic) => (
                         <div key={ic.ini} style={{ position: "relative" }}>
                           <Avatar av={ic.av} ini={ic.ini} size={24} fs={10.5} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }} />
                           <input inputMode="decimal" value={ic.f.v} onChange={ic.f.on} placeholder={ic.ph} style={campoSt(ic.f.borda, { padding: "0 14px 0 46px" })} />
@@ -1616,7 +1680,7 @@ export default function DuoMetas() {
                         <span style={ROTULO}>Prazo <span style={OPCIONAL}>· opcional</span></span>
                         <input type="month" value={fi.prazo.v} onChange={fi.prazo.on} style={campoSt(fi.prazo.borda, { height: 46, padding: "0 12px", fontSize: 14 })} />
                       </label>
-                      {(duo ? [{ ...P.gustavo, f: fi.inicial, ph: "Você" }, { ...P.suelen, f: { ...fi.inicialS, borda: fi.inicial.borda }, ph: "Suelen" }] : [{ ...P.gustavo, f: fi.inicial, ph: "0,00" }]).map((ic, k) => (
+                      {(duo ? [{ ...P.gustavo, f: fi.inicial, ph: "Você" }, { ...P.suelen, f: { ...fi.inicialS, borda: fi.inicial.borda }, ph: Par }] : [{ ...P.gustavo, f: fi.inicial, ph: "0,00" }]).map((ic, k) => (
                         <label key={ic.ini} style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                           <span style={ROTULO}>{k ? "\u00a0" : <>Já guardado <span style={OPCIONAL}>· opcional</span></>}</span>
                           <div style={{ position: "relative" }}>
@@ -1740,7 +1804,7 @@ export default function DuoMetas() {
                         <Avatar av={P[h.quem].av} ini={P[h.quem].ini} size={30} fs={11.5} />
                         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
                           <span style={{ fontSize: 13.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.nota || "Aporte"}</span>
-                          <span style={{ fontSize: 11.5, color: "var(--faint)" }}>{h.d + (duo ? " · " + (h.quem === "suelen" ? "Suelen" : "você") : "")}</span>
+                          <span style={{ fontSize: 11.5, color: "var(--faint)" }}>{h.d + (duo ? " · " + (h.quem === "suelen" ? par : "você") : "")}</span>
                         </div>
                         <span style={{ fontFamily: SORA, fontSize: 14, color: "var(--in-ink)", whiteSpace: "nowrap" }}>{"+ " + fmt(h.v)}</span>
                       </div>
@@ -1840,7 +1904,7 @@ export default function DuoMetas() {
 
   // ---- moldura comum: Topbar do Solo, painel lateral e dock da conta ativa ----------
   // filtro por autor: mesmos botões da tela antiga de movimentações do Duo
-  const FIL: ["todos" | Autor, string, string, string][] = [["todos", "Todos", P.conjunta.av, ""], ["gustavo", "Eu", P.gustavo.av, "G"], ["suelen", "Suelen", P.suelen.av, "S"], ["conjunta", "Conta conjunta", P.conjunta.av, ""]];
+  const FIL: ["todos" | Autor, string, string, string][] = [["todos", "Todos", P.conjunta.av, ""], ["gustavo", "Eu", P.gustavo.av, P.gustavo.ini], ["suelen", Par, P.suelen.av, P.suelen.ini], ["conjunta", "Conta conjunta", P.conjunta.av, ""]];
   const itensDuo = app.state.itens;
   const filtroAutor: FiltroAutor = {
     valor: app.state.quemFiltro,
@@ -1871,7 +1935,7 @@ export default function DuoMetas() {
       ativo={destino}
       onNavegar={navegar}
       onPrivacidade={() => up((p) => ({ privado: !p.privado }))}
-      autores={duo ? AUTORES : undefined}
+      autores={duo ? autoresDuo() : undefined}
     >
       {t === "duo-movs" ? (
         <ViewLista
