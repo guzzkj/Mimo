@@ -109,6 +109,16 @@ describe("solo transactions and isolation", () => {
 
     const list = await a.get(`${base}?from=2026-09-01&to=2026-12-31`);
     expect(list.json.transactions.map((t: { id: number }) => t.id)).toEqual([t1.id, t3.id]);
+
+    // desfazer a exclusão da parcela mantém o grupo; grupo desconhecido vira um novo
+    const redo = await a.post(`${base}/batch`, {
+      create: [
+        { ref: "back", groupId: t1.groupId, ...tx({ description: "Fone", method: "card", amountCents: 9000, occurredOn: "2026-10-12", installment: { number: 2, total: 2 } }) },
+        { ref: "alien", groupId: 987654, ...tx() },
+      ],
+    });
+    expect(redo.json.created[0].transaction.groupId).toBe(t1.groupId);
+    expect(redo.json.created[1].transaction.groupId).not.toBe(987654);
   });
 
   test("invalid batches roll back entirely", async () => {

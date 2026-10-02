@@ -23,6 +23,8 @@ const batchSchema = z.object({
     ref: z.string().min(1).max(40),
     /** Itens com o mesmo groupRef ganham o mesmo group_id (parcelas, recorrência). */
     groupRef: z.string().min(1).max(40).nullable().optional(),
+    /** Recriar item de um grupo que já existe (ex.: desfazer exclusão de uma parcela). */
+    groupId: z.number().int().positive().nullable().optional(),
   })).max(MAX_BATCH).default([]),
   update: z.array(transactionPatchSchema.extend({ id: z.number().int().positive() })).max(MAX_BATCH).default([]),
   delete: z.array(z.number().int().positive()).max(MAX_BATCH).default([]),
@@ -84,11 +86,20 @@ export const transactionRoutes = new Hono<AppEnv>()
         for (const item of body.create) {
           if (item.groupRef && !groups.has(item.groupRef)) groups.set(item.groupRef, await nextGroupId(tx));
         }
+        // grupo informado só vale se já existir nesta conta; senão vira um grupo novo
+        const asked = [...new Set(body.create.map((i) => i.groupId).filter((g): g is number => g != null))];
+        const known = new Map<number, number>();
+        if (asked.length) {
+          const rows = await tx.selectDistinct({ g: transactions.groupId }).from(transactions)
+            .where(and(eq(transactions.accountId, account.id), inArray(transactions.groupId, asked)));
+          rows.forEach((r) => known.set(r.g!, r.g!));
+          for (const g of asked) if (!known.has(g)) known.set(g, await nextGroupId(tx));
+        }
         const values = body.create.map((item) => ({
           ...normalizeTransaction(item, ctx),
           accountId: account.id,
           createdBy: me.userId,
-          groupId: item.groupRef ? groups.get(item.groupRef)! : null,
+          groupId: item.groupRef ? groups.get(item.groupRef)! : item.groupId != null ? known.get(item.groupId)! : null,
         }));
         const rows = await tx.insert(transactions).values(values).returning();
         rows.forEach((row, i) => created.push({ ref: body.create[i].ref, transaction: toTransactionDto(row, me.userId) }));
