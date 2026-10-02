@@ -6,24 +6,36 @@ import { useTimers } from "../hooks/useTimers";
 import { lerAjustes, salvarAjustes } from "../lib/ajustes";
 import { salvarPlano } from "../lib/plano";
 import { useTemaTela } from "../lib/tema";
+import { api, ErroApi, mensagemDeErro } from "../lib/api";
+import { MODO_API } from "../lib/modo";
+import type { ConviteApi, MeApi } from "../lib/remoto/tipos";
+import { contaDoTipo, definirSessao, destinoAposLogin, lerSessao, recarregarSessao, sair, useSessao } from "../lib/sessao";
 
 // Porta de docs/ref/FluxoAcesso.dc.html ("Mimo Acesso e Onboarding"):
 // autenticação (1a–1d) e onboarding (2a–2e) num só fluxo. Cada tela tem rota
 // própria em /acesso/:tela; o estado do formulário vive neste componente e
-// sobrevive às trocas de rota. Sem backend: envios são simulados com timers.
+// sobrevive às trocas de rota. Backend real (MODO_API): cada envio chama a API
+// (/api/auth, /api/me, convites). Protótipo: envios simulados com timers.
+
+// Token de convite guardado enquanto a pessoa cria a conta ou entra.
+const TOKEN_CONVITE = "mimo.convite.token";
+const lerTokenConvite = () => { try { return sessionStorage.getItem(TOKEN_CONVITE); } catch { return null; } };
+const guardarTokenConvite = (t: string | null) => {
+  try { if (t) sessionStorage.setItem(TOKEN_CONVITE, t); else sessionStorage.removeItem(TOKEN_CONVITE); } catch { /* sem armazenamento */ }
+};
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 // convite de exemplo: vale 5 dias a partir de hoje
 const EXPIRA_CONVITE = new Date(Date.now() + 5 * 86400000);
 const V = { email: "gustavo.barros@gmail.com", senha: "mimo2026casa", nome: "Gustavo", renda: "6.800", emailParceiro: "suelen@gmail.com", mensagem: "Oi, Su! Vamos organizar as contas da casa juntos no Mimo?" };
 
-type Tela = "cadastro" | "login" | "recuperar" | "recuperar-enviado" | "verificar" | "plano" | "config" | "duo-escolha" | "duo-convidar" | "duo-enviado" | "duo-pendente" | "duo-convite" | "pronto";
+type Tela = "cadastro" | "login" | "recuperar" | "recuperar-enviado" | "redefinir" | "verificar" | "plano" | "config" | "duo-escolha" | "duo-convidar" | "duo-enviado" | "duo-pendente" | "duo-convite" | "pronto";
 type Plano = "solo" | "duo";
 type Estado = "vazio" | "preenchendo" | "erro" | "loading" | "sucesso";
 type Campo = "email" | "senha" | "nome" | "renda" | "emailParceiro" | "mensagem";
 
-const TELAS: Tela[] = ["cadastro", "login", "recuperar", "recuperar-enviado", "verificar", "plano", "config", "duo-escolha", "duo-convidar", "duo-enviado", "duo-pendente", "duo-convite", "pronto"];
-const CARD: Tela[] = ["cadastro", "login", "recuperar", "recuperar-enviado", "verificar", "config", "duo-escolha", "duo-convidar", "duo-enviado", "duo-convite", "pronto"];
+const TELAS: Tela[] = ["cadastro", "login", "recuperar", "recuperar-enviado", "redefinir", "verificar", "plano", "config", "duo-escolha", "duo-convidar", "duo-enviado", "duo-pendente", "duo-convite", "pronto"];
+const CARD: Tela[] = ["cadastro", "login", "recuperar", "recuperar-enviado", "redefinir", "verificar", "config", "duo-escolha", "duo-convidar", "duo-enviado", "duo-convite", "pronto"];
 const ESTADOS: Estado[] = ["vazio", "preenchendo", "erro", "loading", "sucesso"];
 
 const fmtMil = (n: number) => n.toLocaleString("pt-BR");
@@ -60,9 +72,25 @@ interface S {
   renda: string;
   emailParceiro: string;
   mensagem: string;
+  /** Backend real: convite em foco (prévia do token ou convite pendente da sessão). */
+  convite: { nome: string; mensagem: string | null; email: string } | null;
+  /** Backend real: convite enviado por quem está logado (tela duo-pendente). */
+  conviteId: string | null;
 }
 
 function base(tela: Tela, plano: Plano): S {
+  if (MODO_API) {
+    // backend real: nada de dados de exemplo; o que for da pessoa vem da sessão
+    const ses = lerSessao();
+    const user = ses.status === "ok" ? ses.user : null;
+    return {
+      plano, erros: {}, erroGeral: "", aviso: "", loading: false, sucesso: false, foco: null, verSenha: false,
+      recusado: false, expirado: false, copiado: false, google: false, reenviando: false, cooldown: 0, hover: null,
+      escolha: tela === "config" || tela === "pronto" ? plano : null,
+      email: user?.email ?? "", senha: "", nome: user?.name ?? "", renda: "", emailParceiro: "", mensagem: "",
+      convite: null, conviteId: null,
+    };
+  }
   const logado = !["cadastro", "login", "recuperar"].includes(tela);
   return {
     plano, erros: {}, erroGeral: "", aviso: "", loading: false, sucesso: false, foco: null, verSenha: false,
@@ -70,6 +98,7 @@ function base(tela: Tela, plano: Plano): S {
     escolha: tela === "config" || tela === "pronto" ? plano : null,
     email: logado ? V.email : "", senha: "", nome: logado && tela !== "config" ? V.nome : "", renda: "",
     emailParceiro: ["duo-enviado", "duo-pendente"].includes(tela) ? V.emailParceiro : "", mensagem: V.mensagem,
+    convite: null, conviteId: null,
   };
 }
 
@@ -154,7 +183,11 @@ export default function FluxoAcesso() {
 
   const [s, setS] = useState<S>(() => {
     const q = new URLSearchParams(loc.search).get("estado") as Estado | null;
-    return preset(t, alvo?.plano ?? "solo", q && ESTADOS.includes(q) ? q : "vazio");
+    // estados de demonstração (?estado=) só no protótipo
+    const inicial = preset(t, alvo?.plano ?? "solo", !MODO_API && q && ESTADOS.includes(q) ? q : "vazio");
+    // link de confirmação do e-mail: a tela já abre "verificando"
+    if (MODO_API && t === "verificar" && new URLSearchParams(loc.search).get("token")) inicial.loading = true;
+    return inicial;
   });
   const plano: Plano = alvo?.plano ?? s.plano;
   const sRef = useRef(s);
@@ -163,6 +196,51 @@ export default function FluxoAcesso() {
   useEffect(() => () => window.clearInterval(iv.current), []);
   // cada troca de tela começa do topo
   useEffect(() => { window.scrollTo({ top: 0 }); }, [t]);
+
+  // ---- backend real: links dos e-mails (?token=) e dados de cada tela -------------
+  const sessao = useSessao();
+  const token = new URLSearchParams(loc.search).get("token");
+  useEffect(() => {
+    if (!MODO_API) return;
+    let vivo = true;
+    if (t === "verificar" && token) {
+      api.post("/auth/verify-email", { token })
+        .then(() => recarregarSessao())
+        .then((ses) => { if (vivo) setS((p) => ({ ...p, loading: false, sucesso: true, email: ses.status === "ok" ? ses.user.email : p.email })); })
+        .catch((e) => { if (vivo) setS((p) => ({ ...p, loading: false, erroGeral: mensagemDeErro(e) })); });
+    }
+    if (t === "duo-convite") {
+      const tk = token ?? lerTokenConvite();
+      if (tk) {
+        guardarTokenConvite(tk);
+        api.get<{ inviterName: string; emailMasked: string; message: string | null; status: string; expired: boolean }>(`/invites/preview?token=${encodeURIComponent(tk)}`)
+          .then((c) => {
+            if (vivo) setS((p) => ({ ...p, convite: { nome: c.inviterName || "Alguém", mensagem: c.message, email: c.emailMasked }, expirado: c.expired || c.status !== "pending" }));
+          })
+          .catch((e) => {
+            if (!vivo) return;
+            if (e instanceof ErroApi && e.status === 404) { guardarTokenConvite(null); setS((p) => ({ ...p, expirado: true })); } else setS((p) => ({ ...p, erroGeral: mensagemDeErro(e) }));
+          });
+      }
+    }
+    if (t === "duo-pendente") {
+      const conta = contaDoTipo("duo");
+      if (conta) {
+        api.get<{ invites: ConviteApi[] }>(`/accounts/${conta.id}/invites`)
+          .then(({ invites }) => {
+            if (!vivo) return;
+            const ultimo = invites[0];
+            const aceito = conta.members.length > 1;
+            setS((p) => ({
+              ...p, emailParceiro: ultimo?.email ?? p.emailParceiro, conviteId: ultimo?.status === "pending" ? ultimo.id : null,
+              sucesso: aceito, expirado: !aceito && (!ultimo || ultimo.expired || ultimo.status !== "pending"),
+            }));
+          })
+          .catch((e) => { if (vivo) setS((p) => ({ ...p, aviso: mensagemDeErro(e) })); });
+      }
+    }
+    return () => { vivo = false; };
+  }, [t, token]);
 
   if (!alvo) return <Navigate to="/acesso/cadastro" replace />;
 
@@ -192,7 +270,174 @@ export default function FluxoAcesso() {
   };
   const set = (k: Campo, v: string) => setS((p) => ({ ...p, [k]: v, erros: { ...p.erros, [k]: "" }, erroGeral: "", aviso: "" }));
 
+  // ---- backend real -------------------------------------------------------------
+  /** Roda uma chamada com o botão em "carregando"; erros de campo do servidor voltam para os campos. */
+  const chamar = (fn: () => Promise<void>, campos: Record<string, Campo> = {}) => {
+    if (sRef.current.loading) return;
+    up({ loading: true, foco: null, erroGeral: "", aviso: "" });
+    fn().catch((e: unknown) => {
+      if (e instanceof ErroApi && Object.keys(e.fields).length) {
+        const erros: Partial<Record<Campo, string>> = {};
+        for (const [k, v] of Object.entries(e.fields)) { const c = campos[k]; if (c) erros[c] = v; }
+        if (Object.keys(erros).length) { up({ loading: false, erros }); return; }
+      }
+      up({ loading: false, erroGeral: mensagemDeErro(e) });
+    });
+  };
+
+  /** Depois de entrar (ou confirmar o e-mail): segue do ponto em que a pessoa parou. */
+  const aposEntrar = async () => {
+    const ses = await recarregarSessao();
+    if (ses.status === "ok" && ses.user.emailVerified && lerTokenConvite()) { ir("duo-convite"); return; }
+    const destino = destinoAposLogin(ses);
+    if (destino === "/acesso/verificar") ir("verificar", { email: ses.status === "ok" ? ses.user.email : sRef.current.email });
+    else if (destino === "/acesso/plano") ir("plano");
+    else navigate(destino);
+  };
+
+  const enviarApi = () => {
+    const x = sRef.current;
+    const erros: Partial<Record<Campo, string>> = {};
+    if (t === "cadastro") {
+      if (!EMAIL_RE.test(x.email.trim())) erros.email = "Esse e-mail parece incompleto. Confira o final (ex.: .com).";
+      if (x.senha.length < 8 || !/\d/.test(x.senha)) erros.senha = "Use pelo menos 8 caracteres, com um número.";
+      if (Object.keys(erros).length) return up({ erros });
+      return chamar(async () => {
+        await api.post("/auth/signup", { email: x.email.trim(), password: x.senha });
+        await recarregarSessao();
+        ir("verificar", { cooldown: 30, senha: "", email: x.email.trim().toLowerCase() });
+      }, { email: "email", password: "senha" });
+    }
+    if (t === "login") {
+      if (!EMAIL_RE.test(x.email.trim())) erros.email = "Digite um e-mail válido.";
+      if (!x.senha) erros.senha = "Digite sua senha.";
+      if (Object.keys(erros).length) return up({ erros });
+      return chamar(async () => {
+        try {
+          await api.post("/auth/login", { email: x.email.trim(), password: x.senha });
+        } catch (e) {
+          if (e instanceof ErroApi && e.status === 401) { up({ loading: false, erroGeral: e.message, erros: { senha: " " } }); return; }
+          throw e;
+        }
+        up({ senha: "" });
+        await aposEntrar();
+      }, { email: "email", password: "senha" });
+    }
+    if (t === "recuperar") {
+      if (!EMAIL_RE.test(x.email.trim())) return up({ erros: { email: "Digite um e-mail válido para receber o link." } });
+      return chamar(async () => {
+        await api.post("/auth/password/forgot", { email: x.email.trim() });
+        ir("recuperar-enviado", { cooldown: 42 });
+      }, { email: "email" });
+    }
+    if (t === "recuperar-enviado") return ir("login");
+    if (t === "redefinir") {
+      if (x.senha.length < 8 || !/\d/.test(x.senha)) return up({ erros: { senha: "Use pelo menos 8 caracteres, com um número." } });
+      if (!token) return up({ erroGeral: "Link inválido. Peça um novo em “Esqueci minha senha”." });
+      return chamar(async () => {
+        await api.post("/auth/password/reset", { token, password: x.senha });
+        definirSessao({ status: "anonimo" });
+        ir("login", { senha: "", aviso: "Senha alterada. Entre com a senha nova." });
+      }, { password: "senha" });
+    }
+    if (t === "verificar") {
+      if (x.sucesso) return void aposEntrar();
+      return chamar(async () => {
+        const ses = await recarregarSessao();
+        if (ses.status === "ok" && ses.user.emailVerified) up({ loading: false, sucesso: true });
+        else up({ loading: false, erroGeral: "Ainda não recebemos a confirmação. Confira a caixa de spam ou reenvie o e-mail." });
+      });
+    }
+    if (t === "config") {
+      if (!x.nome.trim()) erros.nome = "Como podemos te chamar?";
+      if (num(x.renda) <= 0) erros.renda = "Informe um valor aproximado. Pode ser redondo.";
+      if (Object.keys(erros).length) return up({ erros });
+      return chamar(async () => {
+        const r = await api.post<Pick<MeApi, "user" | "accounts">>("/me/onboarding", { plan: plano, name: x.nome.trim(), monthlyIncomeCents: num(x.renda) * 100 });
+        const ses = lerSessao();
+        if (ses.status === "ok") definirSessao({ ...ses, user: r.user, accounts: r.accounts });
+        if (plano !== "duo") return ir("pronto");
+        const duoConta = r.accounts.find((a) => a.kind === "duo" && !a.closed);
+        if (duoConta && duoConta.members.length > 1) return ir("pronto");
+        ir(lerTokenConvite() ? "duo-convite" : "duo-escolha");
+      }, { name: "nome", monthlyIncomeCents: "renda" });
+    }
+    if (t === "duo-convidar") {
+      if (!EMAIL_RE.test(x.emailParceiro.trim())) return up({ erros: { emailParceiro: "Confira o e-mail do(a) parceiro(a)." } });
+      if (x.emailParceiro.trim().toLowerCase() === x.email.trim().toLowerCase()) return up({ erros: { emailParceiro: "Esse é o seu próprio e-mail. Use o e-mail do(a) parceiro(a)." } });
+      const conta = contaDoTipo("duo");
+      if (!conta) return up({ erroGeral: "Sua conta Duo ainda não foi criada. Volte e escolha o plano Duo." });
+      return chamar(async () => {
+        await api.post(`/accounts/${conta.id}/invites`, { email: x.emailParceiro.trim(), message: x.mensagem.trim() || null });
+        ir("duo-enviado");
+      }, { email: "emailParceiro", message: "mensagem" });
+    }
+    if (t === "duo-enviado") return ir("duo-pendente");
+    if (t === "duo-convite") {
+      const ses = lerSessao();
+      if (ses.status !== "ok") return ir("cadastro", { aviso: "Crie sua conta (ou entre) com o e-mail que recebeu o convite. Depois é só aceitar." });
+      const tk = token ?? lerTokenConvite();
+      const pend = ses.pendingInvites[0];
+      if (!tk && !pend) return up({ expirado: true });
+      return chamar(async () => {
+        await api.post("/invites/accept", tk ? { token: tk } : { inviteId: pend!.id });
+        guardarTokenConvite(null);
+        const nova = await recarregarSessao();
+        if (nova.status === "ok" && !nova.user.onboarded) ir("config", { plano: "duo", escolha: "duo" });
+        else ir("pronto", { plano: "duo" });
+      });
+    }
+  };
+
+  const recusarConvite = () => {
+    if (!MODO_API) return up({ recusado: true });
+    const ses = lerSessao();
+    const tk = token ?? lerTokenConvite();
+    const pend = ses.status === "ok" ? ses.pendingInvites[0] : undefined;
+    if (ses.status !== "ok" || (!tk && !pend)) return up({ recusado: true });
+    chamar(async () => {
+      await api.post("/invites/decline", tk ? { token: tk } : { inviteId: pend!.id });
+      guardarTokenConvite(null);
+      void recarregarSessao();
+      up({ loading: false, recusado: true });
+    });
+  };
+
+  const cancelarConvite = () => {
+    const conta = contaDoTipo("duo");
+    const id = sRef.current.conviteId;
+    if (!MODO_API || !conta || !id) return ir("duo-escolha");
+    api.del(`/accounts/${conta.id}/invites/${id}`).then(() => ir("duo-escolha")).catch((e) => up({ aviso: mensagemDeErro(e) }));
+  };
+
+  const reenviarApi = () => {
+    const x = sRef.current;
+    if (x.cooldown > 0 || x.reenviando) return;
+    up({ reenviando: true, aviso: "", erroGeral: "" });
+    const tela = t;
+    const conta = contaDoTipo("duo");
+    let pedido: Promise<unknown> = Promise.resolve();
+    if (tela === "verificar") pedido = api.post("/auth/verify-email/resend");
+    else if (tela === "recuperar-enviado") pedido = api.post("/auth/password/forgot", { email: x.email.trim() });
+    else if (tela === "duo-pendente" && conta) {
+      // convite vencido: um novo para o mesmo e-mail; senão, reenvia o atual
+      pedido = x.conviteId && !x.expirado
+        ? api.post(`/accounts/${conta.id}/invites/${x.conviteId}/resend`)
+        : api.post<{ invite: ConviteApi }>(`/accounts/${conta.id}/invites`, { email: x.emailParceiro }).then((r) => setS((p) => ({ ...p, conviteId: r.invite.id })));
+    }
+    pedido
+      .then(() => {
+        setS((p) => ({ ...p, reenviando: false, expirado: false, aviso: tela === "duo-pendente" ? "Convite reenviado para " + p.emailParceiro + "." : "Enviamos de novo. Confira sua caixa de entrada." }));
+        cooldown(tela === "verificar" ? 30 : 42);
+      })
+      .catch((e) => {
+        setS((p) => ({ ...p, reenviando: false, ...(tela === "duo-pendente" ? { aviso: mensagemDeErro(e) } : { erroGeral: mensagemDeErro(e) }) }));
+        if (e instanceof ErroApi && e.retryAfter && e.retryAfter <= 120) cooldown(e.retryAfter);
+      });
+  };
+
   const enviar = () => {
+    if (MODO_API) return enviarApi();
     const x = sRef.current;
     const erros: Partial<Record<Campo, string>> = {};
     if (t === "cadastro") {
@@ -234,6 +479,7 @@ export default function FluxoAcesso() {
   };
 
   const reenviar = () => {
+    if (MODO_API) return reenviarApi();
     const x = sRef.current;
     if (x.cooldown > 0 || x.reenviando) return;
     up({ reenviando: true, aviso: "", erroGeral: "" });
@@ -263,6 +509,17 @@ export default function FluxoAcesso() {
 
   // ---- valores derivados (renderVals do protótipo) ---------------------------
   const duo = plano === "duo";
+  const eu = MODO_API ? (sessao.status === "ok" ? sessao.user.name || "Você" : "Você") : "Gustavo";
+  const meuEmail = MODO_API ? (sessao.status === "ok" ? sessao.user.email : s.email) : "gustavo@gmail.com";
+  const parDaConta = MODO_API ? contaDoTipo("duo", sessao)?.members.find((m) => !m.isMe)?.name ?? null : "Suelen";
+  /** "a Suelen" no protótipo; "seu par" (ou o nome de quem entrou) no backend real. */
+  const oPar = MODO_API ? parDaConta ?? "seu par" : "a Suelen";
+  // convite em foco: o do link (prévia carregada no efeito) ou o pendente na sessão
+  const tokenConvite = MODO_API && t === "duo-convite" ? token ?? lerTokenConvite() : null;
+  const pendSessao = MODO_API && t === "duo-convite" && !tokenConvite && sessao.status === "ok" ? sessao.pendingInvites[0] ?? null : null;
+  const convite = s.convite ?? (pendSessao ? { nome: pendSessao.inviterName || "Alguém", mensagem: pendSessao.message, email: sessao.status === "ok" ? sessao.user.email : "" } : null);
+  const semConvite = MODO_API && t === "duo-convite" && !tokenConvite && !pendSessao && sessao.status === "ok";
+  const quemConvidou = MODO_API ? convite?.nome ?? "quem convidou você" : "Gustavo";
   const temErro = !!s.erroGeral || Object.values(s.erros).some(Boolean) || s.expirado;
   let exp: Expressao = temErro ? "preocupado" : s.loading || s.reenviando ? "atento" : s.sucesso ? "feliz"
     : s.foco === "senha" ? (s.verSenha ? "curioso" : "feliz") : s.foco ? "curioso" : "padrao";
@@ -291,8 +548,9 @@ export default function FluxoAcesso() {
     login: { texto: "Novo por aqui?", acao: "Criar conta", onClick: () => ir("cadastro") },
     recuperar: { texto: "Lembrou?", acao: "Entrar", onClick: () => ir("login") },
     "recuperar-enviado": { texto: "Lembrou?", acao: "Entrar", onClick: () => ir("login") },
-    verificar: { texto: s.email, acao: "Sair", onClick: () => ir("login") },
-    "duo-pendente": { texto: "Gustavo", acao: "Sair", onClick: () => ir("login") },
+    verificar: { texto: s.email, acao: "Sair", onClick: () => (MODO_API ? void sair() : ir("login")) },
+    "duo-pendente": { texto: eu, acao: "Sair", onClick: () => (MODO_API ? void sair() : ir("login")) },
+    redefinir: { texto: "Lembrou?", acao: "Entrar", onClick: () => ir("login") },
   };
   const topo = topos[t];
   const total = duo || s.escolha === "duo" ? 3 : 2;
@@ -301,13 +559,15 @@ export default function FluxoAcesso() {
 
   const btns: Partial<Record<Tela, [string, string]>> = {
     cadastro: ["Criar conta", "Criando sua conta…"], login: ["Entrar", "Entrando…"], recuperar: ["Enviar link", "Enviando…"],
+    redefinir: ["Salvar senha nova", "Salvando…"],
     "recuperar-enviado": ["Voltar para o login", ""], verificar: [s.sucesso ? "Continuar" : "Já confirmei", "Verificando…"],
     config: [duo ? "Continuar" : "Concluir", "Salvando…"], "duo-convidar": ["Enviar convite", "Enviando convite…"],
     "duo-enviado": ["Continuar", ""], "duo-convite": ["Aceitar convite", "Entrando na conta duo…"],
   };
-  const conviteNormal = t === "duo-convite" && !s.expirado && !s.recusado;
-  const conviteExpirado = t === "duo-convite" && s.expirado;
-  const conviteRecusado = t === "duo-convite" && s.recusado && !s.expirado;
+  const expirado = s.expirado || semConvite;
+  const conviteNormal = t === "duo-convite" && !expirado && !s.recusado;
+  const conviteExpirado = t === "duo-convite" && expirado;
+  const conviteRecusado = t === "duo-convite" && s.recusado && !expirado;
   const btnPrimario = !!btns[t] && (t !== "duo-convite" || conviteNormal);
   const b = btns[t] || ["", ""];
 
@@ -378,27 +638,29 @@ export default function FluxoAcesso() {
   const pendAceito = t === "duo-pendente" && s.sucesso;
   const pend = s.expirado ? {
     pill: "Conta duo · convite expirado", pillBg: "var(--out-soft)", pillCor: "var(--out-ink)",
-    titulo: "O convite para a Suelen expirou", texto: "Convites valem por 7 dias. Envie um novo e ela recebe outro link no mesmo e-mail.",
+    titulo: "O convite para " + oPar + " expirou", texto: "Convites valem por 7 dias. Envie um novo e chega outro link no mesmo e-mail.",
     exp1: "preocupado", exp2: "atento", gatoOp: 0.4, slotBorda: "var(--out-line)", slotBg: "transparent",
     status: "Expirado", statusBg: "var(--out-soft)", statusCor: "var(--out-ink)", pulse: "none", acoes: false, novo: true,
     rodape: "Enquanto isso, o painel funciona no modo solo. Nada do que você lançou se perde.", btn: "Ir para meu painel", btnBg: "transparent", btnCor: "var(--ink2)", btnBorda: "var(--line2)", href: "/",
   } : pendAceito ? {
     pill: "Conta duo · ativa", pillBg: "var(--solo-soft)", pillCor: "var(--solo-ink)",
-    titulo: "A Suelen aceitou o convite", texto: "A carteira da casa está aberta para vocês dois. O que cada um marcar como compartilhado aparece no painel do casal.",
+    titulo: (MODO_API ? (parDaConta ?? "Seu par") : "A Suelen") + " aceitou o convite", texto: "A carteira da casa está aberta para vocês dois. O que cada um marcar como compartilhado aparece no painel do casal.",
     exp1: "feliz", exp2: "feliz", gatoOp: 1, slotBorda: "var(--duo-line)", slotBg: "var(--surface)",
     status: "Conectada", statusBg: "var(--solo-soft)", statusCor: "var(--solo-ink)", pulse: "none", acoes: false, novo: false,
     rodape: "Os lançamentos que você fez sozinho continuam privados até você decidir compartilhar.", btn: "Abrir o painel do casal", btnBg: "var(--btn-bg)", btnCor: "var(--btn-fg)", btnBorda: "transparent", href: "/duo",
   } : {
     pill: "Conta duo · aguardando aceite", pillBg: "var(--duo-soft)", pillCor: "var(--duo-ink)",
-    titulo: "Falta só a Suelen aceitar", texto: "Enviamos o convite para " + s.emailParceiro + " há 2 dias. Ele vale até " + EXPIRA_CONVITE.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" }) + ".",
+    titulo: "Falta só " + oPar + " aceitar", texto: MODO_API
+      ? "Enviamos o convite para " + (s.emailParceiro || "o e-mail do seu par") + ". Ele vale por 7 dias."
+      : "Enviamos o convite para " + s.emailParceiro + " há 2 dias. Ele vale até " + EXPIRA_CONVITE.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" }) + ".",
     exp1: s.reenviando ? "atento" : "padrao", exp2: "atento", gatoOp: 0.45, slotBorda: "var(--duo-line)", slotBg: "transparent",
     status: "Aguardando", statusBg: "var(--duo-soft)", statusCor: "var(--duo-ink)", pulse: "mmPulse 1.8s ease-out infinite", acoes: true, novo: false,
-    rodape: "Enquanto isso, o painel funciona no modo solo. O que você marcar como compartilhado aparece para a Suelen assim que ela entrar.", btn: "Ir para meu painel", btnBg: "var(--btn-bg)", btnCor: "var(--btn-fg)", btnBorda: "transparent", href: "/",
+    rodape: "Enquanto isso, o painel funciona no modo solo. O que você marcar como compartilhado aparece para " + oPar + " assim que entrar.", btn: "Ir para meu painel", btnBg: "var(--btn-bg)", btnCor: "var(--btn-fg)", btnBorda: "transparent", href: "/",
   };
 
   const gatoDuo = (t === "config" && duo) || ["duo-escolha", "duo-convidar", "duo-enviado", "duo-convite"].includes(t) || (t === "pronto" && duo);
   const campoEmail = ["cadastro", "login", "recuperar"].includes(t);
-  const campoSenha = ["cadastro", "login"].includes(t);
+  const campoSenha = ["cadastro", "login", "redefinir"].includes(t);
   const emailParceiro = s.emailParceiro || V.emailParceiro;
   const reenvioLabel = s.reenviando ? "Reenviando…" : cdLabel || "Reenviar convite";
 
@@ -510,7 +772,7 @@ export default function FluxoAcesso() {
               {t === "cadastro" && <Titulo titulo="Crie sua conta">Leva menos de um minuto. Depois você escolhe se vai usar o Mimo sozinho ou a dois.</Titulo>}
               {t === "login" && <Titulo titulo="Que bom te ver de novo">Entre para ver como está o mês.</Titulo>}
 
-              {(t === "cadastro" || t === "login") && (
+              {(t === "cadastro" || t === "login") && !MODO_API && (
                 <>
                   <button
                     type="button"
@@ -529,9 +791,10 @@ export default function FluxoAcesso() {
                 </>
               )}
 
-              {t === "recuperar" && <Titulo titulo="Esqueceu a senha?">Acontece. Informe seu e-mail e enviamos um link mágico para você entrar e criar uma senha nova.</Titulo>}
+              {t === "recuperar" && <Titulo titulo="Esqueceu a senha?">Acontece. Informe seu e-mail e enviamos um link para você criar uma senha nova.</Titulo>}
+              {t === "redefinir" && <Titulo titulo="Crie uma senha nova">Use pelo menos 8 caracteres, com um número. Depois é só entrar com ela.</Titulo>}
               {t === "recuperar-enviado" && (
-                <Titulo titulo="Confira seu e-mail">Enviamos um link mágico para <strong style={STRONG}>{s.email}</strong>. Ele vale por 15 minutos e só funciona uma vez.</Titulo>
+                <Titulo titulo="Confira seu e-mail">Se existir uma conta com <strong style={STRONG}>{s.email}</strong>, enviamos um link para criar uma senha nova. Ele vale por 1 hora e só funciona uma vez.</Titulo>
               )}
 
               {t === "verificar" && (
@@ -544,7 +807,7 @@ export default function FluxoAcesso() {
                     <span style={{ width: 9, height: 9, flex: "none", borderRadius: "50%", background: s.sucesso ? "var(--in)" : s.loading ? "var(--accent)" : "var(--duo)", animation: s.sucesso ? "none" : "mmPulse 1.8s ease-out infinite", transition: "background .3s ease" }} />
                     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                       <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink2)" }}>{s.sucesso ? "Confirmado agora" : s.loading ? "Verificando…" : "Aguardando confirmação"}</span>
-                      <span style={{ fontSize: 12, color: "var(--faint)" }}>{s.sucesso ? "Sua conta está ativa." : "Esta tela atualiza sozinha quando o link for aberto."}</span>
+                      <span style={{ fontSize: 12, color: "var(--faint)" }}>{s.sucesso ? "Sua conta está ativa." : MODO_API ? "Abriu o link em outro aparelho? Toque em “Já confirmei”." : "Esta tela atualiza sozinha quando o link for aberto."}</span>
                     </div>
                   </div>
                 </>
@@ -577,21 +840,21 @@ export default function FluxoAcesso() {
               {t === "duo-enviado" && (
                 <>
                   <Titulo titulo="Convite enviado">Mandamos o convite para <strong style={STRONG}>{emailParceiro}</strong>. Quando ele for aceito, a carteira da casa abre para vocês dois.</Titulo>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 8px 8px 16px", borderRadius: 15, border: "1px dashed var(--line2)", background: "var(--field)" }}>
+                  {!MODO_API && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 8px 8px 16px", borderRadius: 15, border: "1px dashed var(--line2)", background: "var(--field)" }}>
                     <span style={{ fontSize: 13.5, color: "var(--ink2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>mimo.app/convite/G7K2-QX8M</span>
                     <button type="button" onClick={copiar} style={{ flex: "none", padding: "9px 14px", borderRadius: 11, border: `1px solid ${s.copiado ? "var(--in-line)" : "var(--line2)"}`, background: "var(--surface)", color: s.copiado ? "var(--in-ink)" : "var(--ink2)", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>{s.copiado ? "Copiado" : "Copiar"}</button>
-                  </div>
+                  </div>}
                 </>
               )}
 
               {conviteNormal && (
                 <>
                   <div style={COL8}>
-                    <h1 style={{ ...H1, fontSize: 28, lineHeight: 1.18, textWrap: "balance" }}>Gustavo quer dividir as contas da casa com você</h1>
+                    <h1 style={{ ...H1, fontSize: 28, lineHeight: 1.18, textWrap: "balance" }}>{MODO_API ? (convite?.nome ?? "Alguém") : "Gustavo"} quer dividir as contas da casa com você</h1>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "16px 18px", borderRadius: 16, border: "1px solid var(--line)", background: "var(--field)" }}>
-                    <p style={{ margin: 0, fontFamily: SORA, fontSize: 15, fontWeight: 300, lineHeight: 1.5, color: "var(--ink2)" }}>“Oi, Su! Vamos organizar as contas da casa juntos no Mimo?”</p>
-                    <span style={{ fontSize: 12, color: "var(--faint)" }}>Gustavo Barros · gustavo.barros@gmail.com</span>
+                    {(!MODO_API || convite?.mensagem) && <p style={{ margin: 0, fontFamily: SORA, fontSize: 15, fontWeight: 300, lineHeight: 1.5, color: "var(--ink2)" }}>“{MODO_API ? convite?.mensagem : "Oi, Su! Vamos organizar as contas da casa juntos no Mimo?"}”</p>}
+                    <span style={{ fontSize: 12, color: "var(--faint)" }}>{MODO_API ? `${convite?.nome ?? ""} · convite para ${convite?.email ?? "o seu e-mail"}` : "Gustavo Barros · gustavo.barros@gmail.com"}</span>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 11, fontSize: 14, lineHeight: 1.5, color: "var(--muted)" }}>
                     {["Carteira da casa com saldo consolidado", "Divisão das despesas e quem pagou o quê", "Metas do casal, com a parte de cada um"].map((item) => (
@@ -601,12 +864,12 @@ export default function FluxoAcesso() {
                   <p style={{ margin: 0, paddingTop: 14, borderTop: "1px dashed var(--line2)", fontSize: 13, lineHeight: 1.6, color: "var(--muted2)" }}>Lançamentos que você marcar como privados continuam só seus.</p>
                 </>
               )}
-              {conviteExpirado && <Titulo titulo="Esse convite expirou">Convites do Mimo Duo valem por 7 dias. Peça para o Gustavo enviar um novo, ou comece com uma conta solo por enquanto.</Titulo>}
-              {conviteRecusado && <Titulo titulo="Convite recusado">Avisamos o Gustavo. Se mudar de ideia, ele pode enviar outro convite quando quiser.</Titulo>}
+              {conviteExpirado && <Titulo titulo="Esse convite expirou">Convites do Mimo Duo valem por 7 dias. Peça para {quemConvidou} enviar um novo, ou comece com uma conta solo por enquanto.</Titulo>}
+              {conviteRecusado && <Titulo titulo="Convite recusado">Avisamos {quemConvidou}. Se mudar de ideia, dá para enviar outro convite quando quiser.</Titulo>}
 
               {t === "pronto" && (
-                <Titulo balance titulo={duo ? "Vocês estão conectados" : "Tudo pronto, " + (s.nome || V.nome)}>
-                  {duo ? "Gustavo e Suelen agora dividem a carteira da casa. Cada um continua com seus lançamentos privados." : "Seu painel já está esperando. Comece registrando a primeira movimentação do mês."}
+                <Titulo balance titulo={duo ? "Vocês estão conectados" : "Tudo pronto, " + (s.nome || (MODO_API ? eu : V.nome))}>
+                  {duo ? (MODO_API ? "Vocês agora dividem a carteira da casa." : "Gustavo e Suelen agora dividem a carteira da casa.") + " Cada um continua com seus lançamentos privados." : "Seu painel já está esperando. Comece registrando a primeira movimentação do mês."}
                 </Titulo>
               )}
 
@@ -625,12 +888,12 @@ export default function FluxoAcesso() {
                       {t === "login" && <button type="button" onClick={() => ir("recuperar", { email: s.email })} style={{ padding: 0, border: "none", background: "transparent", color: "var(--accent-ink)", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>Esqueci minha senha</button>}
                     </div>
                     <div style={{ position: "relative" }}>
-                      <input aria-label="Senha" type={s.verSenha ? "text" : "password"} value={s.senha} onChange={(e) => set("senha", e.target.value)} onFocus={foco("senha")} onBlur={semFoco} placeholder={t === "cadastro" ? "Crie uma senha" : "Sua senha"} style={inputSt(f, { padding: "0 50px 0 15px" })} />
+                      <input aria-label="Senha" type={s.verSenha ? "text" : "password"} autoComplete={t === "login" ? "current-password" : "new-password"} value={s.senha} onChange={(e) => set("senha", e.target.value)} onFocus={foco("senha")} onBlur={semFoco} placeholder={t === "login" ? "Sua senha" : "Crie uma senha"} style={inputSt(f, { padding: "0 50px 0 15px" })} />
                       <button type="button" className="mm-h-olho" title={s.verSenha ? "Ocultar senha" : "Mostrar senha"} aria-label={s.verSenha ? "Ocultar senha" : "Mostrar senha"} onMouseDown={(e) => e.preventDefault()} onClick={() => up({ verSenha: !s.verSenha })} style={{ position: "absolute", right: 6, top: 6, width: 36, height: 36, borderRadius: 10, border: "none", background: "transparent", color: "var(--muted)", display: "grid", placeItems: "center", cursor: "pointer" }}>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 12S6 6.5 12 6.5 21.5 12 21.5 12 18 17.5 12 17.5 2.5 12 2.5 12z" /><circle cx="12" cy="12" r="2.8" /><path d="M4 20 20 4" style={{ opacity: s.verSenha ? 1 : 0, transition: "opacity .2s ease" }} /></svg>
                       </button>
                     </div>
-                    {t === "cadastro" && (
+                    {(t === "cadastro" || t === "redefinir") && (
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                         <div style={{ flex: 1, display: "flex", gap: 5 }}>
                           {forcaBarras.map((cor, i) => <span key={i} style={{ flex: 1, height: 4, borderRadius: 999, background: cor, transition: "background .25s ease" }} />)}
@@ -699,8 +962,8 @@ export default function FluxoAcesso() {
 
               {conviteNormal && (
                 <>
-                  <button type="button" className="mm-h-recusar" onClick={() => up({ recusado: true })} style={{ width: "100%", height: 50, marginTop: -8, borderRadius: 16, border: "1px solid var(--line2)", background: "transparent", color: "var(--ink2)", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Recusar</button>
-                  <span style={{ fontSize: 12.5, textAlign: "center", color: "var(--faint)" }}>Você vai entrar como suelen@gmail.com</span>
+                  <button type="button" className="mm-h-recusar" onClick={recusarConvite} style={{ width: "100%", height: 50, marginTop: -8, borderRadius: 16, border: "1px solid var(--line2)", background: "transparent", color: "var(--ink2)", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Recusar</button>
+                  <span style={{ fontSize: 12.5, textAlign: "center", color: "var(--faint)" }}>{MODO_API ? (sessao.status === "ok" ? "Você vai entrar como " + sessao.user.email : "Para aceitar, entre ou crie sua conta com o e-mail convidado.") : "Você vai entrar como suelen@gmail.com"}</span>
                 </>
               )}
               {conviteExpirado && (
@@ -750,15 +1013,15 @@ export default function FluxoAcesso() {
               <div style={{ flex: "1 1 260px", display: "flex", alignItems: "center", gap: 18, padding: "20px 22px", borderRadius: 24, border: "1px solid var(--line)", background: "var(--surface)", boxShadow: "0 18px 44px -30px var(--shadow)" }}>
                 <div style={{ width: 88, flex: "none" }}><Gato cor="#4e9e79" corpo={false} expressao={pend.exp1 as Expressao} /></div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
-                  <span style={{ fontFamily: SORA, fontSize: 20, fontWeight: 400, letterSpacing: "-.02em" }}>Gustavo</span>
-                  <span style={{ fontSize: 12.5, color: "var(--faint)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Você · gustavo@gmail.com</span>
+                  <span style={{ fontFamily: SORA, fontSize: 20, fontWeight: 400, letterSpacing: "-.02em" }}>{eu}</span>
+                  <span style={{ fontSize: 12.5, color: "var(--faint)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Você · {meuEmail}</span>
                   <span style={{ alignSelf: "flex-start", marginTop: 2, padding: "4px 10px", borderRadius: 999, background: "var(--solo-soft)", color: "var(--solo-ink)", fontSize: 11.5, fontWeight: 700 }}>Pronto</span>
                 </div>
               </div>
               <div style={{ flex: "1 1 260px", display: "flex", alignItems: "center", gap: 18, padding: "20px 22px", borderRadius: 24, border: `1px dashed ${pend.slotBorda}`, background: pend.slotBg, transition: "background .3s ease, border-color .3s ease" }}>
                 <div style={{ width: 88, flex: "none", transition: "opacity .3s ease", opacity: pend.gatoOp }}><Gato cor="#e2a24f" tabby corpo={false} expressao={pend.exp2 as Expressao} /></div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
-                  <span style={{ fontFamily: SORA, fontSize: 20, fontWeight: 400, letterSpacing: "-.02em" }}>Suelen</span>
+                  <span style={{ fontFamily: SORA, fontSize: 20, fontWeight: 400, letterSpacing: "-.02em" }}>{MODO_API ? parDaConta ?? "Seu par" : "Suelen"}</span>
                   <span style={{ fontSize: 12.5, color: "var(--faint)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{emailParceiro}</span>
                   <span style={{ alignSelf: "flex-start", marginTop: 2, display: "inline-flex", alignItems: "center", gap: 7, padding: "4px 10px", borderRadius: 999, background: pend.statusBg, color: pend.statusCor, fontSize: 11.5, fontWeight: 700 }}>
                     <span style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor", animation: pend.pulse }} />{pend.status}
@@ -775,8 +1038,8 @@ export default function FluxoAcesso() {
                   {s.reenviando && <Spinner size={14} />}
                   {reenvioLabel}
                 </button>
-                <button type="button" className="mm-h-borda-duo" onClick={copiar} style={{ height: 46, padding: "0 18px", borderRadius: 14, border: `1px solid ${s.copiado ? "var(--in-line)" : "var(--line2)"}`, background: "var(--surface)", color: s.copiado ? "var(--in-ink)" : "var(--ink2)", fontSize: 13.5, fontWeight: 600, cursor: "pointer" }}>{s.copiado ? "Link copiado" : "Copiar link"}</button>
-                <button type="button" onClick={() => ir("duo-escolha")} style={{ height: 46, padding: "0 14px", border: "none", background: "transparent", color: "var(--out-ink)", fontSize: 13.5, fontWeight: 600, cursor: "pointer" }}>Cancelar convite</button>
+                {!MODO_API && <button type="button" className="mm-h-borda-duo" onClick={copiar} style={{ height: 46, padding: "0 18px", borderRadius: 14, border: `1px solid ${s.copiado ? "var(--in-line)" : "var(--line2)"}`, background: "var(--surface)", color: s.copiado ? "var(--in-ink)" : "var(--ink2)", fontSize: 13.5, fontWeight: 600, cursor: "pointer" }}>{s.copiado ? "Link copiado" : "Copiar link"}</button>}
+                <button type="button" onClick={cancelarConvite} style={{ height: 46, padding: "0 14px", border: "none", background: "transparent", color: "var(--out-ink)", fontSize: 13.5, fontWeight: 600, cursor: "pointer" }}>Cancelar convite</button>
               </div>
             )}
             {pend.novo && (
