@@ -15,10 +15,11 @@ EMAIL_FROM = "Mimo <onboarding@resend.dev>"
 
 [env.preview.vars]
 APP_ENV = "preview"
-APP_URL = "https://preview.mimo.pages.dev"
-EMAIL_FROM = "Mimo <nao-responda@SEU-DOMINIO>"
+APP_URL = "https://preview.mimo-421.pages.dev"
+EMAIL_FROM = "Miau.Cash <onboarding@resend.dev>"
 
+# TODO: trocar APP_URL/EMAIL_FROM para miau.cash quando o domínio for comprado e verificado no Resend.
 [env.production.vars]
 APP_ENV = "production"
-APP_URL = "https://mimo.pages.dev"
-EMAIL_FROM = "Mimo <nao-responda@SEU-DOMINIO>"
+APP_URL = "https://mimo-421.pages.dev"
+EMAIL_FROM = "Miau.Cash <onboarding@resend.dev>"
