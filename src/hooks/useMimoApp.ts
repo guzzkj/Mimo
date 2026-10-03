@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { derivar, fazerFmt, limitesDeMes } from "../lib/derive";
 import {
   dataAdiante, dataBr, dividirEmParcelas, formVazio, isoDeBr, MES_REF, moedaTexto, pad, parseNum,
@@ -105,7 +105,8 @@ export function useMimoApp(opcoes: OpcoesMimoApp = {}) {
   const conta: ContaAjustes = opcoes.conta ?? "solo";
   const ajustes = useAjustes(conta);
   const stateRef = useRef(state);
-  useEffect(() => { stateRef.current = state; });
+  // layout effect: handlers (salvar, Enter) leem o estado já renderizado
+  useLayoutEffect(() => { stateRef.current = state; });
 
   // Telas que seguem a conta ativa (Solo ou Duo) podem trocar de conta sem
   // desmontar: ao mudar a chave, recarrega as movimentações da outra conta.
@@ -186,7 +187,6 @@ export function useMimoApp(opcoes: OpcoesMimoApp = {}) {
   const [ronronando, setRonronando] = useState(false);
   const [coracoes, setCoracoes] = useState<{ id: number; left: number; width: number; delay: number; dx: number; giro: number }[]>([]);
   const proximoCoracaoId = useRef(1);
-  const ultimaAcaoSalvar = useRef<"edicao" | "edicao-grupo" | "nova" | "recorrente" | number | null>(null);
 
   const patch = useCallback((p: Partial<State>) => setState((s) => ({ ...s, ...p })), []);
   const setForm = useCallback((p: Partial<FormState>) => setState((s) => ({ ...s, form: { ...s.form, ...p }, erro: "" })), []);
@@ -290,90 +290,83 @@ export function useMimoApp(opcoes: OpcoesMimoApp = {}) {
 
   const fecharModal = useCallback(() => patch({ modal: false, editando: null, erro: "" }), [patch]);
 
+  // Calcula a partir do estado já renderizado (stateRef) e só então grava: ids
+  // temporários, persistência e aviso ficam fora do updater do setState, que
+  // pode rodar mais de uma vez (StrictMode) ou depois deste handler.
   const salvar = useCallback(() => {
-    ultimaAcaoSalvar.current = null;
-    setState((s) => {
-      const { descricao, valor, data, tipo, categoria, status, parcelado, parcelas, recorrente } = s.form;
-      const numero = parseNum(valor);
+    const s = stateRef.current;
+    const falhar = (erro: string) => setState((p) => ({ ...p, erro }));
+    const { descricao, valor, data, tipo, categoria, status, parcelado, parcelas, recorrente } = s.form;
+    const numero = parseNum(valor);
 
-      if (!descricao.trim()) return { ...s, erro: "Informe uma descrição para a movimentação." };
-      if (Number.isNaN(numero) || numero <= 0) return { ...s, erro: "Informe um valor maior que zero." };
-      const dataIso = isoDeBr(data);
-      if (!dataIso) return { ...s, erro: "Informe uma data válida, no formato dd/mm/aaaa." };
-      if (s.form.quem === "conjunta" && s.form.privado) return { ...s, erro: "Lançamentos da conta conjunta são sempre compartilhados." };
+    if (!descricao.trim()) return falhar("Informe uma descrição para a movimentação.");
+    if (Number.isNaN(numero) || numero <= 0) return falhar("Informe um valor maior que zero.");
+    const dataIso = isoDeBr(data);
+    if (!dataIso) return falhar("Informe uma data válida, no formato dd/mm/aaaa.");
+    if (s.form.quem === "conjunta" && s.form.privado) return falhar("Lançamentos da conta conjunta são sempre compartilhados.");
 
-      const meio = tipo === "saida" ? s.form.meio : "conta";
-      // Conta Duo: privado e dividir só fazem sentido com autor; dividir, só em
-      // saída compartilhada paga por um dos dois.
-      const duo = s.form.quem
-        ? {
-          quem: s.form.quem,
-          privado: s.form.quem !== "conjunta" && s.form.privado,
-          dividir: tipo === "saida" && s.form.quem !== "conjunta" && !s.form.privado && s.form.dividir,
-        }
-        : {};
-      const comum = { tipo, descricao: descricao.trim(), categoria, valor: numero, meio, ...duo };
-      const registro = { ...comum, data: dataIso, status };
-      const ultimoId = s.itens.reduce((max, i) => Math.max(max, i.id), 0);
-      // backend real: ids negativos até o servidor devolver os definitivos
-      const temporario = MODO_API ? idTemporario(Math.max(12, Number(parcelas) || 1)) : 0;
-      const novoId = (k: number) => (MODO_API ? temporario - k : ultimoId + 1 + k);
+    const meio = tipo === "saida" ? s.form.meio : "conta";
+    // Conta Duo: privado e dividir só fazem sentido com autor; dividir, só em
+    // saída compartilhada paga por um dos dois.
+    const duo = s.form.quem
+      ? {
+        quem: s.form.quem,
+        privado: s.form.quem !== "conjunta" && s.form.privado,
+        dividir: tipo === "saida" && s.form.quem !== "conjunta" && !s.form.privado && s.form.dividir,
+      }
+      : {};
+    const comum = { tipo, descricao: descricao.trim(), categoria, valor: numero, meio, ...duo };
+    const registro = { ...comum, data: dataIso, status };
+    const ultimoId = s.itens.reduce((max, i) => Math.max(max, i.id), 0);
+    // backend real: ids negativos até o servidor devolver os definitivos
+    const temporario = MODO_API ? idTemporario(Math.max(12, Number(parcelas) || 1)) : 0;
+    const novoId = (k: number) => (MODO_API ? temporario - k : ultimoId + 1 + k);
 
-      // Parcelar e repetir só fazem sentido ao criar; editando, mexe-se numa
-      // ocorrência (ou nela e nas próximas do mesmo grupo).
-      const quantas = !s.editando && parcelado ? Number(parcelas) : 1;
-      const repete = !s.editando && !parcelado && recorrente;
-      const grupo = quantas > 1 || repete ? novoId(0) : undefined;
+    // Parcelar e repetir só fazem sentido ao criar; editando, mexe-se numa
+    // ocorrência (ou nela e nas próximas do mesmo grupo).
+    const quantas = !s.editando && parcelado ? Number(parcelas) : 1;
+    const repete = !s.editando && !parcelado && recorrente;
+    const grupo = quantas > 1 || repete ? novoId(0) : undefined;
 
-      // Conta recorrente: registra 12 meses; os futuros ficam pendentes e
-      // aparecem como contas a vencer em cada mês.
-      const novos: Item[] = repete
-        ? Array.from({ length: 12 }, (_, i) => ({
-          ...registro,
-          id: novoId(i),
-          data: dataAdiante(dataIso, i),
-          status: i === 0 ? status : "pendente",
-          recorrente: true,
-          grupo,
-        }))
-        : dividirEmParcelas(numero, quantas).map((fatia, i) => ({
-          ...registro,
-          id: novoId(i),
-          valor: fatia,
-          data: dataAdiante(dataIso, i),
-          // No cartão, cada parcela entra na fatura do mês dela.
-          status: i === 0 || meio === "cartao" ? status : "pendente",
-          ...(quantas > 1 ? { parcela: { n: i + 1, total: quantas }, grupo } : {}),
-        }));
+    // Conta recorrente: registra 12 meses; os futuros ficam pendentes e
+    // aparecem como contas a vencer em cada mês.
+    const novos: Item[] = repete
+      ? Array.from({ length: 12 }, (_, i) => ({
+        ...registro,
+        id: novoId(i),
+        data: dataAdiante(dataIso, i),
+        status: i === 0 ? status : "pendente",
+        recorrente: true,
+        grupo,
+      }))
+      : dividirEmParcelas(numero, quantas).map((fatia, i) => ({
+        ...registro,
+        id: novoId(i),
+        valor: fatia,
+        data: dataAdiante(dataIso, i),
+        // No cartão, cada parcela entra na fatura do mês dela.
+        status: i === 0 || meio === "cartao" ? status : "pendente",
+        ...(quantas > 1 ? { parcela: { n: i + 1, total: quantas }, grupo } : {}),
+      }));
 
-      const original = s.itens.find((i) => i.id === s.editando);
-      const emGrupo = Boolean(s.editando && s.form.aplicarProximas && original?.grupo);
-      // "Aplicar às próximas": mesma descrição, categoria, valor, meio e autor
-      // nas ocorrências seguintes do grupo; data e status de cada uma ficam.
-      const itens = s.editando
-        ? s.itens.map((i) => {
-          if (i.id === s.editando) return { ...i, ...registro };
-          if (emGrupo && i.grupo === original!.grupo && i.data > original!.data) return { ...i, ...comum };
-          return i;
-        })
-        : [...novos, ...s.itens];
+    const original = s.itens.find((i) => i.id === s.editando);
+    const emGrupo = Boolean(s.editando && s.form.aplicarProximas && original?.grupo);
+    // "Aplicar às próximas": mesma descrição, categoria, valor, meio e autor
+    // nas ocorrências seguintes do grupo; data e status de cada uma ficam.
+    const itens = s.editando
+      ? s.itens.map((i) => {
+        if (i.id === s.editando) return { ...i, ...registro };
+        if (emGrupo && i.grupo === original!.grupo && i.data > original!.data) return { ...i, ...comum };
+        return i;
+      })
+      : [...novos, ...s.itens];
 
-      persistir(itens, storageKey);
+    persistir(itens, storageKey);
+    setState((p) => ({ ...p, itens, modal: false, editando: null, erro: "" }));
 
-      // Guardado num ref (e não chamado aqui dentro) porque a função passada
-      // a setState pode rodar mais de uma vez em desenvolvimento (StrictMode);
-      // o aviso deve disparar só uma vez, depois que o novo estado for aplicado.
-      ultimaAcaoSalvar.current = s.editando ? (emGrupo ? "edicao-grupo" : "edicao") : repete ? "recorrente" : (quantas > 1 ? quantas : "nova");
-
-      return { ...s, itens, modal: false, editando: null, erro: "" };
-    });
-
-    const acao = ultimaAcaoSalvar.current;
-    if (acao === "edicao") avisar("Alterações salvas");
-    else if (acao === "edicao-grupo") avisar("Alterações salvas nesta e nas próximas");
-    else if (typeof acao === "number") avisar(`${acao} parcelas adicionadas`);
-    else if (acao === "recorrente") avisar("Conta recorrente criada para os próximos 12 meses");
-    else if (acao === "nova") avisar("Movimentação adicionada");
+    if (s.editando) avisar(emGrupo ? "Alterações salvas nesta e nas próximas" : "Alterações salvas");
+    else if (repete) avisar("Conta recorrente criada para os próximos 12 meses");
+    else avisar(quantas > 1 ? `${quantas} parcelas adicionadas` : "Movimentação adicionada");
   }, [avisar, storageKey]);
 
   // Exclusão ----------------------------------------------------------------

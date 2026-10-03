@@ -135,6 +135,11 @@ export const decorar = (item: Item, fmt: (v: number) => string): ItemDecorado =>
 // cor do CSS (que acompanham o tema) através de decorar().
 export const derivar = (s: DerivarState): Derivado => {
   const fmt = fazerFmt(s.privado);
+  // Conta Duo: o que o par marcou como privado aparece só como valor (em
+  // qualquer lista: movimentações, contas a pagar e fatura).
+  const semDetalhe = (i: Item): Item => (s.privadosDe && i.privado && i.quem === s.privadosDe
+    ? { ...i, descricao: "Lançamento privado", categoria: "Privado" }
+    : i);
   const ordenados = ordenar(s.itens);
   const mes = ordenados.filter((i) => i.data.slice(0, 7) === s.mesRef);
 
@@ -182,7 +187,8 @@ export const derivar = (s: DerivarState): Derivado => {
   const venc = new Date(anoF, mesF, Math.min(s.venceFatura ?? 10, 28));
   const faturaVence = `${venc.getFullYear()}-${pad(venc.getMonth() + 1)}-${pad(venc.getDate())}`;
   const gastoMedio = saidasMes.length ? somaValores(saidasMes) / saidasMes.length : 0;
-  const maiorSaida = [...saidasMes].sort((a, b) => b.valor - a.valor)[0];
+  const maiorSaidaBruta = [...saidasMes].sort((a, b) => b.valor - a.valor)[0];
+  const maiorSaida = maiorSaidaBruta && semDetalhe(maiorSaidaBruta);
 
   // Próximas faturas: parcelas e recorrências no cartão já lançadas.
   const faturas = Array.from({ length: 6 }, (_, k) => {
@@ -209,10 +215,6 @@ export const derivar = (s: DerivarState): Derivado => {
   const diaDeHoje = ehMesAtual ? DIA_HOJE : 0;
   const diasCorridos = ehMesAtual ? DIA_HOJE : diasDoMes;
 
-  // Conta Duo: o que o par marcou como privado aparece só como valor.
-  const semDetalhe = (i: Item): Item => (s.privadosDe && i.privado && i.quem === s.privadosDe
-    ? { ...i, descricao: "Lançamento privado", categoria: "Privado" }
-    : i);
   const visiveis = filtrarVisiveis(ordenados, s).map((i) => decorar(semDetalhe(i), fmt));
 
   // Os totais continuam somando a lista filtrada inteira, não só a página.
@@ -268,7 +270,7 @@ export const derivar = (s: DerivarState): Derivado => {
     saidas,
     saldo,
     resultado,
-    pendentes: pendentesBrutos.map((i) => decorar(i, fmt)),
+    pendentes: pendentesBrutos.map((i) => decorar(semDetalhe(i), fmt)),
     aPagar,
     variacao,
     serie,
@@ -281,7 +283,7 @@ export const derivar = (s: DerivarState): Derivado => {
     limite: s.limite ?? LIMITE_MENSAL,
     limitePct: pct(saidas, s.limite ?? LIMITE_MENSAL),
     fatura,
-    faturaItens: noCartao.map((i) => decorar(i, fmt)),
+    faturaItens: noCartao.map((i) => decorar(semDetalhe(i), fmt)),
     faturaVence,
     estourados,
     dias: porDia(mes),

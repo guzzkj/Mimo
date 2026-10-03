@@ -164,6 +164,8 @@ const avisosDosDados = (conta: ContaAtiva, itens: Item[], a: Ajustes): Notif[] =
   const d = derivar({
     itens, mesRef: MES_REF, pagina: 1, query: "", tipoFiltro: "todos", statusFiltro: "todos", privado: false,
     limite: a.limite, orcamentos: a.orcamentos, corDe: (c) => corDaCategoria(a, c), venceFatura: a.cartao.vence,
+    // conta Duo: aviso de conta privada do par não mostra a descrição
+    privadosDe: conta === "duo" ? "suelen" : undefined,
   });
   const duo = conta === "duo";
   const f = (v: number) => brl(v);
