@@ -148,6 +148,17 @@ export function salvarAjustes(conta: ContaAjustes, patch: Partial<Ajustes>) {
   } catch {
     // segue só em memória
   }
+  // o avatar é da pessoa: o gato escolhido no Duo também aparece no Solo (e vice-versa)
+  if (patch.avatar !== undefined) {
+    const outra: ContaAjustes = conta === "solo" ? "duo" : "solo";
+    const espelho = { ...lerAjustes(outra), avatar: patch.avatar };
+    cache[outra] = espelho;
+    try {
+      localStorage.setItem(chave(outra), JSON.stringify(espelho));
+    } catch {
+      // segue só em memória
+    }
+  }
   ouvintes.forEach((avisar) => avisar());
 }
 

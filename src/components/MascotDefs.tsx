@@ -1,21 +1,43 @@
 // Definições SVG do mascote Mimo, portadas 1:1 do index.html original.
 // O corpo é desenhado uma vez (symbol #mimo-corpo) e reusado via <use> em
 // cada expressão, exatamente como no app vanilla.
+// A cor e as listras seguem o avatar de Configurações > Perfil: as variáveis
+// --gato-cor / --gato-listra-op ficam no <html> e herdam para dentro dos <use>.
+// Fill via style (e não atributo) porque var() em atributo SVG não resolve em
+// todos os navegadores.
+import { useLayoutEffect } from "react";
+import { useAvatar } from "../lib/avatares";
+
+const COR = { fill: "var(--gato-cor, #4e9e79)" };
+
 export function MascotDefs() {
+  const { cor, tabby } = useAvatar();
+  useLayoutEffect(() => {
+    const raiz = document.documentElement.style;
+    raiz.setProperty("--gato-cor", cor);
+    raiz.setProperty("--gato-listra-op", tabby ? "0.85" : "0");
+  }, [cor, tabby]);
+
   return (
     <svg className="mimo-defs" aria-hidden="true" focusable="false">
       <symbol id="mimo-corpo" viewBox="0 0 320 300">
         <g className="mascot__ear-l">
-          <path d="M94 122 C84 88 86 54 100 40 Q110 32 118 48 L156 90 Z" fill="#4e9e79" stroke="var(--gato-traco)" strokeWidth="7" strokeLinejoin="round" />
+          <path d="M94 122 C84 88 86 54 100 40 Q110 32 118 48 L156 90 Z" style={COR} stroke="var(--gato-traco)" strokeWidth="7" strokeLinejoin="round" />
           <path d="M108 106 C102 82 104 62 112 54 Q118 50 122 62 L138 88 Z" fill="#f2a3ad" />
         </g>
         <g className="mascot__ear-r">
-          <path d="M226 122 C236 88 234 54 220 40 Q210 32 202 48 L164 90 Z" fill="#4e9e79" stroke="var(--gato-traco)" strokeWidth="7" strokeLinejoin="round" />
+          <path d="M226 122 C236 88 234 54 220 40 Q210 32 202 48 L164 90 Z" style={COR} stroke="var(--gato-traco)" strokeWidth="7" strokeLinejoin="round" />
           <path d="M212 106 C218 82 216 62 208 54 Q202 50 198 62 L182 88 Z" fill="#f2a3ad" />
         </g>
-        <path d="M60 300 C60 240 100 214 160 214 C220 214 260 240 260 300 Z" fill="#4e9e79" stroke="var(--gato-traco)" strokeWidth="7" strokeLinejoin="round" />
+        <path d="M60 300 C60 240 100 214 160 214 C220 214 260 240 260 300 Z" style={COR} stroke="var(--gato-traco)" strokeWidth="7" strokeLinejoin="round" />
         <path d="M160 214 C188 214 210 221 226 232 C208 268 186 288 160 300 C134 288 112 268 94 232 C110 221 132 214 160 214 Z" fill="#f4f7f4" stroke="var(--gato-traco)" strokeWidth="6" strokeLinejoin="round" />
-        <path d="M160 60 C218 60 256 98 256 156 C256 214 216 246 160 246 C104 246 64 214 64 156 C64 98 102 60 160 60 Z" fill="#4e9e79" stroke="var(--gato-traco)" strokeWidth="7" />
+        <path d="M160 60 C218 60 256 98 256 156 C256 214 216 246 160 246 C104 246 64 214 64 156 C64 98 102 60 160 60 Z" style={COR} stroke="var(--gato-traco)" strokeWidth="7" />
+        {/* listras dos avatares rajados (some quando --gato-listra-op é 0) */}
+        <g style={{ opacity: "var(--gato-listra-op, 0)", stroke: "var(--gato-listra, #b8801f)" }} strokeWidth="7" strokeLinecap="round" fill="none">
+          <path d="M142 74 Q146 86 144 98" />
+          <path d="M160 70 L160 96" />
+          <path d="M178 74 Q174 86 176 98" />
+        </g>
         <ellipse cx="160" cy="196" rx="35" ry="23" fill="#f4f7f4" stroke="var(--gato-traco)" strokeWidth="5" />
         <path d="M151 188 Q160 184 169 188 Q166 198 160 200 Q154 198 151 188 Z" fill="#f2a3ad" stroke="var(--gato-traco)" strokeWidth="3" strokeLinejoin="round" />
         <path d="M160 199 C160 206 154 208 150 204" fill="none" stroke="var(--gato-traco)" strokeWidth="4" strokeLinecap="round" />
@@ -42,8 +64,8 @@ export function MascotDefs() {
           <circle cx="185" cy="140" r="8.5" fill="#f4f7f4" />
           <circle cx="133" cy="164" r="4" fill="#f4f7f4" opacity=".75" />
           <circle cx="201" cy="164" r="4" fill="#f4f7f4" opacity=".75" />
-          <g clipPath="url(#mimoOlhoE)"><rect className="mascot__lid" x="98" y="119" width="56" height="66" fill="#4e9e79" /></g>
-          <g clipPath="url(#mimoOlhoD)"><rect className="mascot__lid" x="166" y="119" width="56" height="66" fill="#4e9e79" /></g>
+          <g clipPath="url(#mimoOlhoE)"><rect className="mascot__lid" x="98" y="119" width="56" height="66" style={COR} /></g>
+          <g clipPath="url(#mimoOlhoD)"><rect className="mascot__lid" x="166" y="119" width="56" height="66" style={COR} /></g>
         </g>
       </symbol>
 
@@ -106,7 +128,7 @@ export function MascotDefs() {
       <symbol id="mimo-rabo" viewBox="0 0 200 150">
         <g className="mascot__tail-g">
           <path d="M6 96 C64 104 116 92 138 62 C156 38 148 16 126 14 C108 12 98 26 106 38" fill="none" stroke="var(--gato-traco)" strokeWidth="34" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M6 96 C64 104 116 92 138 62 C156 38 148 16 126 14 C108 12 98 26 106 38" fill="none" stroke="#4e9e79" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M6 96 C64 104 116 92 138 62 C156 38 148 16 126 14 C108 12 98 26 106 38" fill="none" style={{ stroke: COR.fill }} strokeWidth="24" strokeLinecap="round" strokeLinejoin="round" />
           <path d="M126 16 C140 18 146 32 138 48" fill="none" stroke="#f4f7f4" strokeWidth="14" strokeLinecap="round" />
         </g>
       </symbol>

@@ -7,6 +7,7 @@ import { api, mensagemDeErro } from "../lib/api";
 import { MODO_API } from "../lib/modo";
 import { recarregarSessao } from "../lib/sessao";
 import { useCompacto, useTemaTela } from "../lib/tema";
+import { useAvatar } from "../lib/avatares";
 import { SORA } from "./mimo/estilos";
 import { Gato } from "./mimo/Gato";
 import { Ic, Presenca, Skel } from "./mimo/ui";
@@ -40,6 +41,8 @@ export function PainelNotificacoes({ conta, aberto, onFechar, avisar, carregando
   const cp = useCompacto();
   const tema = useTemaTela();
   const notifs = useNotificacoes(conta);
+  // sem gato vindo de fora, vale o avatar salvo em Perfil
+  const meuGato = useAvatar();
   const caixaRef = useDialogo<HTMLDivElement>(aberto);
   useEffect(() => {
     if (!aberto) return;
@@ -109,7 +112,7 @@ export function PainelNotificacoes({ conta, aberto, onFechar, avisar, carregando
           {carregando && <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "16px 18px" }}>{[1, 2, 3].map((k) => <Skel key={k} h={76} r={16} />)}</div>}
           {!carregando && !notifs.length && (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "40px 24px", textAlign: "center", animation: "mmFade .3s ease both" }}>
-              <div style={{ width: 110 }}><Gato cor={gato?.cor ?? "#4e9e79"} tabby={gato?.tabby ?? false} expressao="feliz" /></div>
+              <div style={{ width: 110 }}><Gato cor={gato?.cor ?? meuGato.cor} tabby={gato?.tabby ?? meuGato.tabby} expressao="feliz" /></div>
               <span style={{ fontFamily: SORA, fontSize: 18 }}>Tudo em dia por aqui</span>
               <span style={{ maxWidth: 280, fontSize: 13, lineHeight: 1.55, color: "var(--muted2)" }}>Nenhuma conta vencendo, limite estourado ou meta atrasada. O Mimo avisa quando algo precisar de você.</span>
             </div>

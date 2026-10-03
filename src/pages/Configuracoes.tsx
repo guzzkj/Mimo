@@ -11,6 +11,7 @@ import { useTimers } from "../hooks/useTimers";
 import { salvarPlano, usePlano, type Plano } from "../lib/plano";
 import { aplicarEscolhaTema, escolhaTemaSalva, useCompacto, useTemaTela, type EscolhaTema } from "../lib/tema";
 import { CORES_CAT, lerAjustes, salvarAjustes, type Ajustes } from "../lib/ajustes";
+import { AVATARES, avatarDe } from "../lib/avatares";
 import { CATS, MESES_LONGOS } from "../lib/constants";
 import { DIA_HOJE, dataBr, dataSeed } from "../lib/helpers";
 import { OrcamentosConfig } from "../components/OrcamentosConfig";
@@ -77,7 +78,6 @@ const IC = {
   lock: "M6 11h12v9H6z M8.5 11V8a3.5 3.5 0 0 1 7 0v3",
 };
 const SECOES: [Tela, string, string][] = [["perfil", "Perfil", IC.perfil], ["financas", "Finanças", IC.financas], ["categorias", "Categorias", IC.categorias], ["duo", "Conta Duo", IC.duo], ["notificacoes-pref", "Notificações", IC.notif], ["aparencia", "Aparência", IC.aparencia]];
-const AVATARES: [string, boolean, string][] = [["#4e9e79", false, "Verde"], ["#e2a24f", true, "Âmbar rajado"], ["#6f5cf0", false, "Roxo"], ["#8a90a0", false, "Cinza"], ["#d98a5f", true, "Laranja rajado"], ["#3a4050", false, "Grafite"]];
 // As mesmas categorias do formulário de movimentação e dos gráficos, com as mesmas cores.
 const CAT_PADRAO: [string, string][] = CATS.map((nome) => [nome, CORES_CAT[nome] ?? "#8790a6"]);
 const CAT_CUSTOM: Cat[] = [{ id: "c1", nome: "Pets", cor: "#d98a5f", n: 12 }, { id: "c2", nome: "Presentes", cor: "#f2a3ad", n: 5 }, { id: "c3", nome: "Assinaturas", cor: "#8d7eff", n: 8 }];
@@ -259,6 +259,8 @@ export default function Configuracoes() {
   useLayoutEffect(() => { sRef.current = s; });
   // motor de movimentações da conta ativa: alimenta o painel lateral, o LIMITE e o dock
   const app = useMimoApp(s.plano === "duo" && s.duoStatus === "vinculado" ? MOTOR_DUO : {});
+  // gato da própria pessoa, na cor do avatar salvo em Perfil
+  const meuGato = avatarDe(app.ajustes.avatar);
   // estados de protótipo (?estado=) da central de notificações valem para a lista compartilhada
   const notifsIniciais = useRef(new URLSearchParams(loc.search).get("estado") ? s.notifs : null);
   useEffect(() => {
@@ -768,7 +770,7 @@ export default function Configuracoes() {
                 {s.pageLoading && (t === "duo" || t === "notificacoes-pref") && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 13.5, color: "var(--muted2)" }}>
-                      <div style={{ width: 56 }}><Gato cor="#4e9e79" expressao="atento" corpo={false} /></div>
+                      <div style={{ width: 56 }}><Gato cor={meuGato.cor} tabby={meuGato.tabby} expressao="atento" corpo={false} /></div>
                       Carregando suas preferências…
                     </div>
                     {[1, 2, 3].map((k) => <Skel key={k} h={92} />)}
@@ -893,7 +895,7 @@ export default function Configuracoes() {
                     </div>
                     <div style={{ ...CARTAO, padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                        <div style={{ flex: "none", width: 72 }}><Gato cor="#4e9e79" expressao={fin.exp} corpo={false} /></div>
+                        <div style={{ flex: "none", width: 72 }}><Gato cor={meuGato.cor} tabby={meuGato.tabby} expressao={fin.exp} corpo={false} /></div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                           <span style={OLHO}>Renda comprometida</span>
                           <span style={{ fontFamily: SORA, fontSize: 36, fontWeight: 300, letterSpacing: "-.04em", lineHeight: 1 }}>{fin.pct}</span>
@@ -1176,7 +1178,7 @@ export default function Configuracoes() {
               {s.pageLoading && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 14, animation: "mmFade .3s ease both" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 13.5, color: "var(--muted2)" }}>
-                    <div style={{ width: 56 }}><Gato cor="#4e9e79" expressao="atento" corpo={false} /></div>
+                    <div style={{ width: 56 }}><Gato cor={meuGato.cor} tabby={meuGato.tabby} expressao="atento" corpo={false} /></div>
                     Atualizando cotações…
                   </div>
                   <Skel h={150} r={24} />
@@ -1187,7 +1189,7 @@ export default function Configuracoes() {
               {!s.pageLoading && !all.length && (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, padding: "44px 20px", borderRadius: 26, border: "1px solid var(--line)", background: "var(--surface)", textAlign: "center", animation: "mmFade .35s ease both" }}>
                   <div style={{ display: "flex" }}>
-                    {[P.gustavo, ...(duo ? [P.suelen] : [])].map((g, i) => <div key={g.nome} style={{ width: 112, marginLeft: i ? -24 : 0 }}><Gato cor={g.cor} tabby={g.tabby} expressao="curioso" /></div>)}
+                    {[{ ...P.gustavo, cor: meuGato.cor, tabby: meuGato.tabby }, ...(duo ? [P.suelen] : [])].map((g, i) => <div key={g.nome} style={{ width: 112, marginLeft: i ? -24 : 0 }}><Gato cor={g.cor} tabby={g.tabby} expressao="curioso" /></div>)}
                   </div>
                   <span style={{ fontFamily: SORA, fontSize: 22, fontWeight: 300, letterSpacing: "-.02em" }}>Nenhum ativo cadastrado</span>
                   <span style={{ maxWidth: 400, fontSize: 14, lineHeight: 1.6, color: "var(--muted2)", textWrap: "pretty" }}>{duo ? "Cadastrem ações, FIIs, ETFs e renda fixa que vocês já têm. O Mimo mostra a carteira de cada um e a do casal." : "Cadastre ações, FIIs, ETFs e renda fixa que você já tem. O Mimo acompanha a rentabilidade da carteira."}</span>

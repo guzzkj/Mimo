@@ -8,7 +8,8 @@ import { Avatar, Ic, Presenca, Skel, Spinner } from "../components/mimo/ui";
 import { useDialogo } from "../hooks/useDialogo";
 import { useMimoApp } from "../hooks/useMimoApp";
 import { useTimers } from "../hooks/useTimers";
-import { categoriasDe, salvarAjustes } from "../lib/ajustes";
+import { categoriasDe, lerAjustes, salvarAjustes } from "../lib/ajustes";
+import { avatarDe } from "../lib/avatares";
 import type { FiltroAutor } from "../lib/filtrosMovimentacoes";
 import { autoresDuo, MOTOR_DUO, lerAcertos, nomeMes, resumoDuo, rotuloMes, salvarAcertos, useAcertos, type Acerto, type Regra, type ResumoDuo } from "../lib/contaDuo";
 import { MESES } from "../lib/constants";
@@ -71,7 +72,9 @@ interface S {
 
 const P: Record<Quem, Pessoa> = {
   // nomes vivos: quem está logado e o par (backend real) ou a dupla de exemplo
-  gustavo: { get nome() { return nomesDuo().eu; }, rot: "Você", av: "#4e9e79", get ini() { return nomesDuo().iniEu; }, cor: "#4e9e79", tabby: false },
+  gustavo: { get nome() { return nomesDuo().eu; }, rot: "Você", av: "#4e9e79", get ini() { return nomesDuo().iniEu; },
+    // o gato segue o avatar escolhido em Configurações > Perfil
+    get cor() { return avatarDe(lerAjustes("solo").avatar).cor; }, get tabby() { return avatarDe(lerAjustes("solo").avatar).tabby; } },
   suelen: { get nome() { return maiuscula(nomesDuo().par); }, get rot() { return maiuscula(nomesDuo().par); }, av: "#e2a24f", get ini() { return nomesDuo().iniPar; }, cor: "#e2a24f", tabby: true },
   conjunta: { nome: "Conta conjunta", rot: "Conta conjunta", av: "linear-gradient(135deg, #4e9e79 50%, #e2a24f 50%)", ini: "", cor: "var(--accent)", tabby: false },
 };
@@ -409,7 +412,7 @@ function LinhaItem({ it, valor, ok, i = 0, onRemover }: { it: ItemMeta; valor: s
 function GatosDuplos({ w, ml, exp, corpo = false }: { w: number; ml: number; exp: Expressao; corpo?: boolean }) {
   return (
     <div style={{ display: "flex" }}>
-      <div style={{ width: w }}><Gato cor="#4e9e79" expressao={exp} corpo={corpo} /></div>
+      <div style={{ width: w }}><Gato cor={P.gustavo.cor} tabby={P.gustavo.tabby} expressao={exp} corpo={corpo} /></div>
       <div style={{ width: w, marginLeft: ml }}><Gato cor="#e2a24f" tabby expressao={exp} corpo={corpo} /></div>
     </div>
   );
@@ -1431,7 +1434,7 @@ export default function DuoMetas() {
                 </div>
                 <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: 26, alignItems: "center", padding: 28, borderRadius: 26, border: "1px solid var(--line)", background: "var(--surface)", boxShadow: "0 18px 44px -30px var(--shadow)" }}>
                   <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 6 }}>
-                    <div style={{ width: 124 }}><Gato cor="#4e9e79" expressao={gExp} /></div>
+                    <div style={{ width: 124 }}><Gato cor={P.gustavo.cor} tabby={P.gustavo.tabby} expressao={gExp} /></div>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, paddingBottom: 40, color: quites || dv.vazio ? "var(--faint)" : "var(--duo)", transition: "color .3s ease" }}>
                       <svg width="38" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: dv.dev < 0 && !quites ? "rotate(180deg)" : "none", transition: "transform .4s ease" }} aria-hidden="true"><path d={quites || dv.vazio ? "M5 9h14M5 15h14" : "M4 12h16M14 6l6 6-6 6"} /></svg>
                       <span style={{ fontSize: 10.5, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--faint)" }}>{dv.vazio ? "sem despesas" : quites ? "quites" : pagou === "Você" ? "você → " + par : "" + Par + " → você"}</span>
@@ -1688,7 +1691,7 @@ export default function DuoMetas() {
                       </div>
                     ) : (
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "14px 8px", textAlign: "center" }}>
-                        <div style={{ width: 96 }}><Gato cor="#4e9e79" expressao="curioso" corpo={false} /></div>
+                        <div style={{ width: 96 }}><Gato cor={P.gustavo.cor} tabby={P.gustavo.tabby} expressao="curioso" corpo={false} /></div>
                         <span style={{ maxWidth: 300, fontSize: 13.5, lineHeight: 1.6, color: "var(--muted2)", textWrap: "pretty" }}>Adicione o que {duo ? "vocês precisam" : "você precisa"} comprar, com o valor e a prioridade de cada item.</span>
                       </div>
                     )}
@@ -1833,7 +1836,7 @@ export default function DuoMetas() {
                     ))}
                     {!detalhe.hist.length && (
                       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0" }}>
-                        <div style={{ flex: "none", width: 60 }}><Gato cor="#4e9e79" expressao="curioso" corpo={false} /></div>
+                        <div style={{ flex: "none", width: 60 }}><Gato cor={P.gustavo.cor} tabby={P.gustavo.tabby} expressao="curioso" corpo={false} /></div>
                         <span style={{ fontSize: 13, lineHeight: 1.5, color: "var(--muted2)" }}>{duo ? "Nenhum aporte ainda. O primeiro, de qualquer um dos dois, já faz a barra andar." : "Nenhum aporte ainda. O primeiro já faz a barra andar."}</span>
                       </div>
                     )}
