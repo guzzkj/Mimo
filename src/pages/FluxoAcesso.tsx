@@ -175,7 +175,6 @@ export default function FluxoAcesso() {
   const loc = useLocation();
   const navigate = useNavigate();
   const { later } = useTimers();
-  const iv = useRef<number | undefined>(undefined);
 
   const slug = loc.pathname.replace(/^\/acesso\/?/, "").split("/")[0];
   const alvo = norm(slug);
@@ -193,7 +192,12 @@ export default function FluxoAcesso() {
   const sRef = useRef(s);
   useLayoutEffect(() => { sRef.current = s; });
 
-  useEffect(() => () => window.clearInterval(iv.current), []);
+  // contagem do "Reenviar em 0:SS": um tique por segundo enquanto houver espera
+  useEffect(() => {
+    if (s.cooldown <= 0) return;
+    const id = window.setTimeout(() => setS((p) => ({ ...p, cooldown: Math.max(0, p.cooldown - 1) })), 1000);
+    return () => window.clearTimeout(id);
+  }, [s.cooldown]);
   // cada troca de tela começa do topo
   useEffect(() => { window.scrollTo({ top: 0 }); }, [t]);
 
@@ -247,14 +251,7 @@ export default function FluxoAcesso() {
   const up = (patch: Partial<S> | ((p: S) => Partial<S>)) =>
     setS((p) => ({ ...p, ...(typeof patch === "function" ? patch(p) : patch) }));
 
-  const cooldown = (n: number) => {
-    window.clearInterval(iv.current);
-    up({ cooldown: n });
-    iv.current = window.setInterval(() => setS((p) => {
-      if (p.cooldown <= 1) { window.clearInterval(iv.current); return { ...p, cooldown: 0 }; }
-      return { ...p, cooldown: p.cooldown - 1 };
-    }), 1000);
-  };
+  const cooldown = (n: number) => up({ cooldown: n });
 
   const ir = (tela: Tela, extra: Partial<S> = {}) => {
     const novoPlano = extra.plano ?? plano;
@@ -411,7 +408,7 @@ export default function FluxoAcesso() {
   };
 
   const reenviarApi = () => {
-    const x = sRef.current;
+    const x = s; // handler recriado a cada render: s já é o estado atual
     if (x.cooldown > 0 || x.reenviando) return;
     up({ reenviando: true, aviso: "", erroGeral: "" });
     const tela = t;
@@ -480,7 +477,7 @@ export default function FluxoAcesso() {
 
   const reenviar = () => {
     if (MODO_API) return reenviarApi();
-    const x = sRef.current;
+    const x = s;
     if (x.cooldown > 0 || x.reenviando) return;
     up({ reenviando: true, aviso: "", erroGeral: "" });
     const tela = t;

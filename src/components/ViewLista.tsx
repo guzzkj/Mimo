@@ -50,42 +50,38 @@ export function ViewLista({
     limparFiltros({ onFiltroTipo, onFiltroStatus, onFiltroCategoria, onFiltroCartao, autor: filtroAutor });
   };
 
-  const linhas = useMemo(() => {
-    let mesDaLinha = "";
-    return d.daPagina.map((it, indice) => {
-      const chave = it.data.slice(0, 7);
-      const trocouDeMes = chave !== mesDaLinha;
-      mesDaLinha = chave;
-      const [ano, numero] = chave.split("-");
-      return (
-        <Fragment key={it.id}>
-          {trocouDeMes && (
-            <div className="table__mes"><span>{`${MESES_LONGOS[Number(numero) - 1]} de ${ano}`}</span></div>
-          )}
-          <div className="table__row" style={{ "--i": indice } as CSSProperties}>
-            <div className="table__desc">
-              <span className={`badge ${it.classeCor}`} style={{ background: it.iconBg }}>{it.sinal}</span>
-              <strong>{it.descricao}</strong>
-              <TagsMovimentacao item={it} />
-            </div>
-            {colunaExtra && <span className="table__cell table__extra">{colunaExtra.celula(it)}</span>}
-            <span className="table__cell">{it.categoria}</span>
-            <span className="table__cell">{it.dataLabel}</span>
-            <span className={`recent__status ${it.statusClasse}`}>{it.statusLabel}</span>
-            <span className={`table__value ${it.classeCor}`}>{it.valorFmt}</span>
-            <div className="table__actions">
-              <button className="icon-button" type="button" title="Editar" aria-label={`Editar ${it.descricao}`} onClick={() => onEditar(it.id)}>
-                <Pencil />
-              </button>
-              <button className="icon-button icon-button--danger" type="button" title="Excluir" aria-label={`Excluir ${it.descricao}`} onClick={() => onExcluir(it.id)}>
-                <Trash2 />
-              </button>
-            </div>
+  const linhas = useMemo(() => d.daPagina.map((it, indice) => {
+    const chave = it.data.slice(0, 7);
+    const trocouDeMes = indice === 0 || chave !== d.daPagina[indice - 1].data.slice(0, 7);
+    const [ano, numero] = chave.split("-");
+    return (
+      <Fragment key={it.id}>
+        {trocouDeMes && (
+          <div className="table__mes"><span>{`${MESES_LONGOS[Number(numero) - 1]} de ${ano}`}</span></div>
+        )}
+        <div className="table__row" style={{ "--i": indice } as CSSProperties}>
+          <div className="table__desc">
+            <span className={`badge ${it.classeCor}`} style={{ background: it.iconBg }}>{it.sinal}</span>
+            <strong>{it.descricao}</strong>
+            <TagsMovimentacao item={it} />
           </div>
-        </Fragment>
-      );
-    });
-  }, [d.daPagina, onEditar, onExcluir, colunaExtra]);
+          {colunaExtra && <span className="table__cell table__extra">{colunaExtra.celula(it)}</span>}
+          <span className="table__cell">{it.categoria}</span>
+          <span className="table__cell">{it.dataLabel}</span>
+          <span className={`recent__status ${it.statusClasse}`}>{it.statusLabel}</span>
+          <span className={`table__value ${it.classeCor}`}>{it.valorFmt}</span>
+          <div className="table__actions">
+            <button className="icon-button" type="button" title="Editar" aria-label={`Editar ${it.descricao}`} onClick={() => onEditar(it.id)}>
+              <Pencil />
+            </button>
+            <button className="icon-button icon-button--danger" type="button" title="Excluir" aria-label={`Excluir ${it.descricao}`} onClick={() => onExcluir(it.id)}>
+              <Trash2 />
+            </button>
+          </div>
+        </div>
+      </Fragment>
+    );
+  }), [d.daPagina, onEditar, onExcluir, colunaExtra]);
 
   return (
     <section className="view view--list" aria-label="Movimentações">
