@@ -72,6 +72,8 @@ interface S {
   renda: string;
   emailParceiro: string;
   mensagem: string;
+  /** Opt-in opcional de comunicações de marketing (LGPD art. 8º, §4º: separado do aceite dos Termos). */
+  marketing: boolean;
   /** Backend real: convite em foco (prévia do token ou convite pendente da sessão). */
   convite: { nome: string; mensagem: string | null; email: string } | null;
   /** Backend real: convite enviado por quem está logado (tela duo-pendente). */
@@ -88,7 +90,7 @@ function base(tela: Tela, plano: Plano): S {
       recusado: false, expirado: false, copiado: false, google: false, reenviando: false, cooldown: 0, hover: null,
       escolha: tela === "config" || tela === "pronto" ? plano : null,
       email: user?.email ?? "", senha: "", nome: user?.name ?? "", renda: "", emailParceiro: "", mensagem: "",
-      convite: null, conviteId: null,
+      marketing: false, convite: null, conviteId: null,
     };
   }
   const logado = !["cadastro", "login", "recuperar"].includes(tela);
@@ -98,7 +100,7 @@ function base(tela: Tela, plano: Plano): S {
     escolha: tela === "config" || tela === "pronto" ? plano : null,
     email: logado ? V.email : "", senha: "", nome: logado && tela !== "config" ? V.nome : "", renda: "",
     emailParceiro: ["duo-enviado", "duo-pendente"].includes(tela) ? V.emailParceiro : "", mensagem: V.mensagem,
-    convite: null, conviteId: null,
+    marketing: false, convite: null, conviteId: null,
   };
 }
 
@@ -302,7 +304,7 @@ export default function FluxoAcesso() {
       return chamar(async () => {
         // Aceite dos Termos e da Política (base legal, LGPD art. 7º): o aviso fica
         // visível no formulário e o envio registra o aceite com data e versão.
-        await api.post("/auth/signup", { email: x.email.trim(), password: x.senha, acceptedTerms: true });
+        await api.post("/auth/signup", { email: x.email.trim(), password: x.senha, acceptedTerms: true, marketingConsent: x.marketing });
         await recarregarSessao();
         ir("verificar", { cooldown: 30, senha: "", email: x.email.trim().toLowerCase() });
       }, { email: "email", password: "senha" });
@@ -904,6 +906,13 @@ export default function FluxoAcesso() {
                   </div>
                 );
               })()}
+
+              {t === "cadastro" && MODO_API && (
+                <label style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 13, lineHeight: 1.5, color: "var(--ink2)", cursor: "pointer" }}>
+                  <input type="checkbox" checked={s.marketing} onChange={(e) => up({ marketing: e.target.checked })} style={{ flex: "none", width: 18, height: 18, marginTop: 1, accentColor: "var(--accent)", cursor: "pointer" }} />
+                  <span>Quero receber novidades e dicas do Mimo por e-mail (opcional). Dá para mudar quando quiser em Ajustes.</span>
+                </label>
+              )}
 
               {t === "config" && (() => {
                 const f = fs("renda");

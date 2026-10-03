@@ -14,10 +14,10 @@ import { CORES_CAT, lerAjustes, salvarAjustes, type Ajustes } from "../lib/ajust
 import { CATS, MESES_LONGOS } from "../lib/constants";
 import { DIA_HOJE, dataBr, dataSeed } from "../lib/helpers";
 import { OrcamentosConfig } from "../components/OrcamentosConfig";
-import { api, mensagemDeErro } from "../lib/api";
+import { api, ErroApi, mensagemDeErro } from "../lib/api";
 import { MODO_API } from "../lib/modo";
 import type { ConviteApi } from "../lib/remoto/tipos";
-import { contaDoTipo, recarregarSessao, sair, useSessao } from "../lib/sessao";
+import { contaDoTipo, definirSessao, recarregarSessao, sair, useSessao } from "../lib/sessao";
 import { maiuscula } from "../lib/nomes";
 
 // Porta de docs/ref/AppConfig.dc.html ("Mimo Configurações e Alertas"):
@@ -47,9 +47,9 @@ interface Prefs { conta: boolean; contaDias: number; limite: boolean; limiteQuan
 interface Comp { movs: boolean; metas: boolean; invest: boolean; renda: boolean }
 
 interface S {
-  plano: Plano; modal: "ativo" | "desvincular" | null; notifOpen: boolean; forms: Forms; tentou: Partial<Record<FormKey, boolean>>;
+  plano: Plano; modal: "ativo" | "desvincular" | "excluir" | null; notifOpen: boolean; forms: Forms; tentou: Partial<Record<FormKey, boolean>>;
   duoStatus: DuoStatus; privado: boolean; temaLocal: EscolhaTema; abrirOculto: boolean; pageLoading: boolean;
-  enviando: FormKey | "desv" | null; salvo: FormKey | null; cats: Cat[]; catForm: string | null; confirmCat: string | null;
+  enviando: FormKey | "desv" | "excluir" | "exportar" | null; salvo: FormKey | null; cats: Cat[]; catForm: string | null; confirmCat: string | null;
   prefs: Prefs; comp: Comp; notifs: Notif[]; ativos: Ativo[]; invView: "casal" | Dono; editAtivo: string | null; confirmAtivo: boolean; toast: string | null;
 }
 
@@ -296,6 +296,18 @@ export default function Configuracoes() {
       .catch(() => undefined);
     return () => { vivo = false; };
   }, [idDuo, membrosDuo]);
+  // ---- backend real: privacidade (LGPD art. 18) -----------------------------------
+  const [marketing, setMarketing] = useState<boolean | null>(null);
+  const [senhaExcluir, setSenhaExcluir] = useState("");
+  const [erroExcluir, setErroExcluir] = useState("");
+  useEffect(() => {
+    if (!MODO_API || t !== "perfil") return;
+    let vivo = true;
+    api.get<{ consents: { marketing: boolean } }>("/me/consents")
+      .then(({ consents }) => { if (vivo) setMarketing(consents.marketing); })
+      .catch(() => undefined);
+    return () => { vivo = false; };
+  }, [t]);
   useEffect(() => { window.scrollTo({ top: 0 }); }, [loc.pathname]);
   // a lista de ajustes só existe no layout compacto
   useEffect(() => { if (!cp && t === "config") navigate("/ajustes/perfil", { replace: true }); }, [cp, t, navigate]);
@@ -379,7 +391,7 @@ export default function Configuracoes() {
     up({ enviando: f });
     later(() => { setS((p) => ({ ...p, enviando: null, tentou: { ...p.tentou, [f]: false } })); fim(sRef.current); }, 1300);
   };
-  const env = (f: FormKey | "desv") => s.enviando === f;
+  const env = (f: FormKey | "desv" | "excluir" | "exportar") => s.enviando === f;
 
   // ---- navegação ---------------------------------------------------------------------
   const cfg = t === "config" || SECOES.some((x) => x[0] === t);
@@ -496,7 +508,50 @@ export default function Configuracoes() {
     ? fmt(qn * COT[tk]) + (pmn > 0 ? " · " + ((qn * COT[tk]) / invN - 1 >= 0 ? "+" : "−") + Math.abs(((qn * COT[tk]) / invN - 1) * 100).toFixed(1).replace(".", ",") + "%" : "")
     : invN > 0 ? fmt(invN) : "—";
 
-  const fecharModal = () => up({ modal: null, confirmAtivo: false });
+  const fecharModal = () => { up({ modal: null, confirmAtivo: false }); setSenhaExcluir(""); setErroExcluir(""); };
+
+  const alternarMarketing = () => {
+    if (marketing === null) return;
+    const novo = !marketing;
+    setMarketing(novo);
+    api.put<{ consents: { marketing: boolean } }>("/me/consents", { marketing: novo })
+      .then(({ consents }) => { setMarketing(consents.marketing); toast(consents.marketing ? "Você vai receber novidades por e-mail." : "Pronto, não enviaremos mais novidades."); })
+      .catch((e) => { setMarketing(!novo); toast(mensagemDeErro(e)); });
+  };
+
+  const exportarDados = () => {
+    if (sRef.current.enviando) return;
+    up({ enviando: "exportar" });
+    api.get<unknown>("/me/export")
+      .then((dados) => {
+        const url = URL.createObjectURL(new Blob([JSON.stringify(dados, null, 2)], { type: "application/json" }));
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `mimo-meus-dados-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        up({ enviando: null });
+        toast("Seus dados foram baixados.");
+      })
+      .catch((e) => { up({ enviando: null }); toast(mensagemDeErro(e)); });
+  };
+
+  const excluirConta = () => {
+    if (sRef.current.enviando) return;
+    if (!senhaExcluir) { setErroExcluir("Digite sua senha para confirmar."); return; }
+    up({ enviando: "excluir" });
+    setErroExcluir("");
+    api.del("/me", { password: senhaExcluir })
+      .then(() => {
+        definirSessao({ status: "anonimo" });
+        // recarrega o app para limpar caches locais da pessoa
+        location.assign("/acesso/cadastro");
+      })
+      .catch((e: unknown) => {
+        up({ enviando: null });
+        setErroExcluir(e instanceof ErroApi && e.fields.password ? e.fields.password : mensagemDeErro(e));
+      });
+  };
   const modalNode = s.modal ? (
     <div onClick={fecharModal} style={{ position: "absolute", inset: 0, zIndex: 40, pointerEvents: "auto", display: "flex", alignItems: cp ? "flex-end" : "center", justifyContent: "center", padding: cp ? 0 : 24, background: "rgba(10,12,20,.46)", backdropFilter: "blur(3px)", animation: "mmFade .25s ease both" }}>
       <div role="dialog" aria-modal="true" className="mm-sai-card" onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 500, maxHeight: "100%", overflowY: "auto", display: "flex", flexDirection: "column", gap: 18, padding: 26, borderRadius: cp ? "26px 26px 0 0" : 26, background: "var(--surface)", border: "1px solid var(--line)", boxShadow: "0 40px 80px -40px rgba(0,0,0,.6)", animation: "mmRiseC .35s cubic-bezier(.2,.8,.2,1) both" }}>
@@ -574,6 +629,30 @@ export default function Configuracoes() {
                 setS((y) => ({ ...y, modal: null, ativos: id ? y.ativos.map((a) => (a.id === id ? { ...a, ...novo } : a)) : [{ id: "a" + Date.now(), ...novo, novo: true }, ...y.ativos] }));
                 toast(id ? novo.ticker + " atualizado." : novo.ticker + " adicionado à carteira.");
               })} />
+            </div>
+          </div>
+        )}
+
+        {s.modal === "excluir" && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, textAlign: "center" }}>
+            <div style={{ width: 100 }}><Gato cor={av[0]} tabby={av[1]} expressao="preocupado" /></div>
+            <span style={{ fontFamily: SORA, fontSize: 23, letterSpacing: "-.03em" }}>Excluir sua conta?</span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", textAlign: "left" }}>
+              {["Seu perfil, suas contas Solo e tudo o que você registrou nelas são apagados de vez.", duo ? "A conta Duo continua com " + nomePar + ", sem os seus dados pessoais. Seus lançamentos privados nela são apagados." : "Se você tiver uma conta Duo, ela continua com o seu par, sem os seus dados pessoais.", "Não dá para desfazer. Se quiser, baixe seus dados antes."].map((d) => (
+                <span key={d} style={{ display: "flex", gap: 10, padding: "11px 13px", borderRadius: 13, background: "var(--line-soft)", fontSize: 13, lineHeight: 1.5, color: "var(--ink2)" }}><span style={{ flex: "none", width: 6, height: 6, marginTop: 7, borderRadius: "50%", background: "var(--out)" }} />{d}</span>
+              ))}
+            </div>
+            <label style={{ display: "flex", flexDirection: "column", gap: 7, width: "100%", textAlign: "left" }}>
+              <span style={ROTULO}>Confirme com sua senha</span>
+              <input type="password" autoComplete="current-password" value={senhaExcluir} onChange={(e) => { setSenhaExcluir(e.target.value); setErroExcluir(""); }} onKeyDown={(e) => { if (e.key === "Enter") excluirConta(); }} placeholder="Sua senha" style={campoSt(erroExcluir ? "var(--out)" : "var(--line2)")} />
+              {erroExcluir && <span style={ERRO_CAMPO}>{erroExcluir}</span>}
+            </label>
+            <div style={{ display: "flex", gap: 10, width: "100%" }}>
+              <button type="button" onClick={fecharModal} style={btnSec({ flex: 1, padding: 0 })}>Manter conta</button>
+              <button type="button" onClick={excluirConta} aria-busy={env("excluir")} style={btnPrim({ flex: 1, padding: 0, background: "var(--out)", color: "#ffffff", opacity: env("excluir") ? 0.7 : 1 })}>
+                {env("excluir") && <Spinner />}
+                {env("excluir") ? "Excluindo…" : "Excluir conta"}
+              </button>
             </div>
           </div>
         )}
@@ -744,6 +823,27 @@ export default function Configuracoes() {
                       </div>
                       <button type="button" onClick={() => ir("duo")} className="mm-h-sec" style={btnSec({ height: 44, padding: "0 16px", borderRadius: 14, fontSize: 13.5 })}>{duo ? "Gerenciar conta Duo" : st === "pendente" ? "Ver convite" : "Convidar alguém"}</button>
                     </div>
+                    {MODO_API && (
+                      <div style={{ ...CARTAO, padding: "8px 22px", display: "flex", flexDirection: "column" }}>
+                        <span style={{ padding: "14px 0 6px", ...OLHO }}>Privacidade e dados</span>
+                        <button type="button" role="switch" aria-checked={!!marketing} disabled={marketing === null} onClick={alternarMarketing} style={{ ...LINHA_SEC, borderRadius: 0, opacity: marketing === null ? 0.6 : 1 }}>
+                          <span style={{ display: "flex", flexDirection: "column", gap: 3 }}><span style={{ fontSize: 14, fontWeight: 700 }}>Novidades por e-mail</span><span style={{ fontSize: 12.5, lineHeight: 1.45, color: "var(--muted2)" }}>Dicas e novidades do Mimo. Opcional; e-mails da sua conta (senha, convites) continuam chegando.</span></span>
+                          <Chave on={!!marketing} />
+                        </button>
+                        <div style={{ ...LINHA_SEC, borderRadius: 0, cursor: "default" }}>
+                          <span style={{ display: "flex", flexDirection: "column", gap: 3 }}><span style={{ fontSize: 14, fontWeight: 700 }}>Baixar meus dados</span><span style={{ fontSize: 12.5, lineHeight: 1.45, color: "var(--muted2)" }}>Um arquivo JSON com seu perfil, consentimentos, contas e lançamentos.</span></span>
+                          <button type="button" onClick={exportarDados} aria-busy={env("exportar")} className="mm-h-sec" style={btnSec({ flex: "none", height: 42, padding: "0 16px", borderRadius: 13, fontSize: 13 })}>
+                            {env("exportar") && <Spinner />}
+                            {env("exportar") ? "Gerando…" : "Baixar"}
+                          </button>
+                        </div>
+                        <div style={{ ...LINHA_SEC, borderRadius: 0, cursor: "default", borderBottom: "none" }}>
+                          <span style={{ display: "flex", flexDirection: "column", gap: 3 }}><span style={{ fontSize: 14, fontWeight: 700 }}>Excluir minha conta</span><span style={{ fontSize: 12.5, lineHeight: 1.45, color: "var(--muted2)" }}>Apaga seus dados pessoais do Mimo de forma definitiva.</span></span>
+                          <button type="button" onClick={() => up({ modal: "excluir" })} style={{ flex: "none", height: 42, padding: "0 16px", borderRadius: 13, border: "1px solid var(--out-line)", background: "var(--surface)", color: "var(--out-ink)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Excluir</button>
+                        </div>
+                        <span style={{ padding: "4px 0 14px", fontSize: 12, lineHeight: 1.5, color: "var(--faint)" }}>Veja como cuidamos dos seus dados na <a href="/privacidade" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-ink)" }}>Política de Privacidade</a>.</span>
+                      </div>
+                    )}
                   </div>
                 )}
 
