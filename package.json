@@ -16,7 +16,8 @@
     "db:migrate": "node scripts/migrate.ts",
     "db:studio": "drizzle-kit studio",
     "deploy:preview": "pnpm build && wrangler pages deploy dist --branch preview",
-    "deploy": "pnpm build && wrangler pages deploy dist --branch main"
+    "deploy": "pnpm build && wrangler pages deploy dist --branch main",
+    "deploy:cron": "wrangler deploy -c workers/cron/wrangler.toml"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",

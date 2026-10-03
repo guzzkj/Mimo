@@ -16,6 +16,6 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["functions", "server"],
+  "include": ["functions", "server", "workers"],
   "exclude": ["server/**/*.test.ts", "server/test"]
 }
