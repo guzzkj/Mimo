@@ -13,7 +13,7 @@ import {
 } from "../auth/tokens";
 import { passwordChangedMessage, resetPasswordMessage, verifyEmailMessage } from "../email/templates";
 import { createAccount, toUserDto } from "../domain/users";
-import { clientIp, enforce } from "../rate-limit";
+import { clientIp, consume, enforce } from "../rate-limit";
 
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_FAILURES = 8;
@@ -106,6 +106,8 @@ export const authRoutes = new Hono<AppEnv>()
     const db = c.get("db");
     const wait = await emailCooldown(db, user.id, "verify_email", VERIFY_RESEND_SECONDS);
     if (wait > 0) throw new ApiError("too_many_requests", `Espere ${wait}s para reenviar.`, { retryAfter: wait });
+    await enforce(c, "verifyResendPerIp", clientIp(c));
+    await enforce(c, "verifyResendPerUser", user.id, "Você já pediu vários e-mails de confirmação. Espere um pouco antes de pedir outro.");
     const token = await issueEmailToken(db, user.id, "verify_email");
     const url = `${c.env.APP_URL}/acesso/verificar?token=${encodeURIComponent(token)}`;
     defer(c, c.get("mailer").send({ to: user.email, ...verifyEmailMessage(user.name, url) }));
@@ -114,10 +116,14 @@ export const authRoutes = new Hono<AppEnv>()
 
   .post("/password/forgot", async (c) => {
     const { email } = await readJson(c, forgotSchema);
+    // por IP responde 429 (vale igual para qualquer e-mail, não revela cadastro)
+    await enforce(c, "forgotPerIp", clientIp(c));
     const db = c.get("db");
+    // por endereço é silencioso: barra a inundação de uma caixa a partir de vários IPs
+    const perEmail = await consume(db, "forgotPerEmail", email, c.get("limits").forgotPerEmail);
     const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
     // resposta igual com ou sem conta: não revela quais e-mails estão cadastrados
-    if (user && (await emailCooldown(db, user.id, "reset_password", RESET_RESEND_SECONDS)) === 0) {
+    if (user && perEmail.allowed && (await emailCooldown(db, user.id, "reset_password", RESET_RESEND_SECONDS)) === 0) {
       const token = await issueEmailToken(db, user.id, "reset_password");
       const url = `${c.env.APP_URL}/acesso/redefinir?token=${encodeURIComponent(token)}`;
       defer(c, c.get("mailer").send({ to: user.email, ...resetPasswordMessage(url) }));

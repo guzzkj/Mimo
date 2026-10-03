@@ -72,6 +72,10 @@ Isolates do Workers não compartilham memória, então os limites da aplicação
 | `POST /auth/signup` | 5 por hora | IP (conta também tentativas com e-mail repetido) |
 | Convite: criar ou reenviar | 10 por hora | conta Duo |
 | Convite: criar ou reenviar | 20 por hora | IP |
+| `POST /auth/password/forgot` | 5 a cada 15 min | IP (429, igual para e-mail com ou sem conta) |
+| `POST /auth/password/forgot` | 5 e-mails por hora | endereço (silencioso: segue 202, só não envia) |
+| `POST /auth/verify-email/resend` | 5 a cada 15 min | IP |
+| `POST /auth/verify-email/resend` | 5 por hora | pessoa |
 
 Os limites padrão estão em `DEFAULT_LIMITS`; os testes podem sobrescrever via `createApp({ limits })`. Os cooldowns por pessoa/convite (reenvio em 30–42s) continuam valendo.
 

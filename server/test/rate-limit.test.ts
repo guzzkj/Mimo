@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { sql } from "drizzle-orm";
-import { rateLimits } from "../db/schema";
+import { emailTokens, rateLimits } from "../db/schema";
 import { DEFAULT_LIMITS, clientIp, consume, ipv6Prefix, pruneRateLimits } from "../rate-limit";
 import { setupApi } from "./harness";
 
@@ -110,5 +110,61 @@ describe("invite rate limit (F-02)", () => {
     } finally {
       await limited.close();
     }
+  });
+});
+
+describe("password reset / verification resend limits (F-04)", () => {
+  test(`forgot: ${DEFAULT_LIMITS.forgotPerIp.max + 1}th request from the same IP gets 429, for any e-mail`, async () => {
+    const a = api.agent({ ip: "203.0.113.30" });
+    for (let i = 0; i < DEFAULT_LIMITS.forgotPerIp.max; i++) {
+      // mistura e-mails com e sem conta: o limite não revela cadastro
+      expect((await a.post("/auth/password/forgot", { email: i % 2 ? "bomb0@example.com" : `ghost${i}@example.com` })).status).toBe(202);
+    }
+    const res = await a.post("/auth/password/forgot", { email: "ghost-extra@example.com" });
+    expect(res.status).toBe(429);
+    expect(Number(res.headers.get("retry-after"))).toBeGreaterThan(0);
+    expect(Number(res.headers.get("retry-after"))).toBeLessThanOrEqual(DEFAULT_LIMITS.forgotPerIp.windowSeconds);
+    expect((await api.agent({ ip: "203.0.113.31" }).post("/auth/password/forgot", { email: "ghost-extra@example.com" })).status).toBe(202);
+  });
+
+  test("forgot: per-address cap stays silent (202) and sends nothing", async () => {
+    const limited = await setupApi({ limits: { forgotPerEmail: { max: 0, windowSeconds: 3600 } } });
+    try {
+      await limited.signupVerified("cap@example.com");
+      const before = limited.sent.length;
+      const res = await limited.agent().post("/auth/password/forgot", { email: "cap@example.com" });
+      expect(res.status).toBe(202);
+      expect(limited.sent.length).toBe(before);
+    } finally {
+      await limited.close();
+    }
+  });
+
+  const ageVerifyTokens = () => api.db.update(emailTokens).set({ createdAt: sql`now() - interval '1 hour'` });
+
+  test(`verify resend: ${DEFAULT_LIMITS.verifyResendPerUser.max + 1}th resend for the same person gets 429`, async () => {
+    const a = api.agent();
+    expect((await a.post("/auth/signup", { email: "resend-user@example.com", password: "senha-forte-1" })).status).toBe(201);
+    for (let i = 0; i < DEFAULT_LIMITS.verifyResendPerUser.max; i++) {
+      await ageVerifyTokens(); // pula o cooldown de 30s
+      expect((await a.raw("POST", "/auth/verify-email/resend", {}, { "cf-connecting-ip": `203.0.113.${100 + i}` })).status).toBe(204);
+    }
+    await ageVerifyTokens();
+    const res = await a.raw("POST", "/auth/verify-email/resend", {}, { "cf-connecting-ip": "203.0.113.120" });
+    expect(res.status).toBe(429);
+    expect(Number(res.headers.get("retry-after"))).toBeGreaterThan(0);
+  });
+
+  test(`verify resend: ${DEFAULT_LIMITS.verifyResendPerIp.max + 1}th resend from the same IP gets 429 across people`, async () => {
+    const agents = [];
+    for (let i = 0; i <= DEFAULT_LIMITS.verifyResendPerIp.max; i++) {
+      const a = api.agent();
+      expect((await a.post("/auth/signup", { email: `resend-ip${i}@example.com`, password: "senha-forte-1" })).status).toBe(201);
+      agents.push(a);
+    }
+    await ageVerifyTokens();
+    const shared = { "cf-connecting-ip": "203.0.113.200" };
+    for (const a of agents.slice(0, -1)) expect((await a.raw("POST", "/auth/verify-email/resend", {}, shared)).status).toBe(204);
+    expect((await agents.at(-1)!.raw("POST", "/auth/verify-email/resend", {}, shared)).status).toBe(429);
   });
 });

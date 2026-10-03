@@ -22,6 +22,14 @@ export const DEFAULT_LIMITS = {
   invitePerAccount: { max: 10, windowSeconds: 60 * 60 },
   /** Convites criados/reenviados por IP (todas as contas). */
   invitePerIp: { max: 20, windowSeconds: 60 * 60 },
+  /** Pedidos de redefinição de senha por IP (429). */
+  forgotPerIp: { max: 5, windowSeconds: 15 * 60 },
+  /** E-mails de redefinição por endereço (silencioso: resposta continua 202). */
+  forgotPerEmail: { max: 5, windowSeconds: 60 * 60 },
+  /** Reenvios do e-mail de confirmação por IP. */
+  verifyResendPerIp: { max: 5, windowSeconds: 15 * 60 },
+  /** Reenvios do e-mail de confirmação por pessoa (o endereço pode ser de terceiros). */
+  verifyResendPerUser: { max: 5, windowSeconds: 60 * 60 },
 } satisfies Record<string, Limit>;
 
 export type RateLimits = { [K in keyof typeof DEFAULT_LIMITS]: Limit };
