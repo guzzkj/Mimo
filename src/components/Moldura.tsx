@@ -30,14 +30,17 @@ export type DestinoDock =
   | "duo-geral" | "duo-movs" | "duo-divisao"
   | "metas" | "investimentos" | "config" | "nenhum";
 
-const AVATAR_DUO = (
-  <svg width="46" height="46" viewBox="0 0 46 46" role="img" aria-label="Gustavo e Suelen">
-    <rect width="23" height="46" fill="#4e9e79" />
-    <rect x="23" width="23" height="46" fill="#e2a24f" />
-    <text x="12.5" y="27.5" textAnchor="middle" fontSize="13" fontWeight="700" fill="#ffffff" fontFamily="Manrope, sans-serif">G</text>
-    <text x="33.5" y="27.5" textAnchor="middle" fontSize="13" fontWeight="700" fill="#ffffff" fontFamily="Manrope, sans-serif">S</text>
-  </svg>
-);
+// Iniciais e rótulo seguem os nomes da conta (quem está logado e o par).
+function AvatarDuo({ eu, par, iniEu, iniPar }: { eu: string; par: string; iniEu: string; iniPar: string }) {
+  return (
+    <svg width="46" height="46" viewBox="0 0 46 46" role="img" aria-label={`${eu} e ${par}`}>
+      <rect width="23" height="46" fill="#4e9e79" />
+      <rect x="23" width="23" height="46" fill="#e2a24f" />
+      <text x="12.5" y="27.5" textAnchor="middle" fontSize="13" fontWeight="700" fill="#ffffff" fontFamily="Manrope, sans-serif">{iniEu}</text>
+      <text x="33.5" y="27.5" textAnchor="middle" fontSize="13" fontWeight="700" fill="#ffffff" fontFamily="Manrope, sans-serif">{iniPar}</text>
+    </svg>
+  );
+}
 
 interface Props {
   conta: ContaAtiva;
@@ -104,7 +107,7 @@ export function Moldura({ conta, app, ativo, onNavegar, onPrivacidade, autores, 
   const [ano, mes] = app.state.mesRef.split("-");
   const periodo = `${MESES_LONGOS[Number(mes) - 1]} de ${ano}`;
   const nd = nomesDuo();
-  const identidade = duo ? { nome: nd.par === "seu par" ? nd.eu : `${nd.eu} e ${maiuscula(nd.par)}`, conta: "Conta Duo", avatar: AVATAR_DUO } : { nome: app.ajustes.nome };
+  const identidade = duo ? { nome: nd.par === "seu par" ? nd.eu : `${nd.eu} e ${maiuscula(nd.par)}`, conta: "Conta Duo", avatar: <AvatarDuo eu={nd.eu} par={maiuscula(nd.par)} iniEu={nd.iniEu} iniPar={nd.iniPar} /> } : { nome: app.ajustes.nome };
   const alternarTema = (botao: HTMLElement) => aplicarEscolhaTema(tema === "escuro" ? "claro" : "escuro", botao);
   const alternarPrivacidade = () => { app.actions.alternarPrivacidade(); onPrivacidade?.(); };
 

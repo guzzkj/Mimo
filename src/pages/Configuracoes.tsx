@@ -18,6 +18,7 @@ import { api, mensagemDeErro } from "../lib/api";
 import { MODO_API } from "../lib/modo";
 import type { ConviteApi } from "../lib/remoto/tipos";
 import { contaDoTipo, recarregarSessao, sair, useSessao } from "../lib/sessao";
+import { maiuscula } from "../lib/nomes";
 
 // Porta de docs/ref/AppConfig.dc.html ("Mimo Configurações e Alertas"):
 //   Lista mobile (/ajustes) · 5a Perfil · 5b Finanças · 5c Categorias
@@ -172,7 +173,8 @@ function init(t0: Tela, notif: boolean, est: string, abrir: string, planoG: Plan
     catForm: t0 === "categorias" && ["preenchendo", "erro", "loading"].includes(est) ? "novo" : null, confirmCat: null,
     prefs: { ...PREFS, ...aj.avisos }, comp: { ...COMP },
     notifs: notif && est === "vazio" ? [] : notifsBase(duo, est === "pendencia").map((n) => ({ ...n, lido: n.lido || (notif && est === "lidas") })),
-    ativos: t0 === "investimentos" && est === "vazio" ? [] : ATIVOS.filter((a) => duo || a.dono === "gustavo").map((a) => ({ ...a })),
+    // backend real: a carteira ainda não é gravada na API; nada de ativos de exemplo
+    ativos: MODO_API || (t0 === "investimentos" && est === "vazio") ? [] : ATIVOS.filter((a) => duo || a.dono === "gustavo").map((a) => ({ ...a })),
     invView: "casal", editAtivo: null, confirmAtivo: false, toast: null,
   };
   if (fEst === "sucesso") {
@@ -273,6 +275,9 @@ export default function Configuracoes() {
   const sessao = useSessao();
   const contaDuo = MODO_API ? contaDoTipo("duo", sessao) : null;
   const parNome = contaDuo?.members.find((m) => !m.isMe)?.name ?? null;
+  const nomePar = MODO_API ? parNome ?? "seu par" : "Suelen";
+  const NomePar = maiuscula(nomePar);
+  const meuEmail = MODO_API ? (sessao.status === "ok" ? sessao.user.email : "") : EMAIL;
   const [conviteRemoto, setConviteRemoto] = useState<ConviteApi | null>(null);
   const membrosDuo = contaDuo?.members.length ?? 0;
   const idDuo = contaDuo?.id ?? null;
@@ -342,7 +347,7 @@ export default function Configuracoes() {
     if (f === "convite") {
       const m = st.forms.convite.email.trim().toLowerCase();
       if (!EMAIL_RE.test(m)) e.email = "E-mail inválido. Use o formato nome@email.com.";
-      else if (m === EMAIL || m === st.forms.perfil.email.trim().toLowerCase()) e.email = "Esse é o seu e-mail. Convide o e-mail da outra pessoa.";
+      else if (m === meuEmail || m === st.forms.perfil.email.trim().toLowerCase()) e.email = "Esse é o seu e-mail. Convide o e-mail da outra pessoa.";
     }
     if (f === "ativo") {
       const x = st.forms.ativo;
@@ -381,10 +386,10 @@ export default function Configuracoes() {
   const av = AVATARES[s.forms.perfil.avatar] || AVATARES[0];
   const secoes = SECOES.map(([id, label, ic]) => ({
     id, label, ic, on: t === id, dot: id === "duo" && s.duoStatus === "pendente",
-    info: id === "duo" ? (s.duoStatus === "vinculado" ? "Suelen" : s.duoStatus === "pendente" ? "Convite pendente" : "") : id === "aparencia" ? ({ claro: "Claro", escuro: "Escuro", auto: "Automático" }[s.temaLocal]) : "",
+    info: id === "duo" ? (s.duoStatus === "vinculado" ? NomePar : s.duoStatus === "pendente" ? "Convite pendente" : "") : id === "aparencia" ? ({ claro: "Claro", escuro: "Escuro", auto: "Automático" }[s.temaLocal]) : "",
   }));
   const SUB: Partial<Record<Tela, string>> = {
-    perfil: "Como você aparece no Mimo" + (duo ? " e para Suelen." : "."),
+    perfil: "Como você aparece no Mimo" + (duo ? " e para " + nomePar + "." : "."),
     financas: duo ? "Sua renda e o limite de gastos do casal. O Mimo usa esses números para mostrar quanto da renda já está comprometido." : "Sua renda e seu limite de gastos. O Mimo usa esses números para mostrar quanto da renda já está comprometido.",
     categorias: "As categorias padrão cobrem o básico. Crie as suas para o resto.",
     duo: "Quem divide a conta com você e o que é compartilhado por padrão.",
@@ -397,7 +402,7 @@ export default function Configuracoes() {
   const fp = { nome: campo("perfil", "nome"), email: campo("perfil", "email") };
   const pErr = s.tentou.perfil && Object.keys(errosDe(s, "perfil")).length;
   const perfilExp: Expressao = pErr ? "preocupado" : s.salvo === "perfil" ? "feliz" : "padrao";
-  const emailMudou = !!pf.email.trim() && pf.email.trim().toLowerCase() !== EMAIL && !fp.email.erro && s.salvo !== "perfil";
+  const emailMudou = !!pf.email.trim() && pf.email.trim().toLowerCase() !== meuEmail && !fp.email.erro && s.salvo !== "perfil";
   const planoGatos = [{ ...P.gustavo, cor: av[0], tabby: av[1] }, ...(duo ? [P.suelen] : [])];
 
   // ---- finanças ----------------------------------------------------------------------
@@ -426,7 +431,6 @@ export default function Configuracoes() {
 
   // ---- conta duo ---------------------------------------------------------------------
   const st = s.duoStatus;
-  const nomePar = MODO_API ? parNome ?? "seu par" : "Suelen";
   const emailPar = MODO_API ? conviteRemoto?.email ?? "" : EMAIL_S;
   const conviteErro = s.tentou.convite ? errosDe(s, "convite").email : "";
   const dz = st === "vinculado"
@@ -434,7 +438,7 @@ export default function Configuracoes() {
     : st === "pendente"
       ? { vinc: false, slot: true, slotTxt: "?", slotBorda: "var(--duo-line)", form: false, pend: true, tag: "Aguardando resposta", tagBg: "var(--duo-soft)", tagCor: "var(--duo-ink)", borda: "var(--duo-line)", expG: "curioso" as Expressao, titulo: "Convite enviado para " + emailPar, texto: (MODO_API && conviteRemoto ? "Enviado em " + dataBr(conviteRemoto.lastSentAt.slice(0, 10)) : "Enviado em " + dataBr(dataSeed(0, Math.max(1, DIA_HOJE - 5)))) + " e válido por 7 dias. Quando " + (MODO_API ? "a pessoa" : "Suelen") + " aceitar, a conta vira Duo para os dois." }
       : { vinc: false, slot: true, slotTxt: "+", slotBorda: "var(--line2)", form: true, pend: false, tag: planoDuo ? "Sem par vinculado" : "Conta Solo", tagBg: "var(--solo-soft)", tagCor: "var(--solo-ink)", borda: "var(--line)", expG: (conviteErro ? "preocupado" : "curioso") as Expressao, titulo: "Use o Mimo a dois", texto: "Convide quem divide as contas com você. Vocês ganham uma conta conjunta, divisão de despesas e metas do casal. O que você já registrou continua privado." };
-  const COMPL: [keyof Comp, string, string][] = [["movs", "Novas movimentações", "Começam como compartilhadas. Você pode mudar em cada lançamento."], ["metas", "Novas metas", "Metas que você criar aparecem para Suelen e aceitam aportes dela."], ["invest", "Investimentos", "Suelen vê sua carteira além do consolidado do casal."], ["renda", "Renda mensal", "Suelen vê o valor da sua renda. Desligado, ela vê só a proporção usada na divisão."]];
+  const COMPL: [keyof Comp, string, string][] = [["movs", "Novas movimentações", "Começam como compartilhadas. Você pode mudar em cada lançamento."], ["metas", "Novas metas", "Metas que você criar aparecem para " + nomePar + " e aceitam aportes dos dois."], ["invest", "Investimentos", NomePar + " vê sua carteira além do consolidado do casal."], ["renda", "Renda mensal", NomePar + " vê o valor da sua renda. Desligado, ela vê só a proporção usada na divisão."]];
 
   // ---- preferências ------------------------------------------------------------------
   const p = s.prefs;
@@ -449,7 +453,7 @@ export default function Configuracoes() {
     { k: "limite", ic: IC.limite, label: "Limite mensal", desc: duo ? "Quando os gastos do casal se aproximam ou passam do limite." : "Quando seus gastos se aproximam ou passam do limite.", chips: p.limite ? [["80", "Aos 80% e aos 100%"], ["100", "Só ao estourar"]].map(([k, l]) => ({ label: l, on: p.limiteQuando === k, onClick: () => setP("limiteQuando", k) })) : null },
     { k: "meta", ic: IC.meta, label: "Meta perto da data alvo", desc: "Quando faltar 60 dias e o ritmo de aportes não for suficiente.", chips: null },
     { k: "email", ic: IC.convite, label: "E-mail semanal de resumo", desc: "Toda segunda às 8h, em " + (pf.email || EMAIL) + ".", chips: null },
-    ...(duo ? [{ k: "parceira" as const, ic: IC.duo, label: "Atividade de Suelen", desc: "Acertos, limites propostos e aportes que ela fizer nas metas do casal.", chips: null }] : []),
+    ...(duo ? [{ k: "parceira" as const, ic: IC.duo, label: "Atividade de " + nomePar, desc: "Acertos, limites propostos e aportes que ela fizer nas metas do casal.", chips: null }] : []),
   ];
   const TEMAS: [EscolhaTema, string, string, string, string, string][] = [["claro", "Claro", "Sempre claro", "#f5f6fb", "#ffffff", "rgba(28,31,43,.14)"], ["escuro", "Escuro", "Sempre escuro", "#0d0f16", "#1a1e28", "rgba(226,232,244,.18)"], ["auto", "Automático", "Segue o sistema", "linear-gradient(90deg, #f5f6fb 50%, #0d0f16 50%)", "linear-gradient(90deg, #ffffff 50%, #1a1e28 50%)", "rgba(111,92,240,.35)"]];
 
@@ -532,7 +536,7 @@ export default function Configuracoes() {
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <span style={ROTULO}>De quem é</span>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                  {([["gustavo", "Você"], ["suelen", "Suelen"]] as const).map(([k, label]) => {
+                  {([["gustavo", "Você"], ["suelen", NomePar]] as const).map(([k, label]) => {
                     const o = opcao(fAt.dono === k);
                     return (
                       <button key={k} type="button" aria-pressed={fAt.dono === k} onClick={() => setForm("ativo", "dono", k)} style={{ height: 48, padding: "0 12px", borderRadius: 14, border: `1px solid ${o.borda}`, background: o.bg, color: o.cor, fontSize: 13.5, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 9 }}>
@@ -580,9 +584,9 @@ export default function Configuracoes() {
               <div style={{ width: 100 }}><Gato cor={av[0]} tabby={av[1]} expressao="preocupado" /></div>
               <div style={{ width: 100, marginLeft: 10 }}><Gato cor="#e2a24f" tabby expressao="preocupado" /></div>
             </div>
-            <span style={{ fontFamily: SORA, fontSize: 23, letterSpacing: "-.03em" }}>Desvincular de Suelen?</span>
+            <span style={{ fontFamily: SORA, fontSize: 23, letterSpacing: "-.03em" }}>Desvincular de {nomePar}?</span>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", textAlign: "left" }}>
-              {["Cada um volta para uma conta Solo, com as próprias movimentações.", "A conta conjunta é encerrada. O saldo de " + fmt(4812.4) + " precisa ser dividido fora do Mimo.", "Metas do casal ficam arquivadas no histórico dos dois, com os aportes de cada um."].map((d) => (
+              {["Cada um volta para uma conta Solo, com as próprias movimentações.", "A conta conjunta é encerrada. " + (MODO_API ? "O saldo dela" : "O saldo de " + fmt(4812.4)) + " precisa ser dividido fora do Mimo.", "Metas do casal ficam arquivadas no histórico dos dois, com os aportes de cada um."].map((d) => (
                 <span key={d} style={{ display: "flex", gap: 10, padding: "11px 13px", borderRadius: 13, background: "var(--line-soft)", fontSize: 13, lineHeight: 1.5, color: "var(--ink2)" }}><span style={{ flex: "none", width: 6, height: 6, marginTop: 7, borderRadius: "50%", background: "var(--out)" }} />{d}</span>
               ))}
             </div>
@@ -706,7 +710,7 @@ export default function Configuracoes() {
                               </button>
                             ))}
                           </div>
-                          <span style={{ fontSize: 12, color: "var(--faint)" }}>{duo ? "Suelen vê o seu gato ao lado do dela." : "Aparece no topo e nas mensagens do Mimo."}</span>
+                          <span style={{ fontSize: 12, color: "var(--faint)" }}>{duo ? "Seu gato aparece ao lado do de " + nomePar + "." : "Aparece no topo e nas mensagens do Mimo."}</span>
                         </div>
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))", gap: 16 }}>
@@ -716,7 +720,7 @@ export default function Configuracoes() {
                       {emailMudou && (
                         <div style={{ display: "flex", gap: 10, padding: "12px 14px", borderRadius: 14, background: "var(--accent-soft)", fontSize: 12.5, lineHeight: 1.5, color: "var(--ink2)", animation: "mmDrop .25s ease both" }}>
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-ink)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flex: "none", marginTop: 1 }} aria-hidden="true"><path d="M3.5 6.5h17v11h-17z M3.5 7l8.5 6.5L20.5 7" /></svg>
-                          <span>Vamos enviar um código para o novo e-mail. Até você confirmar, o login continua com {EMAIL}.</span>
+                          <span>Vamos enviar um código para o novo e-mail. Até você confirmar, o login continua com {meuEmail}.</span>
                         </div>
                       )}
                       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "flex-end", gap: 12 }}>
@@ -726,7 +730,7 @@ export default function Configuracoes() {
                           up({ salvo: "perfil" });
                           const perfil = { nome: stt.forms.perfil.nome.trim(), email: stt.forms.perfil.email.trim(), avatar: stt.forms.perfil.avatar };
                           salvarAjustes("solo", perfil);
-                          salvarAjustes("duo", perfil); if (stt.forms.perfil.email.trim().toLowerCase() !== EMAIL) toast("Enviamos um código para " + stt.forms.perfil.email.trim() + "."); })} />
+                          salvarAjustes("duo", perfil); if (stt.forms.perfil.email.trim().toLowerCase() !== meuEmail) toast("Enviamos um código para " + stt.forms.perfil.email.trim() + "."); })} />
                       </div>
                     </div>
                     <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16, padding: "20px 24px", borderRadius: 24, border: `1px solid ${duo ? "var(--duo-line)" : "var(--solo-line)"}`, background: duo ? "var(--duo-soft)" : "var(--solo-soft)" }}>
@@ -756,7 +760,7 @@ export default function Configuracoes() {
                         <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 14, background: "var(--duo-soft)" }}>
                           <Avatar av="#e2a24f" ini="S" size={30} fs={12} />
                           <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-                            <span style={{ fontSize: 13, fontWeight: 700 }}>Renda de Suelen · {fmt(app.ajustes.rendaParceira)}</span>
+                            <span style={{ fontSize: 13, fontWeight: 700 }}>Renda de {nomePar} · {fmt(app.ajustes.rendaParceira)}</span>
                             <span style={{ fontSize: 12, color: "var(--muted2)" }}>Ela edita a própria renda nos ajustes dela.</span>
                           </span>
                         </div>
@@ -765,7 +769,7 @@ export default function Configuracoes() {
                         <span style={ROTULO}>{duo ? "Limite mensal do casal" : "Limite mensal de gastos"}</span>
                         <Moeda f={ff.limite} />
                         {ff.limite.erro && <span style={ERRO_CAMPO}>{ff.limite.erro}</span>}
-                        <span style={{ fontSize: 12, color: "var(--faint)" }}>{duo ? "Mudanças no limite do casal pedem a confirmação de Suelen." : "Quando os gastos passarem desse valor, o Mimo avisa."}</span>
+                        <span style={{ fontSize: 12, color: "var(--faint)" }}>{duo ? (MODO_API ? "O limite vale para os dois." : "Mudanças no limite do casal pedem a confirmação de Suelen.") : "Quando os gastos passarem desse valor, o Mimo avisa."}</span>
                       </label>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                         {([["fecha", "Fatura fecha no dia"], ["vence", "Fatura vence no dia"]] as const).map(([k, label]) => (
@@ -783,7 +787,7 @@ export default function Configuracoes() {
                         <BotaoEnvio env={env("fin")} label={env("fin") ? "Salvando…" : "Salvar"} style={{ minWidth: 150 }} onClick={() => enviar("fin", (stt) => {
                           up({ salvo: "fin" });
                           salvarAjustes(duoDe(stt) ? "duo" : "solo", { renda: numBR(stt.forms.fin.renda), limite: numBR(stt.forms.fin.limite), cartao: { fecha: Number(stt.forms.fin.fecha) || app.ajustes.cartao.fecha, vence: Number(stt.forms.fin.vence) || app.ajustes.cartao.vence } });
-                          if (duoDe(stt)) toast("Novo limite enviado para Suelen confirmar.");
+                          if (duoDe(stt) && !MODO_API) toast("Novo limite enviado para Suelen confirmar.");
                         })} />
                       </div>
                     </div>
@@ -1054,7 +1058,7 @@ export default function Configuracoes() {
               </div>
               {duo && (
                 <div style={{ display: "inline-flex", alignSelf: "flex-start", flexWrap: "wrap", gap: 4, padding: 4, borderRadius: 14, background: "var(--line-soft)" }}>
-                  {([["casal", "Casal", "linear-gradient(135deg, #4e9e79 50%, #e2a24f 50%)", ""], ["gustavo", "Você", "#4e9e79", "G"], ["suelen", "Suelen", "#e2a24f", "S"]] as const).map(([k, label, avc, ini]) => (
+                  {([["casal", "Casal", "linear-gradient(135deg, #4e9e79 50%, #e2a24f 50%)", ""], ["gustavo", "Você", "#4e9e79", "G"], ["suelen", NomePar, "#e2a24f", NomePar.charAt(0)]] as const).map(([k, label, avc, ini]) => (
                     <button key={k} type="button" aria-pressed={s.invView === k} onClick={() => up({ invView: k })} style={{ height: 38, padding: "0 14px 0 8px", borderRadius: 11, border: "none", ...segmento(s.invView === k), fontSize: 13, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
                       <Avatar av={avc} ini={ini} size={22} fs={10} />{label}
                     </button>
@@ -1088,7 +1092,7 @@ export default function Configuracoes() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 18, animation: "mmFade .35s ease both" }}>
                   <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: 18, alignItems: "stretch" }}>
                     <div style={{ ...CARTAO, padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
-                      <span style={OLHO}>{view === "casal" ? "Carteira do casal" : view === "suelen" ? "Carteira de Suelen" : "Sua carteira"}</span>
+                      <span style={OLHO}>{view === "casal" ? "Carteira do casal" : view === "suelen" ? "Carteira de " + nomePar : "Sua carteira"}</span>
                       <div style={{ display: "flex", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
                         <span key={view} style={{ fontFamily: SORA, fontSize: "clamp(34px, 11vw, 44px)", fontWeight: 300, letterSpacing: "-.045em", lineHeight: 1, animation: "mmFade .3s ease both" }}>{fmt(T.v)}</span>
                         <span style={{ marginBottom: 5, padding: "4px 10px", borderRadius: 999, border: `1px solid ${rcT.rLine}`, background: rcT.rBg, color: rcT.rCor, fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap" }}>{pc(rTot) + " no total"}</span>
@@ -1105,7 +1109,7 @@ export default function Configuracoes() {
                           </div>
                           <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 8, fontSize: 12.5, color: "var(--muted)" }}>
                             <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "#4e9e79" }} />Você <strong style={{ color: "var(--ink)" }}>{fmt(G.v, false)}</strong> · {pc(G.i ? G.v / G.i - 1 : 0)}</span>
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "#e2a24f" }} />Suelen <strong style={{ color: "var(--ink)" }}>{fmt(Sx.v, false)}</strong> · {pc(Sx.i ? Sx.v / Sx.i - 1 : 0)}</span>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "#e2a24f" }} />{NomePar} <strong style={{ color: "var(--ink)" }}>{fmt(Sx.v, false)}</strong> · {pc(Sx.i ? Sx.v / Sx.i - 1 : 0)}</span>
                           </div>
                         </div>
                       )}
@@ -1140,7 +1144,7 @@ export default function Configuracoes() {
                           </span>
                           <span style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
                             <span style={{ display: "flex", alignItems: "center", gap: 7, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.ticker}{a.novo && <span style={{ padding: "2px 7px", borderRadius: 999, background: "var(--accent-soft)", color: "var(--accent-ink)", fontSize: 10.5 }}>Novo</span>}</span>
-                            <span style={{ fontSize: 11.5, color: "var(--faint)" }}>{TIPOS[a.tipo][0] + (cp ? (a.tipo === "rf" ? "" : " · " + a.qtd + " cotas") : "") + (duo && view === "casal" ? " · " + (a.dono === "suelen" ? "Suelen" : "você") : "")}</span>
+                            <span style={{ fontSize: 11.5, color: "var(--faint)" }}>{TIPOS[a.tipo][0] + (cp ? (a.tipo === "rf" ? "" : " · " + a.qtd + " cotas") : "") + (duo && view === "casal" ? " · " + (a.dono === "suelen" ? nomePar : "você") : "")}</span>
                           </span>
                         </span>
                         {!cp && (
