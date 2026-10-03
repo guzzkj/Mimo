@@ -300,7 +300,9 @@ export default function FluxoAcesso() {
       if (x.senha.length < 8 || !/\d/.test(x.senha)) erros.senha = "Use pelo menos 8 caracteres, com um número.";
       if (Object.keys(erros).length) return up({ erros });
       return chamar(async () => {
-        await api.post("/auth/signup", { email: x.email.trim(), password: x.senha });
+        // Aceite dos Termos e da Política (base legal, LGPD art. 7º): o aviso fica
+        // visível no formulário e o envio registra o aceite com data e versão.
+        await api.post("/auth/signup", { email: x.email.trim(), password: x.senha, acceptedTerms: true });
         await recarregarSessao();
         ir("verificar", { cooldown: 30, senha: "", email: x.email.trim().toLowerCase() });
       }, { email: "email", password: "senha" });
@@ -978,7 +980,17 @@ export default function FluxoAcesso() {
                 </div>
               )}
 
-              {nota && <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, textAlign: "center", color: "var(--faint)", textWrap: "pretty" }}>{nota}</p>}
+              {nota && (
+                <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, textAlign: "center", color: "var(--faint)", textWrap: "pretty" }}>
+                  {t === "cadastro" ? (
+                    <>Ao criar a conta, você concorda com os{" "}
+                      <a href="/termos" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-ink)" }}>Termos de uso</a>{" "}
+                      e a{" "}
+                      <a href="/privacidade" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-ink)" }}>Política de Privacidade</a>.
+                    </>
+                  ) : nota}
+                </p>
+              )}
             </div>
           </div>
         )}
