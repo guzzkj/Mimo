@@ -2,8 +2,8 @@ import { and, eq, gt, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { defer, type AppEnv } from "../context";
-import { loginAttempts, users } from "../db/schema";
-import { ApiError } from "../errors";
+import { loginAttempts, sessions, users } from "../db/schema";
+import { ApiError, isUniqueViolation } from "../errors";
 import { emailSchema, passwordSchema, readJson } from "../http";
 import { currentUser, requireUser } from "../auth/access";
 import { clearSessionCookie, writeSessionCookie } from "../auth/cookies";
@@ -13,7 +13,6 @@ import {
 } from "../auth/tokens";
 import { passwordChangedMessage, resetPasswordMessage, verifyEmailMessage } from "../email/templates";
 import { createAccount, toUserDto } from "../domain/users";
-import { sessions } from "../db/schema";
 
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_FAILURES = 8;
@@ -37,8 +36,9 @@ export const authRoutes = new Hono<AppEnv>()
   .post("/signup", async (c) => {
     const body = await readJson(c, signupSchema);
     const db = c.get("db");
+    const duplicate = () => new ApiError("conflict", "Já existe uma conta com este e-mail. Tente entrar.", { fields: { email: "Já existe uma conta com este e-mail." } });
     const [exists] = await db.select({ id: users.id }).from(users).where(eq(users.email, body.email)).limit(1);
-    if (exists) throw new ApiError("conflict", "Já existe uma conta com este e-mail. Tente entrar.", { fields: { email: "Já existe uma conta com este e-mail." } });
+    if (exists) throw duplicate();
 
     const passwordHash = await hashPassword(body.password);
     const user = await db.transaction(async (tx) => {
@@ -46,6 +46,9 @@ export const authRoutes = new Hono<AppEnv>()
       // toda pessoa tem uma conta Solo; a Duo nasce no onboarding ou ao aceitar convite
       await createAccount(tx, "solo", created.id);
       return created;
+    }).catch((err: unknown) => {
+      // dois cadastros simultâneos com o mesmo e-mail: o segundo esbarra no índice único
+      throw isUniqueViolation(err) ? duplicate() : err;
     });
 
     const session = await createSession(db, user.id, c.req.header("user-agent"));

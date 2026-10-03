@@ -4,7 +4,7 @@ import type { AppEnv, Ctx } from "../context";
 import { accountMembers, accounts, notifications, users } from "../db/schema";
 import { readJson } from "../http";
 import { currentUser, requireVerifiedUser } from "../auth/access";
-import { listAccountsFor } from "../domain/users";
+import { listAccountsFor, revokePendingInvites } from "../domain/users";
 import { resolveAccountSettings, settingsPatchSchema } from "../domain/settings";
 import { ApiError } from "../errors";
 
@@ -66,6 +66,8 @@ export const accountRoutes = new Hono<AppEnv>()
     const db = c.get("db");
     await db.transaction(async (tx) => {
       await tx.update(accounts).set({ closedAt: new Date() }).where(eq(accounts.id, account.id));
+      // convite ainda pendente para a conta encerrada não pode mais ser aceito
+      await revokePendingInvites(tx, account.id);
       await tx.update(users).set({ plan: "solo", updatedAt: new Date() }).where(eq(users.id, me.userId));
       if (partner) {
         await tx.update(users).set({ plan: "solo", updatedAt: new Date() }).where(eq(users.id, partner.userId));

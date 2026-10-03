@@ -3,10 +3,9 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { AppEnv } from "../context";
 import { notificationReceipts, notifications } from "../db/schema";
-import { notFound } from "../errors";
+import { ApiError, notFound } from "../errors";
 import { param, parseWith, readJson, uuidSchema } from "../http";
 import { currentUser, loadAccess, requireVerifiedUser } from "../auth/access";
-import { ApiError } from "../errors";
 
 const listQuery = z.object({ accountId: uuidSchema.optional() });
 const receiptSchema = z.object({

@@ -10,7 +10,7 @@ import { currentUser, requireVerifiedUser } from "../auth/access";
 import { randomToken, sha256Hex } from "../auth/crypto";
 import { duoInviteMessage, inviteAcceptedMessage } from "../email/templates";
 import { notify } from "../domain/notify";
-import { findOpenDuoAccount, listAccountsFor } from "../domain/users";
+import { findOpenDuoAccount, listAccountsFor, revokePendingInvites } from "../domain/users";
 
 export const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const RESEND_SECONDS = 42;
@@ -57,7 +57,7 @@ export const accountInviteRoutes = new Hono<AppEnv>()
     const token = randomToken();
     const invite = await db.transaction(async (tx) => {
       // um convite pendente por vez: um novo substitui o anterior
-      await tx.update(invites).set({ status: "revoked", respondedAt: new Date() }).where(and(eq(invites.accountId, account.id), eq(invites.status, "pending")));
+      await revokePendingInvites(tx, account.id);
       const [row] = await tx.insert(invites).values({
         accountId: account.id, inviterId: me.userId, email: body.email, message: body.message || null,
         tokenHash: await sha256Hex(token), expiresAt: new Date(Date.now() + INVITE_TTL_MS),
@@ -142,14 +142,26 @@ export const inviteRoutes = new Hono<AppEnv>()
     assertOpen(invite);
     // o convite vale para o e-mail convidado (link encaminhado não dá acesso à conta do casal)
     if (invite.email !== user.email) throw new ApiError("forbidden", "Este convite foi enviado para outro e-mail. Entre com a conta desse e-mail para aceitar.");
-    if (await findOpenDuoAccount(db, user.id)) throw new ApiError("conflict", "Você já participa de uma conta Duo. Desvincule-a antes de aceitar outro convite.");
+    // Duo própria ainda sem par (ex.: escolheu Duo no onboarding e depois recebeu
+    // o convite) não impede o aceite: ela é encerrada no lugar. Com par, impede.
+    const openDuo = await findOpenDuoAccount(db, user.id);
+    if (openDuo && (openDuo === invite.accountId || (await memberCount(db, openDuo)) > 1)) {
+      throw new ApiError("conflict", "Você já participa de uma conta Duo. Desvincule-a antes de aceitar outro convite.");
+    }
 
     await db.transaction(async (tx) => {
+      // marca o convite primeiro: dois aceites simultâneos não passam os dois
+      const [claimed] = await tx.update(invites).set({ status: "accepted", respondedAt: new Date(), acceptedBy: user.id })
+        .where(and(eq(invites.id, invite.id), eq(invites.status, "pending"))).returning({ id: invites.id });
+      if (!claimed) throw new ApiError("conflict", "Este convite já foi respondido.");
       const [account] = await tx.select().from(accounts).where(eq(accounts.id, invite.accountId));
       if (!account || account.closedAt) throw new ApiError("gone", "A conta Duo deste convite foi encerrada.");
       if ((await memberCount(tx, invite.accountId)) >= 2) throw new ApiError("conflict", "Esta conta Duo já tem duas pessoas.");
+      if (openDuo) {
+        await tx.update(accounts).set({ closedAt: new Date() }).where(eq(accounts.id, openDuo));
+        await revokePendingInvites(tx, openDuo);
+      }
       await tx.insert(accountMembers).values({ accountId: invite.accountId, userId: user.id, role: "partner" });
-      await tx.update(invites).set({ status: "accepted", respondedAt: new Date(), acceptedBy: user.id }).where(eq(invites.id, invite.id));
       await tx.update(users).set({ plan: "duo", updatedAt: new Date() }).where(eq(users.id, user.id));
       await notify(tx, [{
         userId: invite.inviterId, accountId: invite.accountId, kind: "invite_accepted",

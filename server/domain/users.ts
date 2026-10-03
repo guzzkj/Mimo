@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import type { Db } from "../db/client";
-import { accountMembers, accounts, users } from "../db/schema";
+import { accountMembers, accounts, invites, users } from "../db/schema";
 import { defaultAccountSettings } from "./settings";
 
 type UserRow = typeof users.$inferSelect;
@@ -57,6 +57,12 @@ export async function findOpenDuoAccount(db: Db, userId: string) {
     .where(and(eq(accountMembers.userId, userId), eq(accounts.kind, "duo"), isNull(accounts.closedAt)))
     .limit(1);
   return row?.id ?? null;
+}
+
+/** Cancela o convite pendente de uma conta (no máximo um, pelo índice parcial). */
+export async function revokePendingInvites(db: Db, accountId: string) {
+  await db.update(invites).set({ status: "revoked", respondedAt: new Date() })
+    .where(and(eq(invites.accountId, accountId), eq(invites.status, "pending")));
 }
 
 /** Cria uma conta e coloca a pessoa como dona. */

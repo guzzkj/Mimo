@@ -41,5 +41,15 @@ export class ApiError extends Error {
   }
 }
 
-export const notFound = (what = "Recurso") => new ApiError("not_found", `${what} não encontrado.`);
+/** Violação de UNIQUE/PK do Postgres (o driver costuma embrulhar o erro em `cause`). */
+export function isUniqueViolation(err: unknown): boolean {
+  let current: unknown = err;
+  for (let depth = 0; current && depth < 4; depth++) {
+    if ((current as { code?: unknown }).code === "23505") return true;
+    current = (current as { cause?: unknown }).cause;
+  }
+  return false;
+}
+
+export const notFound =(what = "Recurso") => new ApiError("not_found", `${what} não encontrado.`);
 export const forbidden = (message = "Você não tem acesso a este recurso.") => new ApiError("forbidden", message);

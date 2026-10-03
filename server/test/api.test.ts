@@ -239,6 +239,32 @@ describe("duo", () => {
     expect((await gus.agent.get("/me")).json.user.plan).toBe("solo");
   });
 
+  test("accepting an invite closes the invitee's own Duo that has no partner yet", async () => {
+    const inviter = await api.signupVerified("conv-a@example.com", { name: "A", plan: "duo" });
+    await inviter.agent.post(`/accounts/${inviter.duo}/invites`, { email: "conv-b@example.com" });
+    const token = api.lastToken("conv-b@example.com");
+    // B escolheu Duo no onboarding (conta Duo vazia) e só depois foi aceitar
+    const b = await api.signupVerified("conv-b@example.com", { name: "B", plan: "duo" });
+    expect(b.duo).toBeTruthy();
+    expect(b.duo).not.toBe(inviter.duo);
+    const res = await b.agent.post("/invites/accept", { token });
+    expect(res.status).toBe(200);
+    const accounts = res.json.accounts as { id: string; kind: string; closed: boolean }[];
+    expect(accounts.find((a) => a.id === b.duo)?.closed).toBe(true);
+    expect(accounts.find((a) => a.id === inviter.duo)?.closed).toBe(false);
+  });
+
+  test("unlinking a Duo revokes its pending invite", async () => {
+    const owner = await api.signupVerified("unl-a@example.com", { name: "A", plan: "duo" });
+    await owner.agent.post(`/accounts/${owner.duo}/invites`, { email: "unl-b@example.com" });
+    const token = api.lastToken("unl-b@example.com");
+    expect((await owner.agent.post(`/accounts/${owner.duo}/unlink`)).status).toBe(200);
+    expect((await api.agent().get(`/invites/preview?token=${token}`)).json.status).toBe("revoked");
+    const b = await api.signupVerified("unl-b@example.com", { name: "B" });
+    expect((await b.agent.get("/me")).json.pendingInvites).toEqual([]);
+    expect((await b.agent.post("/invites/accept", { token })).status).toBe(410);
+  });
+
   test("deleting an account removes private entries from the shared account", async () => {
     const a = await api.signupVerified("del-a@example.com", { name: "A", plan: "duo" });
     await a.agent.post(`/accounts/${a.duo}/invites`, { email: "del-b@example.com" });
