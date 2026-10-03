@@ -8,6 +8,7 @@ import { timingSafeEqual } from "../auth/crypto";
 import { resolveMemberPrefs } from "../domain/settings";
 import { isHiddenFrom } from "../domain/transactions";
 import { notify } from "../domain/notify";
+import { pruneExpiredData } from "../domain/retention";
 import { billsDueMessage } from "../email/templates";
 import { pruneRateLimits } from "../rate-limit";
 
@@ -27,8 +28,9 @@ export const internalRoutes = new Hono<AppEnv>()
   /** Lembrete diário por e-mail das contas a pagar que vencem nos próximos dias (respeita as preferências). */
   .post("/reminders", async (c) => {
     const db = c.get("db");
-    // faxina diária: contadores de rate limit vencidos
+    // faxina diária: contadores de rate limit vencidos + retenção (LGPD art. 15/16)
     await pruneRateLimits(db);
+    await pruneExpiredData(db);
     const today = todayIso();
     const members = await db
       .select({ accountId: accountMembers.accountId, userId: accountMembers.userId, prefs: accountMembers.prefs, email: users.email })

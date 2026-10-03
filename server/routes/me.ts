@@ -9,6 +9,11 @@ import { currentUser, requireUser, requireVerifiedUser } from "../auth/access";
 import { clearSessionCookie } from "../auth/cookies";
 import { verifyPassword } from "../auth/crypto";
 import { ensureOpenDuoAccount, listAccountsFor, toUserDto } from "../domain/users";
+import { recordAudit } from "../domain/audit";
+import { CONSENT_PURPOSES, consentUpdateSchema, listConsents, setConsent } from "../domain/consent";
+import { exportUserData } from "../domain/export";
+import { PRIVACY_VERSION } from "../legal";
+import { clientIp } from "../rate-limit";
 
 const profileSchema = z.object({
   name: z.string().trim().min(1, "Como podemos te chamar?").max(60).optional(),
@@ -75,6 +80,37 @@ export const meRoutes = new Hono<AppEnv>()
     return c.json({ user: toUserDto(u), accounts: await listAccountsFor(db, user.id) });
   })
 
+  /** Consentimentos opcionais atuais (LGPD art. 8º). */
+  .get("/consents", requireUser, async (c) => {
+    const user = currentUser(c);
+    return c.json({ consents: await listConsents(c.get("db"), user.id) });
+  })
+
+  /** Concede ou revoga consentimentos opcionais (LGPD art. 18, IX). */
+  .put("/consents", requireUser, async (c) => {
+    const body = await readJson(c, consentUpdateSchema);
+    const user = currentUser(c);
+    const db = c.get("db");
+    for (const purpose of CONSENT_PURPOSES) {
+      const value = body[purpose];
+      if (value === undefined) continue;
+      await setConsent(db, user.id, purpose, value, PRIVACY_VERSION);
+      await recordAudit(db, { userId: user.id, action: "consent_updated", ip: clientIp(c), metadata: { purpose, granted: value } });
+    }
+    return c.json({ consents: await listConsents(db, user.id) });
+  })
+
+  /** Exportação dos dados pessoais em JSON (LGPD art. 18, V — portabilidade/acesso). */
+  .get("/export", requireUser, async (c) => {
+    const user = currentUser(c);
+    const db = c.get("db");
+    const data = await exportUserData(db, user.id);
+    if (!data) throw new ApiError("not_found", "Conta não encontrada.");
+    await recordAudit(db, { userId: user.id, action: "data_exported", ip: clientIp(c) });
+    c.header("Content-Disposition", `attachment; filename="mimo-meus-dados-${new Date().toISOString().slice(0, 10)}.json"`);
+    return c.json(data);
+  })
+
   /**
    * Exclusão da conta (LGPD). Apaga a pessoa e as contas em que ela é a única
    * participante. Numa conta Duo com par, a conta continua para o par, sem
@@ -103,6 +139,8 @@ export const meRoutes = new Hono<AppEnv>()
           ));
         }
       }
+      // registra antes de apagar: o FK (set null) preserva o registro de auditoria
+      await recordAudit(tx, { userId: user.id, action: "account_deleted", ip: clientIp(c) });
       await tx.delete(users).where(eq(users.id, user.id));
     });
     clearSessionCookie(c);

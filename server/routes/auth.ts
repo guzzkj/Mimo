@@ -13,6 +13,9 @@ import {
 } from "../auth/tokens";
 import { passwordChangedMessage, resetPasswordMessage, verifyEmailMessage } from "../email/templates";
 import { createAccount, toUserDto } from "../domain/users";
+import { recordAudit } from "../domain/audit";
+import { setConsent } from "../domain/consent";
+import { TERMS_VERSION, PRIVACY_VERSION } from "../legal";
 import { clientIp, consume, enforce, type Limit, type RateLimits } from "../rate-limit";
 import type { Db } from "../db/client";
 
@@ -23,6 +26,10 @@ const signupSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
   name: z.string().trim().max(60).optional(),
+  // Base legal: aceite obrigatório dos Termos e da Política (LGPD art. 7º).
+  acceptedTerms: z.literal(true, { error: "É preciso aceitar os Termos e a Política de Privacidade." }),
+  // Consentimento opcional e separado (LGPD art. 8º, §4º); padrão: não concedido.
+  marketingConsent: z.boolean().optional(),
 });
 const loginSchema = z.object({ email: emailSchema, password: z.string().min(1, "Digite sua senha.").max(128) });
 const tokenSchema = z.object({ token: z.string().min(10).max(100) });
@@ -70,14 +77,26 @@ export const authRoutes = new Hono<AppEnv>()
     if (exists) throw duplicate();
 
     const passwordHash = await hashPassword(body.password);
+    const now = new Date();
     const user = await db.transaction(async (tx) => {
-      const [created] = await tx.insert(users).values({ email: body.email, passwordHash, name: body.name ?? "" }).returning();
+      const [created] = await tx.insert(users).values({
+        email: body.email, passwordHash, name: body.name ?? "",
+        termsAcceptedAt: now, termsVersion: TERMS_VERSION,
+        privacyAcceptedAt: now, privacyVersion: PRIVACY_VERSION,
+      }).returning();
       // toda pessoa tem uma conta Solo; a Duo nasce no onboarding ou ao aceitar convite
       await createAccount(tx, "solo", created.id);
+      // consentimento opcional de marketing (separado da base legal do cadastro)
+      await setConsent(tx, created.id, "marketing", body.marketingConsent === true, PRIVACY_VERSION);
       return created;
     }).catch((err: unknown) => {
       // dois cadastros simultâneos com o mesmo e-mail: o segundo esbarra no índice único
       throw isUniqueViolation(err) ? duplicate() : err;
+    });
+
+    await recordAudit(db, {
+      userId: user.id, action: "signup", ip: clientIp(c),
+      metadata: { termsVersion: TERMS_VERSION, privacyVersion: PRIVACY_VERSION, marketingConsent: body.marketingConsent === true },
     });
 
     const session = await createSession(db, user.id, c.req.header("user-agent"));
@@ -167,6 +186,7 @@ export const authRoutes = new Hono<AppEnv>()
       .where(eq(users.id, userId)).returning();
     await deleteUserSessions(db, userId);
     clearSessionCookie(c);
+    await recordAudit(db, { userId, action: "password_reset", ip: clientIp(c) });
     defer(c, c.get("mailer").send({ to: user.email, ...passwordChangedMessage(c.env.APP_URL) }));
     return c.body(null, 204);
   })
@@ -182,6 +202,7 @@ export const authRoutes = new Hono<AppEnv>()
     // encerra as outras sessões; a atual continua
     const current = c.get("sessionId");
     await db.delete(sessions).where(and(eq(sessions.userId, user.id), current ? sql`${sessions.id} <> ${current}` : sql`true`));
+    await recordAudit(db, { userId: user.id, action: "password_changed", ip: clientIp(c) });
     defer(c, c.get("mailer").send({ to: user.email, ...passwordChangedMessage(c.env.APP_URL) }));
     return c.body(null, 204);
   });
