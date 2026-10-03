@@ -53,11 +53,11 @@ describe("signup rate limit (F-02)", () => {
   test(`blocks the ${DEFAULT_LIMITS.signupPerIp.max + 1}th signup from the same IP with 429 + Retry-After`, async () => {
     const max = DEFAULT_LIMITS.signupPerIp.max;
     for (let i = 0; i < max; i++) {
-      const res = await api.agent({ ip: "198.51.100.10" }).post("/auth/signup", { email: `bomb${i}@example.com`, password: "senha-forte-1" });
+      const res = await api.agent({ ip: "198.51.100.10" }).post("/auth/signup", { email: `bomb${i}@example.com`, password: "senha-forte-1", acceptedTerms: true });
       expect(res.status).toBe(201);
     }
     const sentBefore = api.sent.length;
-    const res = await api.agent({ ip: "198.51.100.10" }).post("/auth/signup", { email: "bomb-extra@example.com", password: "senha-forte-1" });
+    const res = await api.agent({ ip: "198.51.100.10" }).post("/auth/signup", { email: "bomb-extra@example.com", password: "senha-forte-1", acceptedTerms: true });
     expect(res.status).toBe(429);
     expect(res.json.error.code).toBe("too_many_requests");
     expect(Number(res.headers.get("retry-after"))).toBeGreaterThan(0);
@@ -65,15 +65,15 @@ describe("signup rate limit (F-02)", () => {
     expect(api.sent.length).toBe(sentBefore); // nenhum e-mail saiu
 
     // outra rede segue livre
-    expect((await api.agent({ ip: "198.51.100.11" }).post("/auth/signup", { email: "bomb-extra@example.com", password: "senha-forte-1" })).status).toBe(201);
+    expect((await api.agent({ ip: "198.51.100.11" }).post("/auth/signup", { email: "bomb-extra@example.com", password: "senha-forte-1", acceptedTerms: true })).status).toBe(201);
   });
 
   test("duplicate-email attempts also count (enumeration is throttled too)", async () => {
     const a = () => api.agent({ ip: "198.51.100.20" });
     for (let i = 0; i < DEFAULT_LIMITS.signupPerIp.max; i++) {
-      expect((await a().post("/auth/signup", { email: "bomb0@example.com", password: "senha-forte-1" })).status).toBe(409);
+      expect((await a().post("/auth/signup", { email: "bomb0@example.com", password: "senha-forte-1", acceptedTerms: true })).status).toBe(409);
     }
-    expect((await a().post("/auth/signup", { email: "bomb0@example.com", password: "senha-forte-1" })).status).toBe(429);
+    expect((await a().post("/auth/signup", { email: "bomb0@example.com", password: "senha-forte-1", acceptedTerms: true })).status).toBe(429);
   });
 });
 
@@ -144,7 +144,7 @@ describe("password reset / verification resend limits (F-04)", () => {
 
   test(`verify resend: ${DEFAULT_LIMITS.verifyResendPerUser.max + 1}th resend for the same person gets 429`, async () => {
     const a = api.agent();
-    expect((await a.post("/auth/signup", { email: "resend-user@example.com", password: "senha-forte-1" })).status).toBe(201);
+    expect((await a.post("/auth/signup", { email: "resend-user@example.com", password: "senha-forte-1", acceptedTerms: true })).status).toBe(201);
     for (let i = 0; i < DEFAULT_LIMITS.verifyResendPerUser.max; i++) {
       await ageVerifyTokens(); // pula o cooldown de 30s
       expect((await a.raw("POST", "/auth/verify-email/resend", {}, { "cf-connecting-ip": `203.0.113.${100 + i}` })).status).toBe(204);
@@ -159,7 +159,7 @@ describe("password reset / verification resend limits (F-04)", () => {
     const agents = [];
     for (let i = 0; i <= DEFAULT_LIMITS.verifyResendPerIp.max; i++) {
       const a = api.agent();
-      expect((await a.post("/auth/signup", { email: `resend-ip${i}@example.com`, password: "senha-forte-1" })).status).toBe(201);
+      expect((await a.post("/auth/signup", { email: `resend-ip${i}@example.com`, password: "senha-forte-1", acceptedTerms: true })).status).toBe(201);
       agents.push(a);
     }
     await ageVerifyTokens();

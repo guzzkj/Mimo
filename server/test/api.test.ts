@@ -15,7 +15,7 @@ const tx = (over: Record<string, unknown> = {}) => ({
 describe("auth", () => {
   test("signup creates a session, a solo account and sends the verification email", async () => {
     const a = api.agent();
-    const res = await a.post("/auth/signup", { email: "Ana@Example.com ", password: "mimo2026casa", name: "Ana" });
+    const res = await a.post("/auth/signup", { email: "Ana@Example.com ", password: "mimo2026casa", name: "Ana", acceptedTerms: true });
     expect(res.status).toBe(201);
     expect(res.json.user).toMatchObject({ email: "ana@example.com", emailVerified: false, onboarded: false });
     expect(a.cookie).toMatch(/^mimo_session=/);
@@ -41,8 +41,8 @@ describe("auth", () => {
 
   test("rejects duplicate emails and weak passwords", async () => {
     const a = api.agent();
-    expect((await a.post("/auth/signup", { email: "ana@example.com", password: "mimo2026casa" })).status).toBe(409);
-    const weak = await a.post("/auth/signup", { email: "fraca@example.com", password: "semnumero" });
+    expect((await a.post("/auth/signup", { email: "ana@example.com", password: "mimo2026casa", acceptedTerms: true })).status).toBe(409);
+    const weak = await a.post("/auth/signup", { email: "fraca@example.com", password: "semnumero", acceptedTerms: true });
     expect(weak.status).toBe(422);
     expect(weak.json.error.fields.password).toMatch(/8 caracteres/);
   });

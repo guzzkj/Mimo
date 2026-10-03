@@ -67,7 +67,7 @@ export async function setupApi(options: { limits?: Partial<RateLimits> } = {}) {
   /** Cadastra, confirma o e-mail e (opcional) faz o onboarding. */
   const signupVerified = async (email: string, opts: { name?: string; plan?: "solo" | "duo"; incomeCents?: number } = {}) => {
     const a = agent();
-    const res = await a.post("/auth/signup", { email, password: "senha-forte-1", name: opts.name });
+    const res = await a.post("/auth/signup", { email, password: "senha-forte-1", name: opts.name, acceptedTerms: true });
     if (res.status !== 201) throw new Error(`signup falhou: ${JSON.stringify(res.json)}`);
     await a.post("/auth/verify-email", { token: lastToken(email) });
     if (opts.plan) await a.post("/me/onboarding", { plan: opts.plan, name: opts.name ?? "Pessoa", monthlyIncomeCents: opts.incomeCents ?? 500000 });
