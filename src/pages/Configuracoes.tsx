@@ -919,6 +919,13 @@ export default function Configuracoes() {
                       fmt={(v) => fmt(v, false)}
                       onSalvo={() => toast("Orçamentos salvos. Categorias e o sino já usam os novos valores.")}
                     />
+                    <div style={{ ...CARTAO, padding: 24, display: "flex", alignItems: "center", gap: 16 }}>
+                      <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
+                        <span style={{ fontSize: 14, fontWeight: 700 }}>Exportar movimentações</span>
+                        <span style={{ fontSize: 12.5, lineHeight: 1.45, color: "var(--muted2)" }}>Um arquivo CSV com todas as movimentações, para abrir no Excel ou Planilhas.</span>
+                      </span>
+                      <button type="button" onClick={app.actions.exportarCsv} className="mm-h-sec" style={btnSec({ flex: "none", height: 42, padding: "0 16px", borderRadius: 13, fontSize: 13 })}>Exportar CSV</button>
+                    </div>
                   </div>
                 )}
 

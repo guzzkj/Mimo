@@ -1,5 +1,5 @@
 import {
-  ArrowLeftRight, Download, Eye, EyeOff, LayoutDashboard, Menu, PanelLeft, PieChart, Plus, Settings, Target, TrendingUp, Users,
+  ArrowLeftRight, Eye, EyeOff, LayoutDashboard, Menu, PanelLeft, PieChart, Plus, Settings, Target, TrendingUp, Users,
 } from "lucide-react";
 import { useCallback, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
@@ -31,23 +31,20 @@ interface Props {
   view?: View;
   /** Substitui os destinos do painel Solo (usado pela conta Duo). */
   nav?: DockNavItem[];
-  /** Substitui as ações à direita do separador (painel, privacidade, CSV, nova). */
+  /** Substitui as ações à direita do separador (painel, privacidade, nova). */
   ferramentas?: DockNavItem[];
-  /** Leva o "Exportar CSV" para "Mais" no mobile (padrão), para o dock caber. */
-  csvSoDesktop?: boolean;
   drawerOn?: boolean;
   privado?: boolean;
   onIr?: (view: View) => void;
   onTogglePainel?: () => void;
   onTogglePrivacidade?: () => void;
-  onExportarCsv?: () => void;
   onNova?: () => void;
   /** Conta e sino: no celular a Topbar some e eles vão para o menu. */
   menu?: MenuConta;
 }
 
 export function Dock({
-  view, nav, ferramentas, csvSoDesktop = true, drawerOn = false, privado = false, onIr, onTogglePainel, onTogglePrivacidade, onExportarCsv, onNova, menu,
+  view, nav, ferramentas, drawerOn = false, privado = false, onIr, onTogglePainel, onTogglePrivacidade, onNova, menu,
 }: Props) {
   const navigate = useNavigate();
   const plano = usePlano();
@@ -59,14 +56,13 @@ export function Dock({
     { id: "geral", label: "Visão geral", icon: <LayoutDashboard />, on: view === "geral", onClick: () => onIr?.("geral") },
     { id: "lista", label: "Movimentações", icon: <ArrowLeftRight />, on: view === "lista", onClick: () => onIr?.("lista") },
     { id: "categorias", label: "Categorias", icon: <PieChart />, on: view === "categorias", onClick: () => onIr?.("categorias") },
-    ...(plano === "duo" ? [{ id: "casal", label: "Visão do casal", icon: <Users />, on: false, extra: true, onClick: () => navigate("/duo") }] : []),
+    ...(plano === "duo" ? [{ id: "casal", label: "Visão Duo", icon: <Users />, on: false, extra: true, onClick: () => navigate("/duo") }] : []),
     { id: "metas", label: "Metas", icon: <Target />, on: false, extra: true, onClick: () => navigate("/metas") },
     { id: "investimentos", label: "Investimentos", icon: <TrendingUp />, on: false, extra: true, onClick: () => navigate("/investimentos") },
     { id: "config", label: "Configurações", icon: <Settings />, on: false, extra: true, onClick: () => navigate("/ajustes") },
   ];
 
-  // No celular, o que é "extra" (e o CSV, quando pedido) sai do dock e fica no menu.
-  const csvNoMais = !ferramentas && csvSoDesktop;
+  // No celular, o que é "extra" sai do dock e fica no menu.
   const maisAtivo = destinos.some((d) => d.extra && d.on);
   const novas = menu?.notificacoes.novas ?? 0;
 
@@ -100,12 +96,6 @@ export function Dock({
                   <EyeOff className="icone-oculto" />
                 </button>
               </div>
-              <div className={`dock__slot${csvSoDesktop ? " dock__slot--extra" : ""}`}>
-                <span className="dock__tip">Exportar CSV</span>
-                <button className="dock__button" type="button" title="Exportar CSV" aria-label="Exportar CSV" onClick={onExportarCsv}>
-                  <Download />
-                </button>
-              </div>
               <div className="dock__slot">
                 <span className="dock__tip">Nova movimentação</span>
                 <button className="dock__button dock__button--primary" type="button" title="Nova movimentação" aria-label="Nova movimentação" onClick={onNova}>
@@ -123,11 +113,9 @@ export function Dock({
           conta={menu}
           drawerOn={drawerOn}
           privado={privado}
-          csv={csvNoMais}
           onFechar={fecharMenu}
           onTogglePainel={ferramentas ? undefined : onTogglePainel}
           onTogglePrivacidade={ferramentas ? undefined : onTogglePrivacidade}
-          onExportarCsv={onExportarCsv}
         />
       )}
     </>
