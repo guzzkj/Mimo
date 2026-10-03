@@ -30,6 +30,13 @@ export const DEFAULT_LIMITS = {
   verifyResendPerIp: { max: 5, windowSeconds: 15 * 60 },
   /** Reenvios do e-mail de confirmação por pessoa (o endereço pode ser de terceiros). */
   verifyResendPerUser: { max: 5, windowSeconds: 60 * 60 },
+  // Login: contam só falhas, direto de login_attempts (routes/auth.ts).
+  /** Falhas por e-mail + IP: trava quem erra, sem trancar a vítima em outras redes. */
+  loginPerEmailIp: { max: 8, windowSeconds: 15 * 60 },
+  /** Falhas por IP em qualquer e-mail (credential stuffing). */
+  loginPerIp: { max: 30, windowSeconds: 15 * 60 },
+  /** Teto global por e-mail, contra força bruta distribuída em muitos IPs. */
+  loginPerEmail: { max: 50, windowSeconds: 15 * 60 },
 } satisfies Record<string, Limit>;
 
 export type RateLimits = { [K in keyof typeof DEFAULT_LIMITS]: Limit };

@@ -76,8 +76,11 @@ Isolates do Workers não compartilham memória, então os limites da aplicação
 | `POST /auth/password/forgot` | 5 e-mails por hora | endereço (silencioso: segue 202, só não envia) |
 | `POST /auth/verify-email/resend` | 5 a cada 15 min | IP |
 | `POST /auth/verify-email/resend` | 5 por hora | pessoa |
+| `POST /auth/login` (falhas) | 8 a cada 15 min | e-mail + IP: trava quem erra sem trancar a dona da conta em outra rede |
+| `POST /auth/login` (falhas) | 30 a cada 15 min | IP, em qualquer e-mail (credential stuffing) |
+| `POST /auth/login` (falhas) | 50 a cada 15 min | e-mail, de qualquer IP (força bruta distribuída) |
 
-Os limites padrão estão em `DEFAULT_LIMITS`; os testes podem sobrescrever via `createApp({ limits })`. Os cooldowns por pessoa/convite (reenvio em 30–42s) continuam valendo.
+As falhas de login são contadas direto em `login_attempts` (antes do PBKDF2) e o bloqueio é idêntico para e-mail com ou sem conta. Os limites padrão estão em `DEFAULT_LIMITS`; os testes podem sobrescrever via `createApp({ limits })`. Os cooldowns por pessoa/convite (reenvio em 30–42s) continuam valendo.
 
 Camada complementar (configurar no deploy): regras de **Rate limiting** do WAF da Cloudflare para `/api/auth/*` e `/api/accounts/*/invites`, que barram floods antes de chegarem à Function e ao banco.
 

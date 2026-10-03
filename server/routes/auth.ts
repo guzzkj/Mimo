@@ -1,4 +1,4 @@
-import { and, eq, gt, sql } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { defer, type AppEnv } from "../context";
@@ -13,10 +13,9 @@ import {
 } from "../auth/tokens";
 import { passwordChangedMessage, resetPasswordMessage, verifyEmailMessage } from "../email/templates";
 import { createAccount, toUserDto } from "../domain/users";
-import { clientIp, consume, enforce } from "../rate-limit";
+import { clientIp, consume, enforce, type Limit, type RateLimits } from "../rate-limit";
+import type { Db } from "../db/client";
 
-const LOGIN_WINDOW_MS = 15 * 60 * 1000;
-const LOGIN_MAX_FAILURES = 8;
 const VERIFY_RESEND_SECONDS = 30;
 const RESET_RESEND_SECONDS = 42;
 
@@ -30,6 +29,35 @@ const tokenSchema = z.object({ token: z.string().min(10).max(100) });
 const forgotSchema = z.object({ email: emailSchema });
 const resetSchema = z.object({ token: z.string().min(10).max(100), password: passwordSchema });
 const changePasswordSchema = z.object({ currentPassword: z.string().min(1).max(128), newPassword: passwordSchema });
+
+/**
+ * Trava de login por falhas recentes, em três chaves (todas antes do PBKDF2):
+ * e-mail + IP (quem erra fica travado, a vítima em outra rede não), IP em
+ * qualquer e-mail (credential stuffing) e um teto alto por e-mail (força
+ * bruta distribuída). Vale igual para e-mail com ou sem conta: não enumera.
+ */
+async function assertLoginAllowed(db: Db, limits: RateLimits, email: string, ip: string) {
+  const failedWithin = (limit: Limit) => sql`${loginAttempts.createdAt} > now() - (${limit.windowSeconds}::int * interval '1 second')`;
+  const longest = Math.max(limits.loginPerEmailIp.windowSeconds, limits.loginPerIp.windowSeconds, limits.loginPerEmail.windowSeconds);
+  const [counts] = await db.select({
+    pair: sql<number>`count(*) filter (where ${loginAttempts.email} = ${email} and ${loginAttempts.ip} = ${ip} and ${failedWithin(limits.loginPerEmailIp)})::int`,
+    byIp: sql<number>`count(*) filter (where ${loginAttempts.ip} = ${ip} and ${failedWithin(limits.loginPerIp)})::int`,
+    byEmail: sql<number>`count(*) filter (where ${loginAttempts.email} = ${email} and ${failedWithin(limits.loginPerEmail)})::int`,
+  }).from(loginAttempts).where(and(
+    eq(loginAttempts.success, false),
+    sql`${loginAttempts.createdAt} > now() - (${longest}::int * interval '1 second')`,
+    or(eq(loginAttempts.email, email), eq(loginAttempts.ip, ip)),
+  ));
+  const checks: Array<[number, Limit]> = [
+    [Number(counts.pair), limits.loginPerEmailIp],
+    [Number(counts.byIp), limits.loginPerIp],
+    [Number(counts.byEmail), limits.loginPerEmail],
+  ];
+  const hit = checks.find(([failures, limit]) => failures >= limit.max);
+  if (hit) {
+    throw new ApiError("too_many_requests", "Muitas tentativas. Espere alguns minutos ou redefina a senha.", { retryAfter: hit[1].windowSeconds });
+  }
+}
 
 export const authRoutes = new Hono<AppEnv>()
   .post("/signup", async (c) => {
@@ -65,17 +93,13 @@ export const authRoutes = new Hono<AppEnv>()
   .post("/login", async (c) => {
     const body = await readJson(c, loginSchema);
     const db = c.get("db");
-    const since = new Date(Date.now() - LOGIN_WINDOW_MS);
-    const [{ failures }] = await db.select({ failures: sql<number>`count(*)::int` }).from(loginAttempts)
-      .where(and(eq(loginAttempts.email, body.email), eq(loginAttempts.success, false), gt(loginAttempts.createdAt, since)));
-    if (failures >= LOGIN_MAX_FAILURES) {
-      throw new ApiError("too_many_requests", "Muitas tentativas. Espere alguns minutos ou redefina a senha.", { retryAfter: LOGIN_WINDOW_MS / 1000 });
-    }
+    const ip = clientIp(c);
+    await assertLoginAllowed(db, c.get("limits"), body.email, ip);
 
     const [user] = await db.select().from(users).where(eq(users.email, body.email)).limit(1);
     // mesmo sem usuário, roda o PBKDF2: o tempo de resposta não revela quem tem conta
     const ok = await verifyPassword(body.password, user?.passwordHash ?? await getDummyHash());
-    await db.insert(loginAttempts).values({ email: body.email, ip: clientIp(c), success: Boolean(user && ok) });
+    await db.insert(loginAttempts).values({ email: body.email, ip, success: Boolean(user && ok) });
     if (!user || !ok) throw new ApiError("unauthenticated", "E-mail ou senha não conferem. Confira e tente de novo.");
 
     const session = await createSession(db, user.id, c.req.header("user-agent"));

@@ -84,14 +84,17 @@ export const emailTokens = pgTable("email_tokens", {
   index("email_tokens_user_purpose_idx").on(t.userId, t.purpose, t.createdAt),
 ]);
 
-/** Tentativas de login, para travar força bruta por e-mail. */
+/** Tentativas de login, para travar força bruta (por e-mail + IP, por IP e por e-mail). */
 export const loginAttempts = pgTable("login_attempts", {
   id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
   email: text("email").notNull(),
   ip: text("ip"),
   success: boolean("success").notNull(),
   createdAt: createdAt(),
-}, (t) => [index("login_attempts_email_idx").on(t.email, t.createdAt)]);
+}, (t) => [
+  index("login_attempts_email_idx").on(t.email, t.createdAt),
+  index("login_attempts_ip_idx").on(t.ip, t.createdAt),
+]);
 
 /**
  * Contadores de rate limit em janela fixa (server/rate-limit.ts). Workers não

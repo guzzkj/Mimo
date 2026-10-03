@@ -168,3 +168,54 @@ describe("password reset / verification resend limits (F-04)", () => {
     expect((await agents.at(-1)!.raw("POST", "/auth/verify-email/resend", {}, shared)).status).toBe(429);
   });
 });
+
+describe("login lockout (F-07)", () => {
+  const login = (ip: string, email: string, password: string) => api.agent({ ip }).post("/auth/login", { email, password });
+
+  test("failures lock email + attacker IP only; the victim still logs in from another IP", async () => {
+    await api.signupVerified("victim@example.com");
+    for (let i = 0; i < DEFAULT_LIMITS.loginPerEmailIp.max; i++) {
+      expect((await login("198.18.0.1", "victim@example.com", "errada123")).status).toBe(401);
+    }
+    const attacker = await login("198.18.0.1", "victim@example.com", "senha-forte-1");
+    expect(attacker.status).toBe(429);
+    expect(attacker.headers.get("retry-after")).toBe(String(DEFAULT_LIMITS.loginPerEmailIp.windowSeconds));
+
+    expect((await login("198.18.0.2", "victim@example.com", "senha-forte-1")).status).toBe(200);
+    // o atacante ainda pode tentar outros e-mails (até o limite por IP)
+    expect((await login("198.18.0.1", "someone-else@example.com", "errada123")).status).toBe(401);
+  });
+
+  test(`per-IP limit across e-mails (credential stuffing): blocked after ${DEFAULT_LIMITS.loginPerIp.max} failures`, async () => {
+    await api.signupVerified("stuffed@example.com");
+    for (let i = 0; i < DEFAULT_LIMITS.loginPerIp.max; i++) {
+      expect((await login("198.18.1.1", `list${i}@example.com`, "errada123")).status).toBe(401);
+    }
+    // bloqueio idêntico para e-mail com e sem conta (não enumera)
+    const existing = await login("198.18.1.1", "stuffed@example.com", "senha-forte-1");
+    const missing = await login("198.18.1.1", "nobody-here@example.com", "senha-forte-1");
+    expect(existing.status).toBe(429);
+    expect(missing.status).toBe(429);
+    expect(existing.json).toEqual(missing.json);
+    expect(existing.headers.get("retry-after")).toBe(missing.headers.get("retry-after"));
+
+    expect((await login("198.18.1.2", "stuffed@example.com", "senha-forte-1")).status).toBe(200);
+  });
+
+  test(`global per-email ceiling (${DEFAULT_LIMITS.loginPerEmail.max} failures from many IPs) still stops distributed brute force`, async () => {
+    await api.signupVerified("distributed@example.com");
+    const perIp = DEFAULT_LIMITS.loginPerEmailIp.max - 1;
+    for (let i = 0; i < DEFAULT_LIMITS.loginPerEmail.max; i++) {
+      expect((await login(`198.18.2.${Math.floor(i / perIp)}`, "distributed@example.com", "errada123")).status).toBe(401);
+    }
+    const res = await login("198.18.3.1", "distributed@example.com", "senha-forte-1");
+    expect(res.status).toBe(429);
+    // mesma resposta para quem não tem conta, depois do mesmo volume
+    for (let i = 0; i < DEFAULT_LIMITS.loginPerEmail.max; i++) {
+      await login(`198.18.4.${Math.floor(i / perIp)}`, "distributed-ghost@example.com", "errada123");
+    }
+    const ghost = await login("198.18.3.1", "distributed-ghost@example.com", "senha-forte-1");
+    expect(ghost.status).toBe(429);
+    expect(ghost.json).toEqual(res.json);
+  });
+});
