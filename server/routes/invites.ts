@@ -1,7 +1,7 @@
 import { and, count, desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
-import { defer, type AppEnv } from "../context";
+import { defer, type AppEnv, type Ctx } from "../context";
 import type { Db } from "../db/client";
 import { accountMembers, accounts, invites, users } from "../db/schema";
 import { ApiError, notFound } from "../errors";
@@ -11,6 +11,15 @@ import { randomToken, sha256Hex } from "../auth/crypto";
 import { duoInviteMessage, inviteAcceptedMessage } from "../email/templates";
 import { notify } from "../domain/notify";
 import { findOpenDuoAccount, listAccountsFor, revokePendingInvites } from "../domain/users";
+import { clientIp, enforce } from "../rate-limit";
+
+const INVITE_LIMIT_MESSAGE = "Muitos convites enviados. Espere um pouco antes de enviar outro.";
+
+/** Cada envio de convite (novo ou reenvio) conta na conta e no IP. */
+async function limitInviteSends(c: Ctx, accountId: string) {
+  await enforce(c, "invitePerIp", clientIp(c), INVITE_LIMIT_MESSAGE);
+  await enforce(c, "invitePerAccount", accountId, INVITE_LIMIT_MESSAGE);
+}
 
 export const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const RESEND_SECONDS = 42;
@@ -53,6 +62,7 @@ export const accountInviteRoutes = new Hono<AppEnv>()
     if (body.email === me.email) {
       throw new ApiError("validation_failed", "Esse é o seu próprio e-mail. Use o e-mail do(a) parceiro(a).", { fields: { email: "Esse é o seu próprio e-mail. Use o e-mail do(a) parceiro(a)." } });
     }
+    await limitInviteSends(c, account.id);
     const db = c.get("db");
     const token = randomToken();
     const invite = await db.transaction(async (tx) => {
@@ -88,6 +98,7 @@ export const accountInviteRoutes = new Hono<AppEnv>()
     if (invite.status !== "pending") throw new ApiError("conflict", "Este convite já foi respondido ou cancelado.");
     const wait = Math.ceil(RESEND_SECONDS - (Date.now() - invite.lastSentAt.getTime()) / 1000);
     if (wait > 0) throw new ApiError("too_many_requests", `Espere ${wait}s para reenviar.`, { retryAfter: wait });
+    await limitInviteSends(c, account.id);
     const token = randomToken();
     const [row] = await db.update(invites).set({
       tokenHash: await sha256Hex(token), lastSentAt: new Date(), expiresAt: new Date(Date.now() + INVITE_TTL_MS),

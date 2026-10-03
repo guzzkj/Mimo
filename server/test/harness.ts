@@ -1,19 +1,27 @@
 import { createApp } from "../app";
 import { createMemoryMailer } from "../email/mailer";
 import type { Env } from "../env";
+import type { RateLimits } from "../rate-limit";
 import { createTestDb } from "./db";
 
 export const ORIGIN = "http://localhost:5173";
 
-export async function setupApi() {
+export async function setupApi(options: { limits?: Partial<RateLimits> } = {}) {
   const { db, close } = await createTestDb();
   const { mailer, sent } = createMemoryMailer();
-  const app = createApp({ db: () => ({ db, close: async () => {} }), mailer: () => mailer });
+  const app = createApp({ db: () => ({ db, close: async () => {} }), mailer: () => mailer, limits: options.limits });
   const env: Env = { DATABASE_URL: "", EMAIL_FROM: "Mimo <teste@mimo.test>", APP_URL: ORIGIN, APP_ENV: "development", CRON_SECRET: "segredo-de-teste" };
 
-  /** Cliente com "pote de cookies" próprio, como um navegador. */
-  const agent = () => {
+  let nextIp = 0;
+  /**
+   * Cliente com "pote de cookies" próprio, como um navegador. Cada agente vem
+   * de um IP distinto (cf-connecting-ip), para os limites por IP não vazarem
+   * entre testes; passe `ip` para simular várias abas na mesma rede.
+   */
+  const agent = (opts: { ip?: string } = {}) => {
     let cookie = "";
+    nextIp++;
+    const ip = opts.ip ?? `10.${(nextIp >> 16) & 255}.${(nextIp >> 8) & 255}.${nextIp & 255}`;
     const request = async (method: string, path: string, body?: unknown, headers: Record<string, string> = {}) => {
       const res = await app.request(`/api${path}`, {
         method,
@@ -21,6 +29,7 @@ export async function setupApi() {
           ...(method === "GET" ? {} : { origin: ORIGIN }),
           ...(body !== undefined ? { "content-type": "application/json" } : {}),
           ...(cookie ? { cookie } : {}),
+          "cf-connecting-ip": ip,
           ...headers,
         },
         body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -42,6 +51,7 @@ export async function setupApi() {
       put: (path: string, body: unknown) => request("PUT", path, body),
       del: (path: string, body?: unknown) => request("DELETE", path, body),
       raw: request,
+      ip,
       get cookie() { return cookie; },
     };
   };

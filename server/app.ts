@@ -4,6 +4,7 @@ import { createNeonDb, type DbHandle } from "./db/client";
 import { createResendMailer, type Mailer } from "./email/mailer";
 import type { Env } from "./env";
 import { ApiError } from "./errors";
+import { DEFAULT_LIMITS, type RateLimits } from "./rate-limit";
 import { requireAccountAccess } from "./auth/access";
 import { readSessionCookie, writeSessionCookie } from "./auth/cookies";
 import { resolveSession } from "./auth/tokens";
@@ -22,6 +23,8 @@ export interface AppOptions {
   /** Fábrica do banco por requisição (testes injetam PGlite). */
   db?: (env: Env) => DbHandle;
   mailer?: (env: Env) => Mailer;
+  /** Sobrescreve limites de taxa (testes); produção usa DEFAULT_LIMITS. */
+  limits?: Partial<RateLimits>;
 }
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -32,6 +35,7 @@ export function createApp(options: AppOptions = {}) {
     return createNeonDb(env.DATABASE_URL);
   });
   const makeMailer = options.mailer ?? ((env: Env) => createResendMailer(env));
+  const limits: RateLimits = { ...DEFAULT_LIMITS, ...options.limits };
 
   const app = new Hono<AppEnv>().basePath("/api");
 
@@ -72,6 +76,7 @@ export function createApp(options: AppOptions = {}) {
     const handle = makeDb(c.env);
     c.set("db", handle.db);
     c.set("mailer", makeMailer(c.env));
+    c.set("limits", limits);
     try {
       await next();
     } finally {

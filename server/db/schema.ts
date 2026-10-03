@@ -93,6 +93,17 @@ export const loginAttempts = pgTable("login_attempts", {
   createdAt: createdAt(),
 }, (t) => [index("login_attempts_email_idx").on(t.email, t.createdAt)]);
 
+/**
+ * Contadores de rate limit em janela fixa (server/rate-limit.ts). Workers não
+ * compartilham memória entre isolates, então o contador vive no Postgres.
+ * `key` = "<bucket>:<sha256 do sujeito>" (IP, conta, e-mail...); limpo pelo job diário.
+ */
+export const rateLimits = pgTable("rate_limits", {
+  key: text("key").primaryKey(),
+  count: integer("count").notNull(),
+  windowStart: timestamp("window_start", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("rate_limits_window_idx").on(t.windowStart)]);
+
 // ---- contas (Solo e Duo) --------------------------------------------------------
 
 export const accounts = pgTable("accounts", {

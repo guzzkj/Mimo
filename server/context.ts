@@ -4,6 +4,7 @@ import type { Mailer } from "./email/mailer";
 import type { Env } from "./env";
 import type { SessionUser } from "./auth/tokens";
 import type { AccountAccess } from "./auth/access";
+import type { RateLimits } from "./rate-limit";
 
 export interface AppEnv {
   Bindings: Env;
@@ -13,6 +14,7 @@ export interface AppEnv {
     user: SessionUser | null;
     sessionId: string | null;
     access: AccountAccess;
+    limits: RateLimits;
   };
 }
 

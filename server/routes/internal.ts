@@ -9,6 +9,7 @@ import { resolveMemberPrefs } from "../domain/settings";
 import { isHiddenFrom } from "../domain/transactions";
 import { notify } from "../domain/notify";
 import { billsDueMessage } from "../email/templates";
+import { pruneRateLimits } from "../rate-limit";
 
 // Endpoints chamados por um agendador externo (Pages Functions não têm Cron
 // Triggers). Protegidos por "Authorization: Bearer <CRON_SECRET>".
@@ -26,6 +27,8 @@ export const internalRoutes = new Hono<AppEnv>()
   /** Lembrete diário por e-mail das contas a pagar que vencem nos próximos dias (respeita as preferências). */
   .post("/reminders", async (c) => {
     const db = c.get("db");
+    // faxina diária: contadores de rate limit vencidos
+    await pruneRateLimits(db);
     const today = todayIso();
     const members = await db
       .select({ accountId: accountMembers.accountId, userId: accountMembers.userId, prefs: accountMembers.prefs, email: users.email })

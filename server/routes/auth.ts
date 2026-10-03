@@ -13,6 +13,7 @@ import {
 } from "../auth/tokens";
 import { passwordChangedMessage, resetPasswordMessage, verifyEmailMessage } from "../email/templates";
 import { createAccount, toUserDto } from "../domain/users";
+import { clientIp, enforce } from "../rate-limit";
 
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_FAILURES = 8;
@@ -30,11 +31,11 @@ const forgotSchema = z.object({ email: emailSchema });
 const resetSchema = z.object({ token: z.string().min(10).max(100), password: passwordSchema });
 const changePasswordSchema = z.object({ currentPassword: z.string().min(1).max(128), newPassword: passwordSchema });
 
-const clientIp = (c: { req: { header: (n: string) => string | undefined } }) => c.req.header("cf-connecting-ip") ?? null;
-
 export const authRoutes = new Hono<AppEnv>()
   .post("/signup", async (c) => {
     const body = await readJson(c, signupSchema);
+    // conta toda tentativa (inclusive e-mail repetido): freia spam de e-mails de confirmação
+    await enforce(c, "signupPerIp", clientIp(c), "Muitos cadastros a partir desta rede. Tente de novo mais tarde.");
     const db = c.get("db");
     const duplicate = () => new ApiError("conflict", "Já existe uma conta com este e-mail. Tente entrar.", { fields: { email: "Já existe uma conta com este e-mail." } });
     const [exists] = await db.select({ id: users.id }).from(users).where(eq(users.email, body.email)).limit(1);

@@ -61,6 +61,22 @@ Pages Functions não têm Cron Triggers. Agende uma chamada diária (Worker com 
 curl -X POST https://SEU-DOMINIO/api/internal/reminders -H "Authorization: Bearer $CRON_SECRET"
 ```
 
+O mesmo job faz a faxina dos contadores de rate limit vencidos (tabela `rate_limits`, linhas com mais de 24h).
+
+## Rate limiting
+
+Isolates do Workers não compartilham memória, então os limites da aplicação ficam no Postgres (`server/rate-limit.ts`, tabela `rate_limits`): janela fixa por chave, contada com um único `INSERT ... ON CONFLICT DO UPDATE ... RETURNING` (atômico entre requisições concorrentes). A chave guarda só o SHA-256 do sujeito (IP, conta, e-mail). O IP vem de `cf-connecting-ip` (definido pela borda da Cloudflare); IPv6 conta pelo prefixo /64. Sem o cabeçalho (dev local), tudo cai no balde `unknown`. Estouro responde `429 too_many_requests` com `Retry-After` (segundos até a janela reabrir).
+
+| Ação | Limite | Chave |
+|---|---|---|
+| `POST /auth/signup` | 5 por hora | IP (conta também tentativas com e-mail repetido) |
+| Convite: criar ou reenviar | 10 por hora | conta Duo |
+| Convite: criar ou reenviar | 20 por hora | IP |
+
+Os limites padrão estão em `DEFAULT_LIMITS`; os testes podem sobrescrever via `createApp({ limits })`. Os cooldowns por pessoa/convite (reenvio em 30–42s) continuam valendo.
+
+Camada complementar (configurar no deploy): regras de **Rate limiting** do WAF da Cloudflare para `/api/auth/*` e `/api/accounts/*/invites`, que barram floods antes de chegarem à Function e ao banco.
+
 ## Endpoints
 
 Auth: `POST /api/auth/{signup,login,logout,verify-email,verify-email/resend,password/forgot,password/reset,password/change}`
