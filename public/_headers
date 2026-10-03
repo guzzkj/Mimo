@@ -1,7 +1,12 @@
 # Cabeçalhos de segurança do Cloudflare Pages para o app estático.
+# CSP: o único script inline é o bootstrap de tema em index.html (liberado por
+# hash). Se esse script mudar, recalcule o hash (sha256 base64 do conteúdo).
+# Fontes do Google (CSS em googleapis, arquivos em gstatic) são as únicas origens
+# externas; connect-src 'self' cobre a API em /api no mesmo domínio.
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
   Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-rT9lfVDnkRdzP8WdpGxaPg/8saooGHqkk1VvgcNiVNw=' 'sha256-7WYVyYlg0XDZxEB+Gg+EjNvToOaH+gDnS87sYrWEwY0='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
