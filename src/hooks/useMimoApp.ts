@@ -144,11 +144,28 @@ export function useMimoApp(opcoes: OpcoesMimoApp = {}) {
   const sincRef = useRef<ReturnType<typeof criarSincronizador> | null>(null);
   const avisarRef = useRef(avisar);
   useEffect(() => { avisarRef.current = avisar; });
+  const recarregarRef = useRef<(() => void) | null>(null);
+
+  // Backend real: antes de a lista chegar do servidor (ou se a carga falhou)
+  // não há base para o diff, e a mudança se perderia em silêncio. Bloqueia,
+  // avisa e tenta carregar de novo.
+  const podeGravar = useCallback(() => {
+    if (!MODO_API || enviadoRef.current) return true;
+    avisarRef.current("Seus dados ainda estão carregando. Tente de novo em instantes.", "#mimo-gato-preocupado");
+    recarregarRef.current?.();
+    return false;
+  }, []);
 
   useEffect(() => {
     const r = remotaRef.current;
     if (!chaveRemota || !r) return;
     let vivo = true;
+    // Troca de conta sem desmontar (ex.: Configurações Solo <-> Duo): a lista e
+    // a base do diff passam a ser as desta conta, senão uma mudança feita antes
+    // da carga terminar seria enviada para a conta errada.
+    const emCache = itensEmCache(r.contaId);
+    enviadoRef.current = emCache;
+    setState((s) => (emCache && s.itens === emCache ? s : { ...s, itens: emCache ?? [] }));
     const recarregar = () => carregarMovimentacoes(r)
       .then((itens) => {
         if (!vivo) return;
@@ -169,8 +186,9 @@ export function useMimoApp(opcoes: OpcoesMimoApp = {}) {
       avisarRef.current(`${mensagemDeErro(e)} Recarregando seus dados…`, "#mimo-gato-preocupado");
       recarregar();
     });
+    recarregarRef.current = recarregar;
     recarregar();
-    return () => { vivo = false; sincRef.current = null; };
+    return () => { vivo = false; sincRef.current = null; recarregarRef.current = null; };
   }, [chaveRemota]);
 
   useEffect(() => {
@@ -225,9 +243,10 @@ export function useMimoApp(opcoes: OpcoesMimoApp = {}) {
   const ehDoPar = useCallback((item: Item | undefined) => Boolean(item && privadosDe && item.privado && item.quem === privadosDe), [privadosDe]);
 
   const gravar = useCallback((itens: Item[]) => {
+    if (!podeGravar()) return;
     persistir(itens, storageKey);
     setState((s) => ({ ...s, itens }));
-  }, [storageKey]);
+  }, [storageKey, podeGravar]);
 
   // Navegação de view/mês -------------------------------------------------
 
@@ -294,6 +313,7 @@ export function useMimoApp(opcoes: OpcoesMimoApp = {}) {
   // temporários, persistência e aviso ficam fora do updater do setState, que
   // pode rodar mais de uma vez (StrictMode) ou depois deste handler.
   const salvar = useCallback(() => {
+    if (!podeGravar()) return;
     const s = stateRef.current;
     const falhar = (erro: string) => setState((p) => ({ ...p, erro }));
     const { descricao, valor, data, tipo, categoria, status, parcelado, parcelas, recorrente } = s.form;
@@ -367,7 +387,7 @@ export function useMimoApp(opcoes: OpcoesMimoApp = {}) {
     if (s.editando) avisar(emGrupo ? "Alterações salvas nesta e nas próximas" : "Alterações salvas");
     else if (repete) avisar("Conta recorrente criada para os próximos 12 meses");
     else avisar(quantas > 1 ? `${quantas} parcelas adicionadas` : "Movimentação adicionada");
-  }, [avisar, storageKey]);
+  }, [avisar, storageKey, podeGravar]);
 
   // Exclusão ----------------------------------------------------------------
 
@@ -381,7 +401,7 @@ export function useMimoApp(opcoes: OpcoesMimoApp = {}) {
 
   const confirmarExclusao = useCallback(() => {
     const alvo = stateRef.current.excluir;
-    if (!alvo) return;
+    if (!alvo || !podeGravar()) return;
     const antes = stateRef.current.itens;
     const itens = antes.filter((i) => i.id !== alvo.id);
     persistir(itens, storageKey);
@@ -395,7 +415,7 @@ export function useMimoApp(opcoes: OpcoesMimoApp = {}) {
         gravar([...atual, alvo]);
       },
     });
-  }, [avisar, storageKey, gravar]);
+  }, [avisar, storageKey, gravar, podeGravar]);
 
   // Marca contas pendentes como pagas (painel lateral, sino e ação em lote).
   const marcarPagas = useCallback((ids: number[]) => {

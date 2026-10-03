@@ -475,6 +475,9 @@ export default function DuoMetas() {
   useEffect(() => { ctxMetasRef.current = ctxMetas; });
   const chaveMetasRemotas = ctxMetas ? `${ctxMetas.contaId}:${ctxMetas.parId ?? ""}` : "";
   const metasEnviadas = useRef<MetasSalvas | null>(null);
+  /** Listas mostradas enquanto a carga não chega (para notar mudança feita antes dela). */
+  const metasAntesDaCarga = useRef<MetasSalvas | null>(null);
+  const recarregarMetasRef = useRef<(() => void) | null>(null);
   const sincMetas = useRef<ReturnType<typeof criarSincronizadorMetas> | null>(null);
   const avisarRef = useRef(app.avisar);
   const navigateRef = useRef(navigate);
@@ -483,6 +486,12 @@ export default function DuoMetas() {
     const ctx = ctxMetasRef.current;
     if (!chaveMetasRemotas || !ctx || !salvaMetas.current) return;
     let vivo = true;
+    // Troca de conta (Solo <-> Duo) sem desmontar: começa vazio até as metas
+    // desta conta chegarem, para nada ser enviado à conta errada.
+    const vazias: MetasSalvas = { criadas: [], aportes: {}, arquivadas: [], edicoes: {} };
+    metasEnviadas.current = null;
+    metasAntesDaCarga.current = vazias;
+    setS((p) => ({ ...p, ...vazias }));
     const recarregar = () => carregarMetas(ctx)
       .then((salvas) => {
         if (!vivo) return;
@@ -505,13 +514,26 @@ export default function DuoMetas() {
       avisarRef.current(`${mensagemDeErro(e)} Recarregando suas metas…`, "#mimo-gato-preocupado");
       recarregar();
     });
+    recarregarMetasRef.current = recarregar;
     recarregar();
-    return () => { vivo = false; sincMetas.current = null; };
+    return () => { vivo = false; sincMetas.current = null; recarregarMetasRef.current = null; };
   }, [chaveMetasRemotas]);
   useEffect(() => {
+    if (!MODO_API) return;
     const antes = metasEnviadas.current;
-    if (!MODO_API || !antes || !sincMetas.current) return;
     const depois: MetasSalvas = { criadas: s.criadas, aportes: s.aportes, arquivadas: s.arquivadas, edicoes: s.edicoes };
+    if (!antes) {
+      // mudança antes de as metas carregarem (ou depois de a carga falhar) não
+      // tem base para o envio: avisa em vez de perder em silêncio, e recarrega
+      const base = metasAntesDaCarga.current;
+      if (base && JSON.stringify(base) !== JSON.stringify(depois)) {
+        metasAntesDaCarga.current = depois;
+        avisarRef.current("Suas metas ainda estão carregando. Essa mudança não foi salva; tente de novo em instantes.", "#mimo-gato-preocupado");
+        recarregarMetasRef.current?.();
+      }
+      return;
+    }
+    if (!sincMetas.current) return;
     if (antes.criadas === depois.criadas && antes.aportes === depois.aportes && antes.arquivadas === depois.arquivadas && antes.edicoes === depois.edicoes) return;
     sincMetas.current.enviar(antes, depois);
     metasEnviadas.current = depois;

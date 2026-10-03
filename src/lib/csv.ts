@@ -12,7 +12,7 @@ export const exportarCsv = (itens: Item[]) => {
   const corpo = ordenar(itens)
     .map(({ data, tipo, descricao, categoria, status, meio, parcela, recorrente, valor }) => (
       [data, tipo, descricao, categoria, status, meio === "cartao" ? "cartao" : "conta",
-        parcela ? `${parcela.n}/${parcela.total}` : recorrente ? "recorrente" : "", String(valor).replace(".", ",")]
+        parcela ? `${parcela.n}/${parcela.total}` : recorrente ? "recorrente" : "", valor.toFixed(2).replace(".", ",")]
     ));
 
   const csv = [cabecalho, ...corpo]
