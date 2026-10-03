@@ -27,6 +27,4 @@ export const TEMA_KEY = "mimo.tema";
 export const MAX_PARCELAS = 24;
 export const POR_PAGINA = 8;
 export const TOASTS_NA_TELA = 3;
-export const CORACOES = 5;
-export const RONRONO_MS = 1550;
 export const DURACAO_CONTAGEM = 620;

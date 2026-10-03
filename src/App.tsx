@@ -13,7 +13,6 @@ import { ViewCategorias } from "./components/ViewCategorias";
 import { ViewGeral } from "./components/ViewGeral";
 import { ViewLista } from "./components/ViewLista";
 import { useMimoApp } from "./hooks/useMimoApp";
-import { aplicarChartDefaults } from "./lib/chartDefaults";
 import { categoriasDe, salvarAjustes } from "./lib/ajustes";
 import { grupoDe } from "./lib/derive";
 import { MESES_LONGOS } from "./lib/helpers";
@@ -26,7 +25,6 @@ export default function App() {
 
   // Fontes/cor padrão dos gráficos; reaplicado quando o tema muda porque os
   // tokens de cor do CSS mudam de valor (equivalente ao trocarTema() original).
-  useEffect(() => { aplicarChartDefaults(); }, [state.tema]);
 
   // Outras telas (ex.: dock de Configurações) podem abrir uma view específica
   // via navigate("/", { state: { view } }).

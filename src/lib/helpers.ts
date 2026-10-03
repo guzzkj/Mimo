@@ -16,7 +16,6 @@ export const PROXIMO_MES = (() => {
 export const HOJE_ISO = isoDe(HOJE);
 export const MES_REF = HOJE_ISO.slice(0, 7);
 export const DIA_HOJE = HOJE.getDate();
-export const DIAS_NO_MES = new Date(HOJE.getFullYear(), HOJE.getMonth() + 1, 0).getDate();
 
 // Monta a data de um exemplo a partir de quantos meses atrás ele fica.
 export const dataSeed = (mesesAtras: number, dia: number) => {
@@ -31,19 +30,6 @@ export const mesAnterior = (chave: string) => {
   const d = new Date(ano, mes - 2, 1);
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
 };
-
-// Escapa caracteres especiais antes de inserir texto no HTML (mantido por
-// paridade com o original; em React o JSX já escapa por padrão, mas esta
-// função continua disponível onde texto é montado manualmente).
-export const esc = (valor: unknown) => String(valor).replace(/[&<>"']/g, (ch) => (
-  { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch] as string
-));
-
-export const formatador = new Intl.NumberFormat("pt-BR", {
-  style: "currency",
-  currency: "BRL",
-  minimumFractionDigits: 2,
-});
 
 // Converte um valor digitado no formato brasileiro em número.
 export const parseNum = (texto: string) => {
