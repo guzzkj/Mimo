@@ -103,7 +103,13 @@ export const accounts = pgTable("accounts", {
   settings: jsonb("settings").$type<AccountSettings>().notNull().default({}),
   closedAt: timestamp("closed_at", { withTimezone: true }),
   createdAt: createdAt(),
-});
+}, (t) => [
+  // no máximo uma conta Duo aberta por pessoa: barra a condição de corrida de
+  // dois POST simultâneos em /me/onboarding ou /me/plan (que faziam "verifica
+  // e cria" sem trava e abriam duas Duo). O desvínculo fecha (closed_at), então
+  // criar outra depois continua valendo.
+  uniqueIndex("accounts_one_open_duo_per_creator").on(t.createdBy).where(sql`${t.kind} = 'duo' and ${t.closedAt} is null`),
+]);
 
 export const accountMembers = pgTable("account_members", {
   accountId: uuid("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),

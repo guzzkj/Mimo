@@ -8,7 +8,7 @@ import { readJson } from "../http";
 import { currentUser, requireUser, requireVerifiedUser } from "../auth/access";
 import { clearSessionCookie } from "../auth/cookies";
 import { verifyPassword } from "../auth/crypto";
-import { createAccount, findOpenDuoAccount, listAccountsFor, toUserDto } from "../domain/users";
+import { ensureOpenDuoAccount, listAccountsFor, toUserDto } from "../domain/users";
 
 const profileSchema = z.object({
   name: z.string().trim().min(1, "Como podemos te chamar?").max(60).optional(),
@@ -57,14 +57,11 @@ export const meRoutes = new Hono<AppEnv>()
     const body = await readJson(c, onboardingSchema);
     const user = currentUser(c);
     const db = c.get("db");
-    const updated = await db.transaction(async (tx) => {
-      if (body.plan === "duo" && !(await findOpenDuoAccount(tx, user.id))) await createAccount(tx, "duo", user.id);
-      const [u] = await tx.update(users).set({
-        plan: body.plan, name: body.name, monthlyIncomeCents: body.monthlyIncomeCents,
-        onboardedAt: sql`coalesce(${users.onboardedAt}, now())`, updatedAt: new Date(),
-      }).where(eq(users.id, user.id)).returning();
-      return u;
-    });
+    if (body.plan === "duo") await ensureOpenDuoAccount(db, user.id);
+    const [updated] = await db.update(users).set({
+      plan: body.plan, name: body.name, monthlyIncomeCents: body.monthlyIncomeCents,
+      onboardedAt: sql`coalesce(${users.onboardedAt}, now())`, updatedAt: new Date(),
+    }).where(eq(users.id, user.id)).returning();
     return c.json({ user: toUserDto(updated), accounts: await listAccountsFor(db, user.id) });
   })
 
@@ -73,7 +70,7 @@ export const meRoutes = new Hono<AppEnv>()
     const { plan } = await readJson(c, z.object({ plan: z.enum(["solo", "duo"]) }));
     const user = currentUser(c);
     const db = c.get("db");
-    if (plan === "duo" && !(await findOpenDuoAccount(db, user.id))) await createAccount(db, "duo", user.id);
+    if (plan === "duo") await ensureOpenDuoAccount(db, user.id);
     const [u] = await db.update(users).set({ plan, updatedAt: new Date() }).where(eq(users.id, user.id)).returning();
     return c.json({ user: toUserDto(u), accounts: await listAccountsFor(db, user.id) });
   })

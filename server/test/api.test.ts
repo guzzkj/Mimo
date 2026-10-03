@@ -1,4 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { eq } from "drizzle-orm";
+import { accounts } from "../db/schema";
+import { isUniqueViolation } from "../errors";
 import { setupApi } from "./harness";
 
 let api: Awaited<ReturnType<typeof setupApi>>;
@@ -277,6 +280,43 @@ describe("duo", () => {
     expect((await b.agent.del("/me", { password: "senha-forte-1" })).status).toBe(204);
     const left = (await a.agent.get(`/accounts/${a.duo}/transactions`)).json.transactions;
     expect(left.map((t: { description: string }) => t.description)).toEqual(["Compartilhada"]);
+  });
+
+  test("never opens a second Duo for the same person, even on racing requests", async () => {
+    const a = await api.signupVerified("dup-a@example.com", { name: "A" });
+
+    // dez POST /me/plan=duo concorrentes: sem a trava, o "verifica e cria"
+    // abria várias contas Duo; agora o índice parcial garante uma só.
+    const racers = await Promise.all(Array.from({ length: 10 }, () => a.agent.post("/me/plan", { plan: "duo" })));
+    for (const r of racers) expect(r.status).toBe(200);
+
+    const openDuos = (r: { json: { accounts: { kind: string; closed: boolean }[] } }) =>
+      r.json.accounts.filter((x) => x.kind === "duo" && !x.closed);
+    expect(openDuos(await a.agent.get("/me") as never)).toHaveLength(1);
+
+    // desvincular e voltar para Duo reaproveita/abre uma única conta aberta
+    const duo = (await a.agent.get("/me")).json.accounts.find((x: { kind: string; closed: boolean }) => x.kind === "duo" && !x.closed).id;
+    expect((await a.agent.post(`/accounts/${duo}/unlink`)).status).toBe(200);
+    await a.agent.post("/me/plan", { plan: "duo" });
+    expect(openDuos(await a.agent.get("/me") as never)).toHaveLength(1);
+  });
+
+  test("the partial unique index blocks a second open Duo for the same creator at the DB level", async () => {
+    const a = await api.signupVerified("idx-a@example.com", { name: "A", plan: "duo" });
+    const ownerId = a.user.id as string;
+
+    // inserir uma segunda Duo aberta para o mesmo criador deve bater no índice
+    let violated = false;
+    try {
+      await api.db.insert(accounts).values({ kind: "duo", createdBy: ownerId });
+    } catch (err) {
+      violated = isUniqueViolation(err);
+    }
+    expect(violated).toBe(true);
+
+    // ...mas fechar a primeira libera abrir outra
+    await api.db.update(accounts).set({ closedAt: new Date() }).where(eq(accounts.id, a.duo));
+    await expect(api.db.insert(accounts).values({ kind: "duo", createdBy: ownerId })).resolves.toBeDefined();
   });
 });
 

@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { accountMembers, accounts, invites, users } from "../db/schema";
+import { isUniqueViolation } from "../errors";
 import { defaultAccountSettings } from "./settings";
 
 type UserRow = typeof users.$inferSelect;
@@ -70,4 +71,27 @@ export async function createAccount(db: Db, kind: "solo" | "duo", ownerId: strin
   const [account] = await db.insert(accounts).values({ kind, createdBy: ownerId, settings: defaultAccountSettings(kind) }).returning();
   await db.insert(accountMembers).values({ accountId: account.id, userId: ownerId, role: "owner" });
   return account;
+}
+
+/**
+ * Garante uma única conta Duo aberta para a pessoa, de forma segura contra
+ * corrida: duas requisições concorrentes passavam juntas pelo "verifica e cria"
+ * e abriam duas Duo. Agora o índice parcial único (created_by, kind='duo',
+ * closed_at is null) barra a segunda inserção; a perdedora apenas reusa a que
+ * já existe. A criação roda numa transação própria para que o erro de unique
+ * não aborte a conexão externa.
+ */
+export async function ensureOpenDuoAccount(db: Db, ownerId: string): Promise<string> {
+  const existing = await findOpenDuoAccount(db, ownerId);
+  if (existing) return existing;
+  try {
+    const account = await db.transaction((tx) => createAccount(tx, "duo", ownerId));
+    return account.id;
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      const open = await findOpenDuoAccount(db, ownerId);
+      if (open) return open;
+    }
+    throw err;
+  }
 }

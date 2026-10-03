@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "accounts_one_open_duo_per_creator" ON "accounts" USING btree ("created_by") WHERE "accounts"."kind" = 'duo' and "accounts"."closed_at" is null;
