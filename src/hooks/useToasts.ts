@@ -1,5 +1,6 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { TOASTS_NA_TELA } from "../lib/constants";
+import { assinarFalhas } from "../lib/falhas";
 
 /** Ação opcional do aviso (ex.: "Desfazer"). */
 export interface AcaoToast {
@@ -38,6 +39,9 @@ export function useToasts() {
     });
     setTimeout(() => remover(id), acao ? 5000 : 2600);
   }, [remover]);
+
+  // falhas de gravação em segundo plano (lib/falhas) aparecem na tela aberta
+  useEffect(() => assinarFalhas((texto) => avisar(texto, "#mimo-gato-preocupado")), [avisar]);
 
   return { toasts, avisar };
 }

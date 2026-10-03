@@ -4,6 +4,7 @@ import type { Autor, Item } from "../types";
 import { MESES, MESES_LONGOS } from "./constants";
 import { DIA_HOJE, MES_REF, dataSeed, pad } from "./helpers";
 import { api } from "./api";
+import { avisarFalha } from "./falhas";
 import { MODO_API } from "./modo";
 import { paraCentavos, paraReais } from "./remoto/mapear";
 import type { AcertoApi } from "./remoto/tipos";
@@ -117,7 +118,7 @@ export async function hidratarAcertos() {
     });
     ouvintes.forEach((f) => f());
   } catch (e) {
-    console.warn("[acertos] não foi possível carregar", e);
+    avisarFalha("Não foi possível carregar os acertos.", e);
   }
 }
 
@@ -127,6 +128,12 @@ async function gravarAcertosRemoto(antes: Acerto[], depois: Acerto[]) {
   const { meId, parId } = pessoasDaConta(conta);
   const ids = new Set(depois.map((a) => a.id));
   const anteriores = new Set(antes.map((a) => a.id));
+  // sem par na conta, não há com quem acertar: desfaz o que a tela mostrou
+  if (!parId && depois.some((x) => !anteriores.has(x.id))) {
+    avisarFalha("O acerto só pode ser registrado depois que seu par entrar na conta Duo.");
+    await hidratarAcertos();
+    return;
+  }
   try {
     for (const a of depois.filter((x) => !anteriores.has(x.id))) {
       if (!parId || !a.valor) continue;
@@ -142,7 +149,7 @@ async function gravarAcertosRemoto(antes: Acerto[], depois: Acerto[]) {
       uuidDoAcerto.delete(a.id);
     }
   } catch (e) {
-    console.warn("[acertos] não foi possível salvar", e);
+    avisarFalha("Não foi possível salvar o acerto.", e);
     await hidratarAcertos();
   }
 }

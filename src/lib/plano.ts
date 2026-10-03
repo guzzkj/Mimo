@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { api } from "./api";
+import { avisarFalha } from "./falhas";
 import { MODO_API } from "./modo";
 import type { ContaApi, UsuarioApi } from "./remoto/tipos";
 import { definirSessao, lerSessao, useSessao } from "./sessao";
@@ -39,7 +40,7 @@ export function salvarPlano(plano: Plano) {
         if (atual.status === "ok") definirSessao({ ...atual, user, accounts });
       })
       .catch((e) => {
-        console.warn("[plano] não foi possível trocar", e);
+        avisarFalha("Não foi possível trocar o tipo de conta.", e);
         const atual = lerSessao();
         if (atual.status === "ok") definirSessao({ ...atual, user: { ...atual.user, plan: s.user.plan } });
       });

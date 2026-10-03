@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { api } from "./api";
 import { CATS } from "./constants";
+import { avisarFalha } from "./falhas";
 import { MODO_API } from "./modo";
 import { paraAjustes, separarPatchAjustes } from "./remoto/mapear";
 import type { AjustesApi, UsuarioApi } from "./remoto/tipos";
@@ -169,7 +170,7 @@ async function gravarRemoto(conta: ContaAjustes, patch: Partial<Ajustes>) {
     }
   } catch (e) {
     // volta para o que está no servidor em vez de mostrar um valor que não foi salvo
-    console.warn("[ajustes] não foi possível salvar", e);
+    avisarFalha("Não foi possível salvar seus ajustes.", e);
     await hidratarAjustes();
   }
 }
@@ -183,7 +184,7 @@ export async function hidratarAjustes() {
     try {
       cache[conta] = paraAjustes(await api.get<AjustesApi>(`/accounts/${alvo.id}/settings`));
     } catch (e) {
-      console.warn("[ajustes] não foi possível carregar", e);
+      avisarFalha("Não foi possível carregar seus ajustes.", e);
     }
   }));
   ouvintes.forEach((avisar) => avisar());

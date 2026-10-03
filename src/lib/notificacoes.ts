@@ -7,6 +7,7 @@ import { MESES_LONGOS } from "./constants";
 import { MES_REF, dataBr } from "./helpers";
 import type { Item } from "../types";
 import { api } from "./api";
+import { avisarFalha } from "./falhas";
 import { MODO_API } from "./modo";
 import type { AvisoApi } from "./remoto/tipos";
 import { contaDoTipo } from "./sessao";
@@ -110,7 +111,7 @@ export async function hidratarNotificacoes() {
         .map((n) => ({ ...n, lido: n.lido || lidosSalvos[conta].has(n.id) }));
       estado[conta] = [...autos, ...r.notifications.map(doServidor)];
     } catch (e) {
-      console.warn("[avisos] não foi possível carregar", e);
+      avisarFalha("Não foi possível carregar seus avisos.", e);
     }
   }));
   avisarTodos();
@@ -134,7 +135,8 @@ async function persistirMudancas(conta: ContaAtiva, antes: Notif[], depois: Noti
     }
   }
   const falhas = (await Promise.allSettled(chamadas)).filter((r) => r.status === "rejected");
-  if (falhas.length) console.warn("[avisos] não foi possível salvar", falhas);
+  const falha = falhas[0];
+  if (falha?.status === "rejected") avisarFalha("Não foi possível atualizar seus avisos.", falha.reason);
 }
 
 export const useNotificacoes = (conta: ContaAtiva) => useSyncExternalStore(assinar, () => lista(conta), () => lista(conta));
