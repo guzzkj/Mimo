@@ -1,4 +1,4 @@
-import { Bell, ChevronRight, Download, Eye, EyeOff, PanelLeft, X } from "lucide-react";
+import { Bell, ChevronRight, Eye, EyeOff, PanelLeft, X } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useDialogo } from "../hooks/useDialogo";
@@ -21,17 +21,15 @@ interface Props {
   conta?: MenuConta;
   drawerOn: boolean;
   privado: boolean;
-  csv: boolean;
   onFechar: () => void;
   onTogglePainel?: () => void;
   onTogglePrivacidade?: () => void;
-  onExportarCsv?: () => void;
 }
 
 // Menu de tela cheia do celular: substitui a Topbar (conta, sino) e a antiga
 // folha "Mais", reunindo todos os destinos e ações num lugar só. O tema é
 // trocado só em Configurações > Aparência.
-export function MenuMobile({ destinos, conta, drawerOn, privado, csv, onFechar, onTogglePainel, onTogglePrivacidade, onExportarCsv }: Props) {
+export function MenuMobile({ destinos, conta, drawerOn, privado, onFechar, onTogglePainel, onTogglePrivacidade }: Props) {
   const caixaRef = useDialogo<HTMLDivElement>(true);
 
   useEffect(() => {
@@ -102,12 +100,6 @@ export function MenuMobile({ destinos, conta, drawerOn, privado, csv, onFechar, 
             <button type="button" className={`menu-m__item${privado ? " is-on" : ""}`} aria-pressed={privado} onClick={onTogglePrivacidade}>
               <span className="menu-m__icone">{privado ? <EyeOff /> : <Eye />}</span>
               <span className="menu-m__rotulo">{privado ? "Mostrar valores" : "Ocultar valores"}</span>
-            </button>
-          )}
-          {csv && (
-            <button type="button" className="menu-m__item" onClick={acao(onExportarCsv)}>
-              <span className="menu-m__icone"><Download /></span>
-              <span className="menu-m__rotulo">Exportar CSV</span>
             </button>
           )}
         </div>

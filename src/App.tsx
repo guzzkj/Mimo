@@ -140,7 +140,6 @@ export default function App() {
           onIr={actions.irPara}
           onTogglePainel={actions.alternarPainel}
           onTogglePrivacidade={actions.alternarPrivacidade}
-          onExportarCsv={actions.exportarCsv}
           onNova={actions.abrirNova}
           menu={{
             nome: ajustes.nome,

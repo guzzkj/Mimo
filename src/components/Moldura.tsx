@@ -88,7 +88,7 @@ export function Moldura({ conta, app, ativo, onNavegar, onPrivacidade, autores, 
       item("duo-geral", "Visão geral", <LayoutDashboard />, "/duo", false),
       item("duo-movs", "Movimentações", <ArrowLeftRight />, "/duo/movimentacoes", false),
       item("duo-divisao", "Divisão", <Scale />, "/duo/divisao", false),
-      // espelha o "Visão do casal" do dock Solo: volta para a visão Solo sem mexer na conta Duo
+      // espelha o "Visão Duo" do dock Solo: volta para a visão Solo sem mexer na conta Duo
       { id: "solo", label: "Visão Solo", icon: <User />, on: false, extra: true, onClick: () => { setNotif(false); navigate("/", { state: soloView("geral") }); } },
       item("metas", "Metas", <Target />, "/metas", true),
       item("investimentos", "Investimentos", <TrendingUp />, "/investimentos", true),
@@ -98,7 +98,7 @@ export function Moldura({ conta, app, ativo, onNavegar, onPrivacidade, autores, 
       item("geral", "Visão geral", <LayoutDashboard />, "/", false, soloView("geral")),
       item("lista", "Movimentações", <ArrowLeftRight />, "/", false, soloView("lista")),
       item("categorias", "Categorias", <PieChart />, "/", false, soloView("categorias")),
-      ...(plano === "duo" ? [{ id: "casal", label: "Visão do casal", icon: <Users />, on: false, extra: true, onClick: () => { setNotif(false); navigate("/duo"); } }] : []),
+      ...(plano === "duo" ? [{ id: "casal", label: "Visão Duo", icon: <Users />, on: false, extra: true, onClick: () => { setNotif(false); navigate("/duo"); } }] : []),
       item("metas", "Metas", <Target />, "/metas", true),
       item("investimentos", "Investimentos", <TrendingUp />, "/investimentos", true),
       item("config", "Configurações", <Settings />, "/ajustes", true),
@@ -146,7 +146,6 @@ export function Moldura({ conta, app, ativo, onNavegar, onPrivacidade, autores, 
           privado={app.state.privado}
           onTogglePainel={app.actions.alternarPainel}
           onTogglePrivacidade={alternarPrivacidade}
-          onExportarCsv={app.actions.exportarCsv}
           onNova={app.actions.abrirNova}
           menu={{
             conta: "Conta pessoal",
