@@ -3,6 +3,7 @@
 # Deploy: pnpm deploy:cron
 # Segredo: npx wrangler secret put CRON_SECRET -c workers/cron/wrangler.toml
 name = "mimo-cron"
+account_id = "a6b1b5b5205f59542efc16833c889eb0" # MetriByte (mesma conta do Pages "mimo")
 main = "index.ts"
 compatibility_date = "2026-09-15"
 workers_dev = false
