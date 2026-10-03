@@ -38,6 +38,9 @@ export const transactionType = pgEnum("transaction_type", ["income", "expense"])
 export const transactionStatus = pgEnum("transaction_status", ["paid", "pending"]);
 export const paymentMethod = pgEnum("payment_method", ["account", "card"]);
 export const inviteStatus = pgEnum("invite_status", ["pending", "accepted", "declined", "revoked"]);
+// Finalidades de consentimento opcional (LGPD art. 8º). As obrigatórias (termos e
+// política de privacidade) ficam em colunas próprias de `users`.
+export const consentPurpose = pgEnum("consent_purpose", ["marketing", "analytics"]);
 
 // ---- identidade ----------------------------------------------------------------
 
@@ -53,6 +56,12 @@ export const users = pgTable("users", {
   plan: plan("plan"),
   emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
   onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
+  // Base legal do cadastro (LGPD art. 7º, I/V): aceite dos Termos e da Política,
+  // com a versão vigente no momento e o instante do aceite, para fins de prova.
+  termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }),
+  termsVersion: text("terms_version"),
+  privacyAcceptedAt: timestamp("privacy_accepted_at", { withTimezone: true }),
+  privacyVersion: text("privacy_version"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, (t) => [
@@ -60,6 +69,33 @@ export const users = pgTable("users", {
   check("users_email_lowercase", sql`${t.email} = lower(${t.email})`),
   check("users_income_non_negative", sql`${t.monthlyIncomeCents} >= 0`),
 ]);
+
+/**
+ * Consentimentos opcionais e sua última decisão (LGPD art. 8º e 18, IX). Uma
+ * linha por (usuário, finalidade); guarda se está concedido, a versão do texto e
+ * quando mudou. O histórico completo de concessão/revogação fica em `audit_log`.
+ */
+export const consents = pgTable("consents", {
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  purpose: consentPurpose("purpose").notNull(),
+  granted: boolean("granted").notNull(),
+  version: text("version"),
+  updatedAt: updatedAt(),
+}, (t) => [primaryKey({ columns: [t.userId, t.purpose] })]);
+
+/**
+ * Trilha de auditoria de operações sensíveis sobre dados pessoais (LGPD art. 37).
+ * `userId` fica nulo se a pessoa for excluída, mas o registro da operação
+ * permanece para prestação de contas (accountability).
+ */
+export const auditLog = pgTable("audit_log", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+  action: text("action").notNull(),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+  ip: text("ip"),
+  createdAt: createdAt(),
+}, (t) => [index("audit_log_user_idx").on(t.userId, t.createdAt)]);
 
 /** Sessões opacas: o cookie leva o token; aqui fica só o SHA-256 dele. */
 export const sessions = pgTable("sessions", {
