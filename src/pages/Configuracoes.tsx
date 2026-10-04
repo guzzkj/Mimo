@@ -1162,7 +1162,6 @@ export default function Configuracoes() {
             <div style={{ display: "flex", flexDirection: "column", gap: 22, animation: "mmRiseC .5s cubic-bezier(.2,.8,.2,1) both" }}>
               <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between", gap: 16 }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  <span style={{ alignSelf: "flex-start", padding: "4px 10px", borderRadius: 999, border: "1px dashed var(--accent-line)", color: "var(--accent-ink)", fontSize: 11.5, fontWeight: 700 }}>Baixa prioridade · V2/V3</span>
                   <h1 style={{ margin: 0, fontFamily: SORA, fontSize: 30, fontWeight: 300, letterSpacing: "-.04em" }}>Investimentos</h1>
                 </div>
                 <button type="button" onClick={novoAtivo} style={btnPrim({ height: 46, padding: "0 18px" })}>+ Adicionar ativo</button>
