@@ -5,6 +5,7 @@ import type { Env } from "./env";
 import type { SessionUser } from "./auth/tokens";
 import type { AccountAccess } from "./auth/access";
 import type { RateLimits } from "./rate-limit";
+import type { Fetcher } from "./market/types";
 
 export interface AppEnv {
   Bindings: Env;
@@ -15,6 +16,7 @@ export interface AppEnv {
     sessionId: string | null;
     access: AccountAccess;
     limits: RateLimits;
+    fetch: Fetcher;
   };
 }
 

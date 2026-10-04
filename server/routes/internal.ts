@@ -1,9 +1,15 @@
 import { and, asc, eq, gte, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
+import { z } from "zod";
 import { defer, type AppEnv } from "../context";
 import { accountMembers, accounts, transactions, users } from "../db/schema";
 import { ApiError } from "../errors";
 import { addDaysIso, todayIso } from "../http";
+
+const quotesQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(40).default(40),
+  freshMinutes: z.coerce.number().int().min(0).max(24 * 60).default(30),
+});
 import { timingSafeEqual } from "../auth/crypto";
 import { resolveMemberPrefs } from "../domain/settings";
 import { isHiddenFrom } from "../domain/transactions";
@@ -11,6 +17,7 @@ import { notify } from "../domain/notify";
 import { pruneExpiredData } from "../domain/retention";
 import { billsDueMessage } from "../email/templates";
 import { pruneRateLimits } from "../rate-limit";
+import { syncDailyCloses, syncQuotes } from "../market/sync";
 
 // Endpoints chamados por um agendador externo (Pages Functions não têm Cron
 // Triggers). Protegidos por "Authorization: Bearer <CRON_SECRET>".
@@ -69,4 +76,18 @@ export const internalRoutes = new Hono<AppEnv>()
       sent++;
     }
     return c.json({ sent });
-  });
+  })
+
+  /**
+   * Cotação + histórico + proventos (Yahoo) de um lote de tickers em carteira.
+   * Lote pequeno por causa do teto de subrequests do Workers: o cron repete a
+   * chamada enquanto `remaining` > 0.
+   */
+  .post("/market/quotes", async (c) => {
+    const query = quotesQuery.safeParse(c.req.query());
+    if (!query.success) throw new ApiError("validation_failed", "Parâmetros inválidos.");
+    return c.json(await syncQuotes(c.get("db"), c.get("fetch"), query.data));
+  })
+
+  /** Fechamento oficial do último pregão (arquivo COTAHIST da B3). */
+  .post("/market/eod", async (c) => c.json(await syncDailyCloses(c.get("db"), c.get("fetch"), todayIso())));
