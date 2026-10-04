@@ -350,3 +350,45 @@ export const investments = pgTable("investments", {
   check("investments_quantity_positive", sql`${t.quantity} > 0`),
   check("investments_price_non_negative", sql`${t.averagePriceCents} >= 0`),
 ]);
+
+// ---- dados de mercado (globais, sem dado de usuário) ---------------------------
+// Preenchidos pelo cron (/api/internal/market/*) para os tickers presentes em
+// `investments`. Fontes: Yahoo Finance (cotação/proventos, não oficial) e o
+// arquivo COTAHIST da B3 (fechamento oficial). Ver server/market/.
+
+export const corporateEventKind = pgEnum("corporate_event_kind", ["dividend", "split"]);
+
+export const assets = pgTable("assets", {
+  /** Ticker como o usuário digita (PETR4, HGLG11, AAPL). */
+  symbol: text("symbol").primaryKey(),
+  name: text("name"),
+  currency: text("currency"),
+  lastPriceCents: cents("last_price_cents"),
+  lastQuotedAt: timestamp("last_quoted_at", { withTimezone: true }),
+  /** Última tentativa de sincronizar (sucesso ou não), para rodízio entre lotes. */
+  syncedAt: timestamp("synced_at", { withTimezone: true }),
+  /** Histórico longo (preços + proventos) já baixado uma vez. */
+  backfilledAt: timestamp("backfilled_at", { withTimezone: true }),
+  /** Ticker que a fonte não reconhece: para de tentar até alguém recadastrar. */
+  notFound: boolean("not_found").notNull().default(false),
+  createdAt: createdAt(),
+}, (t) => [index("assets_synced_idx").on(t.syncedAt)]);
+
+export const assetPricesDaily = pgTable("asset_prices_daily", {
+  symbol: text("symbol").notNull().references(() => assets.symbol, { onDelete: "cascade" }),
+  date: date("date").notNull(),
+  closeCents: cents("close_cents").notNull(),
+  /** "cotahist" (oficial B3) prevalece sobre "yahoo". */
+  source: text("source").notNull(),
+}, (t) => [primaryKey({ columns: [t.symbol, t.date] })]);
+
+export const corporateEvents = pgTable("corporate_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  symbol: text("symbol").notNull().references(() => assets.symbol, { onDelete: "cascade" }),
+  kind: corporateEventKind("kind").notNull(),
+  exDate: date("ex_date").notNull(),
+  /** Provento: valor por cota na moeda do ativo. Desdobramento: fator (2 = 1→2). */
+  amount: numeric("amount", { precision: 20, scale: 8 }).notNull(),
+  source: text("source").notNull(),
+  createdAt: createdAt(),
+}, (t) => [uniqueIndex("corporate_events_symbol_kind_date").on(t.symbol, t.kind, t.exDate)]);

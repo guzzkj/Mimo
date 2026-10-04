@@ -1,15 +1,16 @@
 import { createApp } from "../app";
 import { createMemoryMailer } from "../email/mailer";
 import type { Env } from "../env";
+import type { Fetcher } from "../market/types";
 import type { RateLimits } from "../rate-limit";
 import { createTestDb } from "./db";
 
 export const ORIGIN = "http://localhost:5173";
 
-export async function setupApi(options: { limits?: Partial<RateLimits> } = {}) {
+export async function setupApi(options: { limits?: Partial<RateLimits>; fetch?: Fetcher } = {}) {
   const { db, close } = await createTestDb();
   const { mailer, sent } = createMemoryMailer();
-  const app = createApp({ db: () => ({ db, close: async () => {} }), mailer: () => mailer, limits: options.limits });
+  const app = createApp({ db: () => ({ db, close: async () => {} }), mailer: () => mailer, limits: options.limits, fetch: options.fetch });
   const env: Env = { DATABASE_URL: "", EMAIL_FROM: "Mimo <teste@mimo.test>", APP_URL: ORIGIN, APP_ENV: "development", CRON_SECRET: "segredo-de-teste" };
 
   let nextIp = 0;

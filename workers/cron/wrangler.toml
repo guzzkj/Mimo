@@ -1,5 +1,5 @@
-# Worker agendador do Miau.Cash: chama POST /api/internal/reminders diariamente
-# (lembretes de contas + retenção LGPD + limpeza de rate limit).
+# Worker agendador do Miau.Cash: chama os endpoints /api/internal/* da API
+# (lembretes de contas + retenção LGPD + limpeza de rate limit; dados de mercado).
 # Deploy: pnpm deploy:cron
 # Segredo: npx wrangler secret put CRON_SECRET -c workers/cron/wrangler.toml
 name = "mimo-cron"
@@ -8,9 +8,12 @@ main = "index.ts"
 compatibility_date = "2026-09-15"
 workers_dev = false
 
-# 11:00 UTC = 08:00 em Brasília.
+# Brasília = UTC-3. Mantenha em sincronia com as constantes de index.ts.
+# - 0 11 * * *            08:00 todo dia: lembretes
+# - 0 13-21 * * MON-FRI    de hora em hora no pregão (10h-18h), seg-sex: cotações e proventos (Yahoo)
+# - 0 1 * * TUE-SAT        22:00 seg-sex: fechamento oficial do dia (COTAHIST da B3)
 [triggers]
-crons = ["0 11 * * *"]
+crons = ["0 11 * * *", "0 13-21 * * MON-FRI", "0 1 * * TUE-SAT"]
 
 [vars]
 # TODO: trocar para https://miau.cash quando o domínio estiver ativo.

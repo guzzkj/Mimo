@@ -4,6 +4,7 @@ import { createNeonDb, type DbHandle } from "./db/client";
 import { createResendMailer, type Mailer } from "./email/mailer";
 import type { Env } from "./env";
 import { ApiError } from "./errors";
+import type { Fetcher } from "./market/types";
 import { DEFAULT_LIMITS, type RateLimits } from "./rate-limit";
 import { requireAccountAccess } from "./auth/access";
 import { readSessionCookie, writeSessionCookie } from "./auth/cookies";
@@ -25,6 +26,8 @@ export interface AppOptions {
   mailer?: (env: Env) => Mailer;
   /** Sobrescreve limites de taxa (testes); produção usa DEFAULT_LIMITS. */
   limits?: Partial<RateLimits>;
+  /** `fetch` para fontes externas de mercado (testes injetam um falso). */
+  fetch?: Fetcher;
 }
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -36,6 +39,7 @@ export function createApp(options: AppOptions = {}) {
   });
   const makeMailer = options.mailer ?? ((env: Env) => createResendMailer(env));
   const limits: RateLimits = { ...DEFAULT_LIMITS, ...options.limits };
+  const fetcher: Fetcher = options.fetch ?? ((input, init) => fetch(input, init));
 
   const app = new Hono<AppEnv>().basePath("/api");
 
@@ -77,6 +81,7 @@ export function createApp(options: AppOptions = {}) {
     c.set("db", handle.db);
     c.set("mailer", makeMailer(c.env));
     c.set("limits", limits);
+    c.set("fetch", fetcher);
     try {
       await next();
     } finally {
