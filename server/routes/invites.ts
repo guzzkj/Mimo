@@ -1,4 +1,4 @@
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { defer, type AppEnv, type Ctx } from "../context";
@@ -173,7 +173,8 @@ export const inviteRoutes = new Hono<AppEnv>()
         await revokePendingInvites(tx, openDuo);
       }
       await tx.insert(accountMembers).values({ accountId: invite.accountId, userId: user.id, role: "partner" });
-      await tx.update(users).set({ plan: "duo", updatedAt: new Date() }).where(eq(users.id, user.id));
+      // com o par dentro, os dois passam para a visão Duo (quem convidou estava no Solo esperando)
+      await tx.update(users).set({ plan: "duo", updatedAt: new Date() }).where(inArray(users.id, [user.id, invite.inviterId]));
       await notify(tx, [{
         userId: invite.inviterId, accountId: invite.accountId, kind: "invite_accepted",
         title: `${user.name || user.email} aceitou o convite`,

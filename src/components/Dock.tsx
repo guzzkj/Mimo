@@ -1,9 +1,8 @@
 import {
-  ArrowLeftRight, Eye, EyeOff, LayoutDashboard, Menu, PanelLeft, PieChart, Plus, Settings, Target, TrendingUp, Users,
+  ArrowLeftRight, Eye, EyeOff, LayoutDashboard, Menu, PanelLeft, PieChart, Plus, Settings, Target, TrendingUp,
 } from "lucide-react";
 import { useCallback, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { usePlano } from "../lib/plano";
 import type { View } from "../types";
 import { MenuMobile, type MenuConta } from "./MenuMobile";
 
@@ -47,7 +46,6 @@ export function Dock({
   view, nav, ferramentas, drawerOn = false, privado = false, onIr, onTogglePainel, onTogglePrivacidade, onNova, menu,
 }: Props) {
   const navigate = useNavigate();
-  const plano = usePlano();
   const [mais, setMais] = useState(false);
   const fecharMenu = useCallback(() => setMais(false), []);
 
@@ -56,7 +54,6 @@ export function Dock({
     { id: "geral", label: "Visão geral", icon: <LayoutDashboard />, on: view === "geral", onClick: () => onIr?.("geral") },
     { id: "lista", label: "Movimentações", icon: <ArrowLeftRight />, on: view === "lista", onClick: () => onIr?.("lista") },
     { id: "categorias", label: "Categorias", icon: <PieChart />, on: view === "categorias", onClick: () => onIr?.("categorias") },
-    ...(plano === "duo" ? [{ id: "casal", label: "Visão Duo", icon: <Users />, on: false, extra: true, onClick: () => navigate("/duo") }] : []),
     { id: "metas", label: "Metas", icon: <Target />, on: false, extra: true, onClick: () => navigate("/metas") },
     { id: "investimentos", label: "Investimentos", icon: <TrendingUp />, on: false, extra: true, onClick: () => navigate("/investimentos") },
     { id: "config", label: "Configurações", icon: <Settings />, on: false, extra: true, onClick: () => navigate("/ajustes") },

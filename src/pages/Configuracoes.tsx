@@ -14,6 +14,7 @@ import { CORES_CAT, lerAjustes, salvarAjustes, type Ajustes } from "../lib/ajust
 import { AVATARES, avatarDe } from "../lib/avatares";
 import { CATS, MESES_LONGOS } from "../lib/constants";
 import { DIA_HOJE, dataBr, dataSeed } from "../lib/helpers";
+import { HistoricoSolo } from "../components/HistoricoSolo";
 import { OrcamentosConfig } from "../components/OrcamentosConfig";
 import { api, ErroApi, mensagemDeErro } from "../lib/api";
 import { MODO_API } from "../lib/modo";
@@ -821,7 +822,7 @@ export default function Configuracoes() {
                       <div style={{ flex: 1, minWidth: 180, display: "flex", flexDirection: "column", gap: 4 }}>
                         <span style={{ ...OLHO, color: duo ? "var(--duo-ink)" : "var(--solo-ink)" }}>Plano atual</span>
                         <span style={{ fontFamily: SORA, fontSize: 19, letterSpacing: "-.02em" }}>{duo ? "Duo com " + (MODO_API ? parNome ?? "seu par" : "Suelen") : "Solo"}</span>
-                        <span style={{ fontSize: 13, color: "var(--muted2)" }}>{duo ? "Conta conjunta, divisão de despesas e metas do casal." : planoDuo && st === "pendente" ? "Duo aguardando " + (MODO_API ? "o convite ser aceito" : "Suelen aceitar o convite") + "." : "Suas finanças, só você vê."}</span>
+                        <span style={{ fontSize: 13, color: "var(--muted2)" }}>{duo ? "Conta conjunta, divisão de despesas e metas do casal." : st === "pendente" ? "Duo aguardando " + (MODO_API ? "o convite ser aceito" : "Suelen aceitar o convite") + "." : "Suas finanças, só você vê."}</span>
                       </div>
                       <button type="button" onClick={() => ir("duo")} className="mm-h-sec" style={btnSec({ height: 44, padding: "0 16px", borderRadius: 14, fontSize: 13.5 })}>{duo ? "Gerenciar conta Duo" : st === "pendente" ? "Ver convite" : "Convidar alguém"}</button>
                     </div>
@@ -1090,6 +1091,7 @@ export default function Configuracoes() {
                           ))}
                           <span style={{ padding: "12px 0 14px", fontSize: 12, lineHeight: 1.5, color: "var(--faint)" }}>Vale para o que for criado daqui pra frente. Cada lançamento ainda pode ser marcado como privado ou compartilhado.</span>
                         </div>
+                        <HistoricoSolo nomePar={nomePar} onAviso={toast} />
                         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 14, padding: "20px 22px", borderRadius: 24, border: "1px solid var(--out-line)", background: "var(--out-soft)" }}>
                           <span style={{ flex: 1, minWidth: 220, display: "flex", flexDirection: "column", gap: 4 }}>
                             <span style={{ fontSize: 14, fontWeight: 700 }}>Desvincular conta Duo</span>

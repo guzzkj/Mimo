@@ -27,7 +27,7 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <Suspense fallback={null}>
         <Routes>
-          <Route path="/" element={<GuardaSessao><App /></GuardaSessao>} />
+          <Route path="/" element={<GuardaSessao soloSo><App /></GuardaSessao>} />
           {/* a escolha de conta vive no onboarding (/acesso/plano) */}
           <Route path="/selecao-conta" element={<Navigate to="/acesso/plano" replace />} />
 

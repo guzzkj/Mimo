@@ -1,14 +1,16 @@
-import { and, eq, gt, inArray, ne, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, ne, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
-import type { AppEnv } from "../context";
+import type { AppEnv, Ctx } from "../context";
 import { accountMembers, accounts, invites, transactions, users } from "../db/schema";
 import { ApiError } from "../errors";
 import { readJson } from "../http";
 import { currentUser, requireUser, requireVerifiedUser } from "../auth/access";
 import { clearSessionCookie } from "../auth/cookies";
 import { verifyPassword } from "../auth/crypto";
-import { ensureOpenDuoAccount, listAccountsFor, toUserDto } from "../domain/users";
+import { ensureOpenDuoAccount, findLinkedDuoAccount, listAccountsFor, revokePendingInvites, toUserDto } from "../domain/users";
+import { notify } from "../domain/notify";
+import { findOpenSoloAccount, importSoloHistory, soloHistoryStatus } from "../domain/solo-history";
 import { recordAudit } from "../domain/audit";
 import { CONSENT_PURPOSES, consentUpdateSchema, listConsents, setConsent } from "../domain/consent";
 import { exportUserData } from "../domain/export";
@@ -37,6 +39,16 @@ async function pendingInvitesFor(db: AppEnv["Variables"]["db"], email: string) {
     .where(and(eq(invites.email, email), eq(invites.status, "pending"), gt(invites.expiresAt, new Date())));
 }
 
+/** Conta Solo guardada e Duo vinculada da pessoa (o histórico só faz sentido no Duo). */
+async function soloAndDuo(c: Ctx) {
+  const user = currentUser(c);
+  const db = c.get("db");
+  const [soloId, duoId] = await Promise.all([findOpenSoloAccount(db, user.id), findLinkedDuoAccount(db, user.id)]);
+  if (!duoId) throw new ApiError("conflict", "Isso só vale para quem está numa conta Duo com o par vinculado.");
+  if (!soloId) throw new ApiError("not_found", "Conta Solo não encontrada.");
+  return { soloId, duoId };
+}
+
 export const meRoutes = new Hono<AppEnv>()
   .get("/", requireUser, async (c) => {
     const user = currentUser(c);
@@ -57,27 +69,52 @@ export const meRoutes = new Hono<AppEnv>()
     return c.json({ user: toUserDto(updated) });
   })
 
-  /** Passos 1 e 2 do onboarding: plano, nome e renda. No Duo, abre a conta do casal. */
+  /**
+   * Passos 1 e 2 do onboarding: plano, nome e renda. No Duo, abre a conta do
+   * casal, mas a pessoa só passa para a visão Duo quando o par aceitar o convite.
+   */
   .post("/onboarding", requireVerifiedUser, async (c) => {
     const body = await readJson(c, onboardingSchema);
     const user = currentUser(c);
     const db = c.get("db");
     if (body.plan === "duo") await ensureOpenDuoAccount(db, user.id);
+    const plan = (await findLinkedDuoAccount(db, user.id)) ? "duo" : "solo";
     const [updated] = await db.update(users).set({
-      plan: body.plan, name: body.name, monthlyIncomeCents: body.monthlyIncomeCents,
+      plan, name: body.name, monthlyIncomeCents: body.monthlyIncomeCents,
       onboardedAt: sql`coalesce(${users.onboardedAt}, now())`, updatedAt: new Date(),
     }).where(eq(users.id, user.id)).returning();
     return c.json({ user: toUserDto(updated), accounts: await listAccountsFor(db, user.id) });
   })
 
-  /** Troca o plano em uso (ex.: voltar para o Solo enquanto o convite não é aceito). */
+  /**
+   * Pede o plano. "duo" abre a conta do casal (para convidar), mas a visão Duo
+   * só vale com o par vinculado. Com par vinculado não dá para voltar ao Solo:
+   * o caminho é desvincular a conta Duo.
+   */
   .post("/plan", requireVerifiedUser, async (c) => {
-    const { plan } = await readJson(c, z.object({ plan: z.enum(["solo", "duo"]) }));
+    const { plan: wanted } = await readJson(c, z.object({ plan: z.enum(["solo", "duo"]) }));
     const user = currentUser(c);
     const db = c.get("db");
-    if (plan === "duo") await ensureOpenDuoAccount(db, user.id);
+    if (wanted === "duo") await ensureOpenDuoAccount(db, user.id);
+    const linked = Boolean(await findLinkedDuoAccount(db, user.id));
+    if (wanted === "solo" && linked) throw new ApiError("conflict", "Você está numa conta Duo. Para voltar ao Solo, desvincule a conta Duo em Configurações.");
+    const plan = linked ? "duo" : "solo";
     const [u] = await db.update(users).set({ plan, updatedAt: new Date() }).where(eq(users.id, user.id)).returning();
     return c.json({ user: toUserDto(u), accounts: await listAccountsFor(db, user.id) });
+  })
+
+  /** Histórico do Solo de quem está numa Duo: quanto existe e quanto ainda não foi trazido. */
+  .get("/solo-history", requireVerifiedUser, async (c) => {
+    const { soloId, duoId } = await soloAndDuo(c);
+    return c.json({ soloAccountId: soloId, ...(await soloHistoryStatus(c.get("db"), soloId, duoId)) });
+  })
+
+  /** Traz o histórico do Solo para a Duo como lançamentos privados (só o que falta). */
+  .post("/solo-history/import", requireVerifiedUser, async (c) => {
+    const { soloId, duoId } = await soloAndDuo(c);
+    const db = c.get("db");
+    const imported = await importSoloHistory(db, currentUser(c).id, soloId, duoId);
+    return c.json({ imported, ...(await soloHistoryStatus(db, soloId, duoId)) });
   })
 
   /** Consentimentos opcionais atuais (LGPD art. 8º). */
@@ -113,8 +150,9 @@ export const meRoutes = new Hono<AppEnv>()
 
   /**
    * Exclusão da conta (LGPD). Apaga a pessoa e as contas em que ela é a única
-   * participante. Numa conta Duo com par, a conta continua para o par, sem
-   * os dados pessoais dela (autor vira nulo pelas FKs "set null").
+   * participante. Numa conta Duo com par, a conta é desvinculada como no
+   * "desvincular": fica encerrada (histórico só leitura, sem os dados pessoais
+   * dela, autor vira nulo pelas FKs "set null") e o par volta para o Solo.
    */
   .delete("/", requireUser, async (c) => {
     const { password } = await readJson(c, deleteSchema);
@@ -127,7 +165,7 @@ export const meRoutes = new Hono<AppEnv>()
       const mine = await tx.select({ accountId: accountMembers.accountId }).from(accountMembers).where(eq(accountMembers.userId, user.id));
       const ids = mine.map((m) => m.accountId);
       if (ids.length) {
-        const shared = await tx.select({ accountId: accountMembers.accountId }).from(accountMembers)
+        const shared = await tx.select({ accountId: accountMembers.accountId, userId: accountMembers.userId }).from(accountMembers)
           .where(and(inArray(accountMembers.accountId, ids), ne(accountMembers.userId, user.id)));
         const sharedIds = new Set(shared.map((s) => s.accountId));
         const solo = ids.filter((id) => !sharedIds.has(id));
@@ -137,6 +175,17 @@ export const meRoutes = new Hono<AppEnv>()
           await tx.delete(transactions).where(and(
             inArray(transactions.accountId, [...sharedIds]), eq(transactions.authorUserId, user.id), eq(transactions.isPrivate, true),
           ));
+          // Duo sem uma das pessoas não é mais Duo: encerra e devolve o par ao Solo
+          const partners = shared.map((s) => s.userId);
+          await tx.update(accounts).set({ closedAt: new Date() }).where(and(inArray(accounts.id, [...sharedIds]), isNull(accounts.closedAt)));
+          for (const id of sharedIds) await revokePendingInvites(tx, id);
+          await tx.update(users).set({ plan: "solo", updatedAt: new Date() }).where(inArray(users.id, partners));
+          await notify(tx, shared.map((s) => ({
+            userId: s.userId, accountId: s.accountId, kind: "partner" as const,
+            title: `${user.name || "Seu par"} excluiu a conta no Mimo`,
+            body: "A conta Duo foi encerrada e você voltou para a sua conta Solo. O histórico do casal continua disponível para consulta.",
+            dedupeKey: `partner-deleted:${s.accountId}`,
+          })));
         }
       }
       // registra antes de apagar: o FK (set null) preserva o registro de auditoria

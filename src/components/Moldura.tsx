@@ -1,12 +1,11 @@
 import {
-  ArrowLeftRight, LayoutDashboard, PieChart, Scale, Settings, Target, TrendingUp, User, Users,
+  ArrowLeftRight, LayoutDashboard, PieChart, Scale, Settings, Target, TrendingUp,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import type { MimoApp } from "../hooks/useMimoApp";
 import { MESES_LONGOS } from "../lib/helpers";
 import { useNaoLidas, type ContaAtiva } from "../lib/notificacoes";
-import { usePlano } from "../lib/plano";
 import { maiuscula, nomesDuo } from "../lib/nomes";
 import { aplicarEscolhaTema, useTemaTela } from "../lib/tema";
 import { categoriasDe } from "../lib/ajustes";
@@ -65,7 +64,6 @@ interface Props {
 
 export function Moldura({ conta, app, ativo, onNavegar, onPrivacidade, autores, notif, children }: Props) {
   const navigate = useNavigate();
-  const plano = usePlano();
   const tema = useTemaTela();
   const naoLidas = useNaoLidas(conta);
   const [notifLocal, setNotifLocal] = useState(false);
@@ -88,8 +86,6 @@ export function Moldura({ conta, app, ativo, onNavegar, onPrivacidade, autores, 
       item("duo-geral", "Visão geral", <LayoutDashboard />, "/duo", false),
       item("duo-movs", "Movimentações", <ArrowLeftRight />, "/duo/movimentacoes", false),
       item("duo-divisao", "Divisão", <Scale />, "/duo/divisao", false),
-      // espelha o "Visão Duo" do dock Solo: volta para a visão Solo sem mexer na conta Duo
-      { id: "solo", label: "Visão Solo", icon: <User />, on: false, extra: true, onClick: () => { setNotif(false); navigate("/", { state: soloView("geral") }); } },
       item("metas", "Metas", <Target />, "/metas", true),
       item("investimentos", "Investimentos", <TrendingUp />, "/investimentos", true),
       item("config", "Configurações", <Settings />, "/ajustes", true),
@@ -98,7 +94,6 @@ export function Moldura({ conta, app, ativo, onNavegar, onPrivacidade, autores, 
       item("geral", "Visão geral", <LayoutDashboard />, "/", false, soloView("geral")),
       item("lista", "Movimentações", <ArrowLeftRight />, "/", false, soloView("lista")),
       item("categorias", "Categorias", <PieChart />, "/", false, soloView("categorias")),
-      ...(plano === "duo" ? [{ id: "casal", label: "Visão Duo", icon: <Users />, on: false, extra: true, onClick: () => { setNotif(false); navigate("/duo"); } }] : []),
       item("metas", "Metas", <Target />, "/metas", true),
       item("investimentos", "Investimentos", <TrendingUp />, "/investimentos", true),
       item("config", "Configurações", <Settings />, "/ajustes", true),

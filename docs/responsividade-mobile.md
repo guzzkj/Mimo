@@ -53,7 +53,7 @@ O botão "Mais" do dock virou **Menu** (ícone de hambúrguer, com um ponto verm
 - **Topo:** logo e fechar (44px).
 - **Conta:** avatar, nome, tipo de conta, mês e % do limite; leva ao perfil.
 - **Atalhos:** Notificações (contador no ícone; abre o painel de notificações) e troca de tema. Em telas de até 360px os dois empilham.
-- **Navegar:** todos os destinos, com o atual em destaque. No Duo inclui Divisão e Visão Solo.
+- **Navegar:** todos os destinos, com o atual em destaque. No Duo inclui Divisão. Não há troca Solo ↔ Duo no menu: quem tem par vinculado vê só o painel do casal.
 - **Ferramentas:** Resumo do mês, Ocultar/Mostrar valores e Exportar CSV.
 
 Fecha com X, Esc ou ao escolher um item. Foco preso (`src/hooks/useDialogo.ts`) e página de trás sem rolagem enquanto aberto.

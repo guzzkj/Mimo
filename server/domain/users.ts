@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNull } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { accountMembers, accounts, invites, users } from "../db/schema";
 import { isUniqueViolation } from "../errors";
@@ -58,6 +58,17 @@ export async function findOpenDuoAccount(db: Db, userId: string) {
     .where(and(eq(accountMembers.userId, userId), eq(accounts.kind, "duo"), isNull(accounts.closedAt)))
     .limit(1);
   return row?.id ?? null;
+}
+
+/**
+ * Conta Duo aberta e já com o par dentro. Regra de produto: o plano "duo"
+ * (visão do casal) só vale com vínculo ativo; antes disso a pessoa segue no Solo.
+ */
+export async function findLinkedDuoAccount(db: Db, userId: string) {
+  const open = await findOpenDuoAccount(db, userId);
+  if (!open) return null;
+  const [{ n }] = await db.select({ n: count() }).from(accountMembers).where(eq(accountMembers.accountId, open));
+  return n > 1 ? open : null;
 }
 
 /** Cancela o convite pendente de uma conta (no máximo um, pelo índice parcial). */

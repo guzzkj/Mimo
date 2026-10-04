@@ -543,7 +543,8 @@ export default function DuoMetas() {
   }, [s.criadas, s.aportes, s.arquivadas, s.edicoes]);
 
   if (!rota) return <Navigate to={duo ? "/duo" : "/metas"} replace />;
-  if (!duo && t.startsWith("duo")) return <Navigate to="/metas" replace />;
+  // visão Duo só com par vinculado; quem está no Solo administra o dinheiro no painel Solo
+  if (!duo && t.startsWith("duo")) return <Navigate to="/" replace />;
   // /metas/catalogo saiu do produto (preços eram de exemplo); links antigos caem na lista de itens
   if (loc.pathname.replace(/\/+$/, "") === "/metas/catalogo") return <Navigate to="/metas/itens" replace />;
   // "Por prioridade" só existe para metas com lista de itens

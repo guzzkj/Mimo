@@ -1,15 +1,19 @@
 import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { MODO_API } from "../lib/modo";
+import { usePlano } from "../lib/plano";
 import { destinoAposLogin, recarregarSessao, useSessao } from "../lib/sessao";
 
 // Telas do app só abrem com sessão válida, e-mail confirmado e onboarding
 // feito; senão vão para o passo certo do /acesso. No protótipo (modo local)
 // não há login: tudo abre direto.
-export function GuardaSessao({ children }: { children: ReactNode }) {
+// `soloSo`: o painel Solo é só de quem está no Solo; no Duo, o dinheiro é
+// administrado no painel do casal (gasto pessoal = lançamento privado na Duo).
+export function GuardaSessao({ children, soloSo = false }: { children: ReactNode; soloSo?: boolean }) {
   const sessao = useSessao();
+  const plano = usePlano();
   const loc = useLocation();
-  if (!MODO_API) return children;
+  if (!MODO_API) return soloSo && plano === "duo" ? <Navigate to="/duo" replace /> : children;
   if (sessao.status === "carregando") return null;
   if (sessao.status === "erro") {
     return (
@@ -25,5 +29,6 @@ export function GuardaSessao({ children }: { children: ReactNode }) {
   if (sessao.status === "anonimo") return <Navigate to="/acesso/login" replace state={{ de: loc.pathname }} />;
   const destino = destinoAposLogin(sessao);
   if (destino.startsWith("/acesso")) return <Navigate to={destino} replace />;
+  if (soloSo && plano === "duo") return <Navigate to="/duo" replace />;
   return children;
 }
