@@ -1265,3 +1265,36 @@ button:focus-visible {
 .btn--danger:hover { transform: translateY(-2px); background: rgba(var(--out-rgb), 0.22); }
 
 /* Os ajustes para telas menores ficam todos em mobile.css */
+
+/* Convite Duo pendente na visão geral Solo */
+.aviso-duo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 13px 18px;
+  border: 1px solid var(--accent-line);
+  border-radius: 18px;
+  background: var(--accent-soft);
+  animation: mRise 0.7s var(--ease) both;
+}
+.aviso-duo__ponto { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.aviso-duo__texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.aviso-duo__texto strong { font-size: 14px; color: var(--ink); }
+.aviso-duo__texto small { font-size: 12.5px; line-height: 1.5; color: var(--muted); overflow-wrap: anywhere; }
+.aviso-duo__acao {
+  flex: none;
+  padding: 9px 14px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.aviso-duo__acao:hover { filter: brightness(1.06); }
+.aviso-duo__acao:focus-visible { outline: 2px solid var(--accent-line); outline-offset: 2px; }
+@media (max-width: 560px) {
+  .aviso-duo { flex-wrap: wrap; padding: 12px 14px; }
+  .aviso-duo__acao { margin-left: 22px; }
+}

@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import type { AppEnv, Ctx } from "../context";
@@ -10,6 +10,7 @@ import {
   isHiddenFrom, mergePatch, normalizeTransaction, toTransactionDto, transactionInputSchema, transactionPatchSchema,
   type TransactionRow,
 } from "../domain/transactions";
+import { nextGroupId } from "../domain/groups";
 
 const MAX_BATCH = 120;
 const MAX_LIST = 5000;
@@ -48,12 +49,6 @@ async function loadOwned(db: Db, accountId: string, ids: number[], meId: string)
     if (isHiddenFrom(row, meId)) throw forbidden("Lançamento privado do seu par: só quem lançou pode alterar.");
   }
   return map;
-}
-
-async function nextGroupId(db: Db): Promise<number> {
-  // os dois drivers (Neon e PGlite) devolvem { rows }
-  const result = (await db.execute(sql`select nextval('transaction_group_seq') as v`)) as unknown as { rows: { v: string | number }[] };
-  return Number(result.rows[0].v);
 }
 
 export const transactionRoutes = new Hono<AppEnv>()

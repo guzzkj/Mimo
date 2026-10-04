@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, isNotNull, isNull, lte } from "drizzle-orm";
+import { and, asc, eq, gte, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { defer, type AppEnv } from "../context";
 import { accountMembers, accounts, transactions, users } from "../db/schema";
@@ -33,11 +33,12 @@ export const internalRoutes = new Hono<AppEnv>()
     await pruneExpiredData(db);
     const today = todayIso();
     const members = await db
-      .select({ accountId: accountMembers.accountId, userId: accountMembers.userId, prefs: accountMembers.prefs, email: users.email })
+      .select({ accountId: accountMembers.accountId, userId: accountMembers.userId, prefs: accountMembers.prefs, email: users.email, kind: accounts.kind })
       .from(accountMembers)
       .innerJoin(users, eq(users.id, accountMembers.userId))
       .innerJoin(accounts, eq(accounts.id, accountMembers.accountId))
-      .where(and(isNull(accounts.closedAt), isNotNull(users.emailVerifiedAt)))
+      // quem está no Duo só vê a conta do casal: a Solo fica parada e não gera aviso
+      .where(and(isNull(accounts.closedAt), isNotNull(users.emailVerifiedAt), or(eq(accounts.kind, "duo"), sql`${users.plan} is distinct from 'duo'`)))
       .limit(2000);
     const wanted = members
       .map((m) => ({ ...m, prefs: resolveMemberPrefs(m.prefs) }))
@@ -63,7 +64,7 @@ export const internalRoutes = new Hono<AppEnv>()
         dedupeKey: `bills:${m.accountId}:${today}`,
       }]);
       if (!created.length) continue; // já avisado hoje
-      const message = billsDueMessage(due.map((b) => ({ description: b.description, amountCents: b.amountCents, dueOn: b.occurredOn })), `${c.env.APP_URL}/`);
+      const message = billsDueMessage(due.map((b) => ({ description: b.description, amountCents: b.amountCents, dueOn: b.occurredOn })), `${c.env.APP_URL}${m.kind === "duo" ? "/duo" : "/"}`);
       defer(c, c.get("mailer").send({ to: m.email, ...message, idempotencyKey: `bills-${m.accountId}-${m.userId}-${today}` }));
       sent++;
     }

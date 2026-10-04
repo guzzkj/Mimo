@@ -52,7 +52,7 @@ describe("normalizeTransaction", () => {
 const row = (over: Partial<TransactionRow> = {}): TransactionRow => ({
   id: 7, accountId: "a", createdBy: PARTNER, authorUserId: PARTNER, type: "expense", description: "Presente", category: "Presentes",
   amountCents: 24000, occurredOn: "2026-09-20", status: "paid", method: "account", groupId: 3, installmentNumber: 1, installmentTotal: 2,
-  recurring: false, isPrivate: true, split: false, createdAt: new Date(), updatedAt: new Date(), ...over,
+  recurring: false, isPrivate: true, split: false, importedFrom: null, createdAt: new Date(), updatedAt: new Date(), ...over,
 });
 
 describe("privacy redaction", () => {

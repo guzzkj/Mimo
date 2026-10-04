@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
+import { AvisoConviteDuo } from "./components/AvisoConviteDuo";
 import { Dock } from "./components/Dock";
 import { Drawer } from "./components/Drawer";
 import { ModalExcluir } from "./components/ModalExcluir";
@@ -65,6 +66,7 @@ export default function App() {
           />
 
           <main className="main">
+            {state.view === "geral" && <AvisoConviteDuo />}
             {state.view === "geral" && (
               <ViewGeral
                 mesRef={state.mesRef}

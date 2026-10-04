@@ -33,10 +33,10 @@ export const buildCsv = (itens: Item[]): string => {
 };
 
 // Gera um arquivo CSV com todas as movimentações e dispara o download.
-export const exportarCsv = (itens: Item[]) => {
+export const exportarCsv = (itens: Item[], arquivo = "mimo-movimentacoes.csv") => {
   const csv = buildCsv(itens);
   const url = URL.createObjectURL(new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8" }));
-  const link = Object.assign(document.createElement("a"), { href: url, download: "mimo-movimentacoes.csv" });
+  const link = Object.assign(document.createElement("a"), { href: url, download: arquivo });
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 };

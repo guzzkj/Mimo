@@ -219,11 +219,14 @@ export const transactions = pgTable("transactions", {
   isPrivate: boolean("is_private").notNull().default(false),
   /** Duo: despesa que entra na divisão do mês. */
   split: boolean("split").notNull().default(false),
+  /** Cópia trazida do Solo para a Duo: id da movimentação original (evita trazer duas vezes). */
+  importedFrom: bigint("imported_from", { mode: "number" }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, (t) => [
   index("transactions_account_date_idx").on(t.accountId, t.occurredOn),
   index("transactions_account_group_idx").on(t.accountId, t.groupId),
+  uniqueIndex("transactions_account_imported_from_idx").on(t.accountId, t.importedFrom).where(sql`${t.importedFrom} IS NOT NULL`),
   check("transactions_amount_positive", sql`${t.amountCents} > 0`),
   check("transactions_installment_pair", sql`(${t.installmentNumber} IS NULL) = (${t.installmentTotal} IS NULL)`),
   check("transactions_installment_range", sql`${t.installmentNumber} IS NULL OR (${t.installmentNumber} BETWEEN 1 AND ${t.installmentTotal})`),

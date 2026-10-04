@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { eq } from "drizzle-orm";
-import { accounts } from "../db/schema";
+import { accounts, transactions } from "../db/schema";
 import { isUniqueViolation } from "../errors";
 import { setupApi } from "./harness";
 
@@ -282,6 +282,76 @@ describe("duo", () => {
     expect(left.map((t: { description: string }) => t.description)).toEqual(["Compartilhada"]);
   });
 
+  test("plan follows the Duo link: Solo while the invite is pending, Duo for both once accepted", async () => {
+    const a = await api.signupVerified("plano-a@example.com", { name: "A", plan: "duo" });
+    // escolheu Duo no onboarding: a conta do casal existe, mas segue no Solo até o par aceitar
+    expect(a.duo).toBeTruthy();
+    expect(a.user.plan).toBe("solo");
+    const asked = await a.agent.post("/me/plan", { plan: "duo" });
+    expect(asked.status).toBe(200);
+    expect(asked.json.user.plan).toBe("solo");
+
+    await a.agent.post(`/accounts/${a.duo}/invites`, { email: "plano-b@example.com" });
+    const inviteToken = api.lastToken("plano-b@example.com");
+    const b = await api.signupVerified("plano-b@example.com", { name: "B" });
+    expect((await b.agent.post("/invites/accept", { token: inviteToken })).status).toBe(200);
+    expect((await a.agent.get("/me")).json.user.plan).toBe("duo");
+    expect((await b.agent.get("/me")).json.user.plan).toBe("duo");
+
+    // com par vinculado não dá para "fugir" para o Solo: só desvinculando
+    const escape = await a.agent.post("/me/plan", { plan: "solo" });
+    expect(escape.status).toBe(409);
+    expect((await a.agent.get("/me")).json.user.plan).toBe("duo");
+    expect((await a.agent.post(`/accounts/${a.duo}/unlink`)).status).toBe(200);
+    expect((await b.agent.get("/me")).json.user.plan).toBe("solo");
+  });
+
+  test("deleting an account unlinks the Duo and sends the partner back to Solo", async () => {
+    const a = await api.signupVerified("exc-a@example.com", { name: "A", plan: "duo" });
+    await a.agent.post(`/accounts/${a.duo}/invites`, { email: "exc-b@example.com" });
+    const inviteToken = api.lastToken("exc-b@example.com");
+    const b = await api.signupVerified("exc-b@example.com", { name: "B" });
+    await b.agent.post("/invites/accept", { token: inviteToken });
+    expect((await b.agent.del("/me", { password: "senha-forte-1" })).status).toBe(204);
+    const me = (await a.agent.get("/me")).json;
+    expect(me.user.plan).toBe("solo");
+    expect(me.accounts.find((x: { id: string }) => x.id === a.duo)?.closed).toBe(true);
+    const bell = await a.agent.get(`/notifications?accountId=${a.duo}`);
+    expect(bell.json.notifications.some((n: { title: string }) => n.title === "B excluiu a conta no Mimo")).toBe(true);
+  });
+
+  test("brings the Solo history into the Duo as private entries, only once", async () => {
+    const a = await api.signupVerified("hist-a@example.com", { name: "A", plan: "duo" });
+    // antes do par aceitar não há o que trazer
+    expect((await a.agent.get("/me/solo-history")).status).toBe(409);
+    await a.agent.post(`/accounts/${a.solo}/transactions`, tx({ description: "Academia", category: "Saúde" }));
+    await a.agent.post(`/accounts/${a.solo}/transactions/batch`, { create: [
+      { ...tx({ description: "TV 1/2", amountCents: 50000, installment: { number: 1, total: 2 } }), ref: "p1", groupRef: "g" },
+      { ...tx({ description: "TV 2/2", amountCents: 50000, occurredOn: "2026-10-12", installment: { number: 2, total: 2 } }), ref: "p2", groupRef: "g" },
+    ] });
+    await a.agent.post(`/accounts/${a.duo}/invites`, { email: "hist-b@example.com" });
+    const inviteToken = api.lastToken("hist-b@example.com");
+    const b = await api.signupVerified("hist-b@example.com", { name: "B" });
+    await b.agent.post("/invites/accept", { token: inviteToken });
+
+    expect((await a.agent.get("/me/solo-history")).json).toMatchObject({ soloAccountId: a.solo, total: 3, pending: 3 });
+    const first = await a.agent.post("/me/solo-history/import");
+    expect(first.json).toMatchObject({ imported: 3, total: 3, pending: 0 });
+    expect((await a.agent.post("/me/solo-history/import")).json.imported).toBe(0);
+
+    const mine = (await a.agent.get(`/accounts/${a.duo}/transactions`)).json.transactions as { description: string; isPrivate: boolean; split: boolean; authorUserId: string; groupId: number | null }[];
+    expect(mine).toHaveLength(3);
+    expect(mine.every((t) => t.isPrivate && !t.split && t.authorUserId === a.user.id)).toBe(true);
+    const tv = mine.filter((t) => t.description.startsWith("TV"));
+    expect(tv[0].groupId).toBeTruthy();
+    expect(tv[0].groupId).toBe(tv[1].groupId);
+    // o par vê só valores, sem detalhes
+    const seen = (await b.agent.get(`/accounts/${a.duo}/transactions`)).json.transactions as { description: string; redacted: boolean }[];
+    expect(seen.every((t) => t.redacted && t.description === "Lançamento privado")).toBe(true);
+    // a conta Solo continua como estava
+    expect((await a.agent.get(`/accounts/${a.solo}/transactions`)).json.transactions).toHaveLength(3);
+  });
+
   test("never opens a second Duo for the same person, even on racing requests", async () => {
     const a = await api.signupVerified("dup-a@example.com", { name: "A" });
 
@@ -335,5 +405,24 @@ describe("internal reminders", () => {
     expect(api.sent.some((m) => m.to === "lembrete@example.com" && m.subject.includes("Conta de luz"))).toBe(true);
     const again = await (await call("segredo-de-teste")).json() as { sent: number };
     expect(again.sent).toBe(0);
+  });
+
+  test("skips the parked Solo account of someone in a linked Duo", async () => {
+    const a = await api.signupVerified("lemb-duo-a@example.com", { name: "A", plan: "duo" });
+    await a.agent.post(`/accounts/${a.duo}/invites`, { email: "lemb-duo-b@example.com" });
+    const inviteToken = api.lastToken("lemb-duo-b@example.com");
+    const b = await api.signupVerified("lemb-duo-b@example.com", { name: "B" });
+    await b.agent.post("/invites/accept", { token: inviteToken });
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+    // conta no Solo lançada antes, e outra na Duo
+    await api.db.insert(transactions).values({ accountId: a.solo, type: "expense", description: "Conta Solo parada", category: "Casa", amountCents: 100, occurredOn: today, status: "pending", method: "account", authorUserId: a.user.id });
+    await a.agent.post(`/accounts/${a.duo}/transactions`, tx({ description: "Aluguel do casal", status: "pending", occurredOn: today }));
+    await a.agent.patch(`/accounts/${a.solo}/settings`, { alerts: { email: true } });
+    await a.agent.patch(`/accounts/${a.duo}/settings`, { alerts: { email: true } });
+
+    await api.app.request("/api/internal/reminders", { method: "POST", headers: { authorization: "Bearer segredo-de-teste" } }, api.env);
+    const mine = api.sent.filter((m) => m.to === "lemb-duo-a@example.com");
+    expect(mine.some((m) => m.subject.includes("Aluguel do casal"))).toBe(true);
+    expect(mine.some((m) => m.subject.includes("Conta Solo parada"))).toBe(false);
   });
 });

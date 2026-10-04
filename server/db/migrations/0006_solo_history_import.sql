@@ -1,0 +1,2 @@
+ALTER TABLE "transactions" ADD COLUMN "imported_from" bigint;--> statement-breakpoint
+CREATE UNIQUE INDEX "transactions_account_imported_from_idx" ON "transactions" USING btree ("account_id","imported_from") WHERE "transactions"."imported_from" IS NOT NULL;
